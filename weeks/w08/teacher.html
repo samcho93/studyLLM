@@ -1,0 +1,639 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8주차 디코딩 전략 · 교사용 · LLM Lab</title>
+  <meta name="description" content="8주차 디코딩 전략 교사용 슬라이드: 그리디 · 온도 · top-k · top-p · 반복 페널티, 샘플링 조절판 데모, Challenge 정답과 실제 실행 결과, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w08.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="8" data-crumb="🧑‍🏫 교사용 › <b>8주차 · 디코딩 전략</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="8주차 · 디코딩 전략">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 8주차</div>
+            <h1>디코딩 전략</h1>
+            <p>같은 모델, 다른 글</p>
+            <div class="deco" aria-hidden="true">🎛️</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:10</td><td>7주차 복습: 학습한 미니 GPT는 “분포”만 낸다</td></tr>
+                <tr><td>0:10–0:30</td><td>같은 모델, 다른 글 · 디코딩 파이프라인 · 그리디와 반복 루프</td></tr>
+                <tr><td>0:30–1:00</td><td>온도 · 엔트로피 · top-k vs top-p · 데모(관찰 질문 1~4)</td></tr>
+                <tr><td>1:00–1:10</td><td>휴식</td></tr>
+                <tr><td>1:10–1:35</td><td>반복 페널티 · 유창성과 다양성 · 외운 모델 · 빔 서치 (관찰 5~7)</td></tr>
+                <tr><td>1:35–2:50</td><td>Challenge C1~C4 (C5는 과제 또는 조별)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · RAG 2주차 연결 · 9주차 예고</td></tr>
+              </table>
+              <p>위젯은 체크포인트(약 575KB)를 불러와 브라우저에서 바로 생성한다. 수업 전에 데모 슬라이드를 한 번 열어 캐시해 둔다. 모델 목록의 3000스텝 체크포인트는 7주차 “외운 모델”이다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="모델은 분포만 준다">
+            <h2>7주차 모델이 실제로 내놓는 것</h2>
+            <p class="big-quote">“언어 모델” → 다음 글자는?</p>
+            <table>
+              <thead><tr><th>은</th><th>␣</th><th>과</th><th>,</th><th>이</th><th>을</th><th>… 489개 더</th></tr></thead>
+              <tbody><tr><td><strong>39.0%</strong></td><td>14.1%</td><td>9.2%</td><td>7.7%</td><td>6.8%</td><td>3.9%</td><td>19.3%</td></tr></tbody>
+            </table>
+            <p>모델은 <strong>글을 쓰지 않는다</strong>. 495개 글자의 확률표를 낼 뿐이다 → 하나를 고르는 규칙 = <strong>디코딩 전략</strong></p>
+            <aside class="notes">
+              <p>미니 GPT 300스텝 체크포인트(학습 손실 1.80, 검증 4.07)의 실제 값이다. 나머지 489개의 합 19.3% = 100 − 80.7.</p>
+              <p><strong>발문:</strong> “이 표에서 하나를 고르라면 어떻게 고를까?” → 대부분 “1등”이라고 답한다. 다음 슬라이드에서 그 결과를 보여 준다.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>그리디 · 샘플링 · 온도 · top-k · top-p · 반복 페널티가 분포를 <strong>어떻게 바꾸는지</strong> 설명한다</li>
+              <li>온도 소프트맥스와 top-k · top-p를 <strong>직접 구현</strong>하고 엔트로피로 잰다</li>
+              <li>반복 루프 · 횡설수설 · 사실상 그리디를 재현하고 <strong>유창성–다양성 맞바꿈</strong>으로 설정을 고른다</li>
+            </ol>
+            <aside class="notes">
+              <p>1주차 C3의 <code>sampleIndex</code>, 4주차의 소프트맥스, 7주차의 체크포인트가 모두 다시 나온다. 새로 배우는 것은 “분포를 다듬는 손잡이”뿐이라고 안심시킨다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="같은 모델, 다른 글">
+            <h2>같은 가중치, 두 가지 고르는 법</h2>
+            <h3>항상 1등 (그리디)</h3>
+            <pre><code>언어 모델은 토큰을 보고 다.↵↵↵바이 모델은 모델은 토큰을 보고 학습한 이 보고,
+학습한 이그램 모든 모든 모든 모든 모든 모든 모든 모델은 두 검색증</code></pre>
+            <h3>확률대로, 분포를 평평하게 (T = 2.0)</h3>
+            <pre><code>언어 모델은↵선호해 업은 후 생구벡러 사Rt쌍를 4랭스컨기e야 제 장영중휴급주 떨본금과와 같다.</code></pre>
+            <p class="muted">재학습 없이 고르는 규칙만 바꿨다. API의 <code>temperature</code> · <code>top_p</code>가 이 손잡이다</p>
+            <aside class="notes">
+              <p>둘 다 실제 출력이다(프롬프트 “언어 모델”, 80글자, T = 2.0은 seed 1). 위젯의 “그리디 → 반복 루프”, “T = 2.0 → 횡설수설” 버튼으로 그대로 재현된다.</p>
+              <p><strong>발문:</strong> “둘 다 망가졌다. 어떻게 다르게 망가졌나?” → 하나는 너무 안전(반복), 하나는 너무 모험(무작위). 오늘은 그 사이를 찾는다.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="디코딩 파이프라인">
+            <h2>한 글자를 고르는 다섯 단계</h2>
+            <table>
+              <thead><tr><th>단계</th><th>하는 일</th><th>끄는 값</th></tr></thead>
+              <tbody>
+                <tr><td>① 반복 페널티</td><td>최근 48글자에 나온 글자의 점수를 깎는다</td><td>1.0</td></tr>
+                <tr><td>② ÷ 온도 T → 소프트맥스</td><td>점수 차이를 키우거나(T&lt;1) 줄인다(T&gt;1)</td><td>1.0</td></tr>
+                <tr><td>③ top-k</td><td>상위 k개만 남긴다</td><td>0</td></tr>
+                <tr><td>④ top-p</td><td>누적 확률 p에 닿을 때까지만 남긴다</td><td>1.0</td></tr>
+                <tr><td>⑤ 뽑기</td><td>남은 후보에서 확률대로 (1주차 <code>sampleIndex</code>)</td><td>—</td></tr>
+              </tbody>
+            </table>
+            <p><strong>그리디</strong> = ① 뒤 1등을 바로 고른다 (②~④, seed 무시)</p>
+            <aside class="notes">
+              <p><code>sampling.js</code>의 <code>decodeStep()</code> 순서 그대로다. ②~④는 순위를 바꾸지 않는다. 순위를 바꿀 수 있는 것은 ① 반복 페널티뿐이다.</p>
+              <p>라이브러리마다 단계의 순서가 조금씩 다를 수 있다. 개념은 같다고만 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide" data-title="그리디와 반복 루프">
+            <h2>그리디는 왜 되풀이하는가</h2>
+            <ul>
+              <li>그리디에게 다음 글자는 <strong>문맥의 함수</strong>다. 난수가 없다</li>
+              <li>“… 모든 ” 뒤 1등이 “모든” → 붙이면 문맥이 또 “… 모든 모든 ” → 또 “모든”</li>
+              <li>이 모델은 “ 모든”을 <strong>7번</strong> 되풀이한 뒤 빠져나왔다 (문맥 창 48글자에 앞 내용이 남아 있어서)</li>
+              <li>seed를 바꿔도 5번 모두 같은 글 → <strong>다양성 0</strong></li>
+            </ul>
+            <p class="muted">장점도 있다: 빠르고, 재현되고, 모델이 가장 자신 있는 글자만 쓴다</p>
+            <aside class="notes">
+              <p>“빠져나온다는 보장은 없다”를 강조한다. 실제 LLM도 낮은 온도에서 같은 문장을 되풀이하는 현상이 있어서 API에 <code>frequency_penalty</code> · <code>presence_penalty</code> 같은 매개변수가 있다.</p>
+              <p>프롬프트 “검색”으로 그리디를 돌리면 “검색 검색 검색”, “구축 구축 구축”이 나온다. 학생이 다른 프롬프트로 루프를 찾게 해도 좋다.</p>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="온도와 엔트로피">
+            <h2>온도: 순위는 그대로, 모양만 바꾼다</h2>
+            <pre><code>P(i) = exp(zᵢ / T) / Σⱼ exp(zⱼ / T)        H = −Σ p·log₂ p  (bit)</code></pre>
+            <table>
+              <thead><tr><th>T</th><th>은</th><th>␣</th><th>과</th><th>,</th><th>엔트로피</th><th>top-p 0.9 후보</th></tr></thead>
+              <tbody>
+                <tr><td>0.5</td><td><strong>77.9%</strong></td><td>10.1%</td><td>4.3%</td><td>3.0%</td><td>1.28 bit</td><td>3개</td></tr>
+                <tr><td>1.0</td><td>39.0%</td><td>14.1%</td><td>9.2%</td><td>7.7%</td><td>3.32 bit</td><td>10개</td></tr>
+                <tr><td>2.0</td><td>11.0%</td><td>6.6%</td><td>5.3%</td><td>4.9%</td><td>6.47 bit</td><td>156개</td></tr>
+              </tbody>
+            </table>
+            <p>T → 0 : 그리디 · T → ∞ : 균등(log₂ 495 ≈ 8.95 bit) · 2<sup>H</sup> ≈ 실질 후보 수</p>
+            <aside class="notes">
+              <p>“언어 모델” 다음 분포의 실제 값이다. T = 2에서 상위 6개 합이 35.9%뿐이고 나머지 64%가 489개 꼬리에 흩어진다 → 횡설수설의 원인.</p>
+              <p>MLBasic 소프트맥스 복습: 점수를 T로 나누는 것은 점수 차이를 1/T배 하는 것이다. 온도 0은 0으로 나누기라 코드에서는 그리디로 따로 처리한다(<code>decodeStep</code>의 <code>temperature === 0</code>).</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide" data-title="top-k vs top-p">
+            <h2>꼬리 자르기: 개수(k)냐, 누적 확률(p)이냐</h2>
+            <table>
+              <thead><tr><th>문맥</th><th>1등</th><th>엔트로피</th><th>top-k 5</th><th>top-p 0.9</th></tr></thead>
+              <tbody>
+                <tr><td>“언어 모델은 다음”</td><td>␣ 93.3%</td><td>0.68 bit</td><td>5개 (쓸데없는 4개)</td><td><strong>1개</strong></td></tr>
+                <tr><td>“언어 모델”</td><td>은 39.0%</td><td>3.32 bit</td><td>5개 (76.7%)</td><td>10개</td></tr>
+                <tr><td>“언어 모델은 ”</td><td>토 9.6%</td><td>6.30 bit</td><td>5개 (25.9%만)</td><td><strong>93개</strong></td></tr>
+              </tbody>
+            </table>
+            <p>top-p = “확실할 때는 적게, 애매할 때는 많이” → API의 기본 조합은 <strong>온도 + top-p</strong></p>
+            <aside class="notes">
+              <p>top-k는 분포 모양을 모른다. 뾰족할 때(␣ 93%)는 7% 안에 든 엉뚱한 후보 4개를 살려 두고, 평평할 때(1등 9.6%)는 그럴듯한 후보를 대부분 잘라 낸다.</p>
+              <p>top-p를 핵 샘플링(nucleus sampling)이라고도 부른다는 것을 짚는다. 확률 질량의 “핵”만 남긴다는 뜻이다.</p>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide slide--demo" data-title="데모: 샘플링 조절판">
+            <h2>데모 · 샘플링 조절판</h2>
+            <div id="deck-w08-sampler"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>처음 화면(샘플링 T = 1): ①의 세 막대가 같다(손잡이를 안 건드렸으니까). 평균 log P −2.60, 빨간 글자가 꽤 많다. ③ 5개 모두 다르다</li>
+                <li>“그리디 → 반복 루프”: ④에 “ 모든” × 7. ③ 5개 모두 같다. seed 칸 옆에 “그리디는 쓰지 않는다”</li>
+                <li>샘플링으로 돌아와 온도 슬라이더를 0.1 → 2.0으로 천천히: 엔트로피 3.32 → 6.47 bit, T = 2.0에서 평균 log P −5.69, “횡설수설” 판정</li>
+                <li>“top-p = 0.1”: 남은 후보 1개, 그리디와 앞 42글자가 똑같고 80글자 중 68글자가 같은 자리에 같다. 그래도 ③은 5개 중 4개가 다르다(1등이 10% 미만인 자리에서만 갈린다)</li>
+                <li>▶ 한 글자: 학생에게 막대를 보고 예상하게 한 뒤 누른다</li>
+                <li>모델 → 3000스텝: T = 1인데 원문 복사율 100%, 판정 “원문 베끼기”</li>
+              </ol>
+              <p>생성은 브라우저 메인 스레드에서 한 글자씩 끊어 돌린다. 느린 PC에서는 ③이 1~3초 늦게 채워진다.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="반복 페널티">
+            <h2>반복 페널티: 루프는 끊지만 공백도 깎는다</h2>
+            <table>
+              <thead><tr><th>페널티 (그리디, 70글자)</th><th>distinct-2</th><th>공백 비율</th></tr></thead>
+              <tbody>
+                <tr><td>1.0 (끔)</td><td>0.435</td><td>0.271</td></tr>
+                <tr><td>1.2</td><td>0.855</td><td>0.229</td></tr>
+                <tr><td>1.5</td><td>0.957</td><td>0.171</td></tr>
+                <tr><td>2.0</td><td>0.986</td><td><strong>0.143</strong></td></tr>
+              </tbody>
+            </table>
+            <p>점수 &gt; 0이면 ÷ penalty, &lt; 0이면 × penalty (CTRL 방식) · 페널티 2.0: “실수업기에서를 30%로젝트는 12시스템플릿으면…”</p>
+            <aside class="notes">
+              <p>C4 정답 표와 같다. 페널티 1.2만으로 루프가 사라진다. 그런데 공백과 조사 · 어미도 “앞에 나온 글자”라 깎인다. 페널티 2.0에서 공백 비율이 절반으로 줄어 낱말이 들러붙는다.</p>
+              <p>실제 API의 <code>frequency_penalty</code>는 나온 횟수에 비례해, <code>presence_penalty</code>는 한 번이라도 나왔으면 깎는다. BPE 토큰이라 공백 문제는 덜하지만 같은 원리다.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="유창성과 다양성">
+            <h2>유창성 ↔ 다양성 (C5 격자)</h2>
+            <table>
+              <thead><tr><th>평균 log P / distinct-2</th><th>top-p 0.5</th><th>top-p 0.9</th><th>top-p 1.0</th></tr></thead>
+              <tbody>
+                <tr><td>T = 0.5</td><td><strong>−1.14</strong> / 0.52</td><td>−1.24 / 0.67</td><td>−1.27 / 0.78</td></tr>
+                <tr><td>T = 1.0</td><td>−1.41 / 0.81</td><td>−1.98 / 0.93</td><td>−2.23 / 0.95</td></tr>
+                <tr><td>T = 1.5</td><td>−1.97 / 0.79</td><td>−3.24 / 0.95</td><td>−4.37 / <strong>0.97</strong></td></tr>
+              </tbody>
+            </table>
+            <p>왼쪽 위 = 그리디와 같은 글 · 오른쪽 아래 = 횡설수설 · <strong>사실 QA는 왼쪽 위, 창작은 가운데</strong></p>
+            <aside class="notes">
+              <p>유창성 = 고른 글자의 모델 원래(T = 1) 확률의 로그 평균. 다양성 = seed 1, 2 두 샘플을 합친 distinct-2(두 글이 같으면 낮아진다).</p>
+              <p>T = 0.5 · p = 0.5의 seed 1 결과는 그리디 결과와 글자까지 같다(“은 토큰을 보고 다.↵↵↵바이 모델은 모델은…”). T = 1.5 · p = 0.5(−1.97)가 T = 1 · p = 1.0(−2.23)보다 유창하다: top-p가 온도로 부풀린 꼬리를 다시 잘라 주기 때문이다. “온도만 보지 말고 조합을 보라”.</p>
+              <p>주의: 샘플 2개 × 30글자라 표본이 작다. 결론은 경향으로만 읽는다.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="외운 모델과 빔 서치">
+            <h2>손잡이가 듣지 않는 경우</h2>
+            <div class="cols">
+              <div>
+                <h3>외운 모델 (3000스텝)</h3>
+                <ul>
+                  <li>80자리 중 78자리의 엔트로피 &lt; 0.5 bit (평균 0.09)</li>
+                  <li>T = 1 샘플링도 원문 복사율 평균 98%</li>
+                  <li>T 1.5 → 48%, T 2.0 → 15%</li>
+                </ul>
+                <p class="muted">디코딩은 모델이 모르는 것을 만들지 못한다</p>
+              </div>
+              <div>
+                <h3>빔 서치 (참고)</h3>
+                <ul>
+                  <li>누적 확률이 높은 문장 B개를 함께 들고 간다</li>
+                  <li>번역처럼 정답이 거의 하나인 일에 좋다</li>
+                  <li>자유 생성에서는 더 밋밋하고 반복적이다</li>
+                </ul>
+                <p class="muted">채팅 LLM은 대부분 온도 + top-p 샘플링</p>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>복사율 = 코퍼스에 10글자 이상 그대로 있는 구간의 비율, seed 1~5 × 80글자 평균. 300스텝 모델은 모든 온도에서 0%다.</p>
+              <p>외운 모델의 분포도 완전히 한 점은 아니다. “언어 모델은 ” 바로 뒤는 “앞” 60.5% / “바” 38.4%로 갈린다(원문에 “언어 모델은 앞에 …”와 “언어 모델은 바이그램 …”이 둘 다 있다). 그래서 seed마다 다른 문서 조각을 베낀다.</p>
+              <p>빔 서치는 이번 주에 구현하지 않는다. “가장 확률이 높은 문장이 가장 좋은 문장은 아니다”만 남긴다.</p>
+            </aside>
+          </section>
+
+          <!-- 13 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>설정 네 개, 같은 모델</h2>
+            <pre data-run="demo-decode" data-title="디코딩 설정 비교"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+const ctx = vocab.encode('언어 모델');
+const settings = {
+  '그리디': { greedy: true },
+  'T=0.7 · top-p 0.9': { temperature: 0.7, p: 0.9, seed: 3 },
+  'T=1.0 (순수 샘플링)': { temperature: 1.0, seed: 3 },
+  'T=2.0': { temperature: 2.0, seed: 3 },
+};
+for (const [name, decode] of Object.entries(settings)) {
+  const { ids } = generate(model, ctx, 40, decode);
+  console.log(name.padEnd(16), '│', vocab.decode(ids).replaceAll('\n', '↵'));
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과</strong> (약 1~2초):</p>
+              <p>그리디 │ 언어 모델은 토큰을 보고 다.↵↵↵바이 모델은 모델은 토큰을 보고 학습한 이 보고<br>
+              T=0.7 · top-p 0.9 │ 언어 모델은 실 원리도 GPT GPU가 장 장 장을 장으며, 학습 전 0%, 전까<br>
+              T=1.0 │ 언어 모델은 생긴 방법은 번를 임베딩의 인 연달아니 터로 입력을 다.↵↵리면 얼마<br>
+              T=2.0 │ 언어 모델은 보 전보려 더보고 인못한지간은 온도의것 키다터쌓다언고3이↵"르자발자유</p>
+              <p>T = 0.7에서도 “장 장 장을”처럼 짧은 반복이 보인다. 작은 모델이라 “좋은 설정”도 완벽하지 않다는 것을 솔직하게 보여 준다. seed 3을 바꿔 다시 실행한다.</p>
+            </aside>
+          </section>
+
+          <!-- 14 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>모델은 분포만 준다. 고르는 규칙(디코딩)이 글을 바꾼다</li>
+              <li>그리디 = 결정적 · 반복 루프 / 샘플링 = 다양 · 꼬리 위험</li>
+              <li>온도는 모양, top-k는 개수, top-p는 누적 확률 · 페널티는 공백까지 깎는다</li>
+              <li>유창성 ↔ 다양성: <strong>사실 QA는 낮은 온도</strong>, 창작은 높은 온도</li>
+            </ul>
+            <h3>연결 · 다음 주</h3>
+            <p class="muted">RAG 2주차: 근거 기반 답변은 온도 0~0.3 · 11주차 API의 <code>temperature</code> · <code>top_p</code> · 9주차: 평균 log P → 퍼플렉서티로 모델을 잰다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분에 “여러분이 고른 칸과 이유”를 두세 명에게 묻는다. 9주차 퍼플렉서티는 오늘 C5의 평균 log P를 검증 문서에 대해 잰 값의 exp(−·)이라고 예고한다.</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>10분</td><td>7주차 복습 · “분포에서 하나를 고르라면?” 발문</td><td>—</td></tr>
+                <tr><td>20분</td><td>같은 모델 다른 글 · 파이프라인 · 그리디 루프</td><td>—</td></tr>
+                <tr><td>30분</td><td>온도 · 엔트로피 · top-k/top-p · 데모 · 관찰 1~4</td><td>온도별 기록표</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>25분</td><td>반복 페널티 · 맞바꿈 · 외운 모델 · 빔 서치 · 관찰 5~7</td><td>짝 활동 메모</td></tr>
+                <tr><td>75분</td><td>Challenge C1~C4</td><td>C2 코드(11주차에 재사용)</td></tr>
+                <tr><td>10분</td><td>정리 · RAG 2주차 연결 · 9주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">import { softmax, entropyBits as H } from '/assets/js/core/sampling.js';
+
+// "토큰" 다음 후보 5개와 미니 GPT(300스텝)가 낸 logit (소수 첫째 자리로 반올림)
+const tokens = ['을', '으', '은', '이', '␣'];
+const logits = [8.2, 7.6, 7.2, 7.2, 6.8];
+
+function softmaxT(logits, T) {
+  const scaled = logits.map((z) =&gt; z / T);
+  const max = Math.max(...scaled); // 가장 큰 값을 빼도 결과는 같고 exp가 넘치지 않는다
+  const exps = scaled.map((z) =&gt; Math.exp(z - max));
+  const sum = exps.reduce((a, b) =&gt; a + b, 0);
+  return exps.map((e) =&gt; e / sum);
+}
+
+function entropyBits(probs) {
+  return probs.reduce((h, p) =&gt; (p &gt; 0 ? h - p * Math.log2(p) : h), 0);
+}
+
+const rows = [];
+for (const T of [0.5, 1, 2]) {
+  const p = softmaxT(logits, T);
+  const row = { T };
+  tokens.forEach((t, i) =&gt; (row[t] = +(p[i] * 100).toFixed(1)));
+  row['엔트로피(bit)'] = +entropyBits(p).toFixed(3);
+  rows.push(row);
+}
+console.table(rows);
+console.log('균등 분포(5개)의 엔트로피 =', Math.log2(5).toFixed(3), 'bit — 온도를 끝없이 올리면 여기로 간다');
+
+// 검산: 사이트 엔진과 같은가
+console.log('엔진 T=2:', softmax(logits, 2).map((p) =&gt; +(p * 100).toFixed(1)), 'H =', H(softmax(logits, 2)).toFixed(3));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> T = 0.5: 을 61.2 · 으 18.4 · 은 8.3 · 이 8.3 · ␣ 3.7 · H 1.655 / T = 1: 39.5 · 21.7 · 14.5 · 14.5 · 9.7 · H 2.144 / T = 2: 29.0 · 21.5 · 17.6 · 17.6 · 14.4 · H 2.279 · 균등 log₂ 5 = 2.322 · 엔진 T = 2 결과 동일.</p>
+              <p><strong>해석:</strong> T가 커질수록 엔트로피가 log₂ 5 = 2.322에 다가간다(균등 분포). 실제 모델은 후보가 495개라 상한이 8.95 bit다. “은”과 “이”는 점수가 같아 어떤 T에서도 확률이 같다: 온도는 순위와 동점을 바꾸지 못한다.</p>
+              <p><strong>자주 틀리는 곳:</strong> 최댓값을 빼지 않아도 이 값들에서는 결과가 같지만, T = 0.01처럼 작으면 exp(820)이 Infinity가 되어 NaN이 나온다. 엔트로피에 <code>Math.log</code>(자연로그)를 쓰면 nat 단위(× 0.693)가 된다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2 정답" data-appendix>
+            <h2>부록 B · C2 정답</h2>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">import { topK as engineTopK, topP as engineTopP } from '/assets/js/core/sampling.js';
+
+// 고정된 분포: "언어 모델" 다음 후보 8개 (합 = 1이 되게 반올림)
+const tokens = ['은', '␣', '과', ',', '이', '을', '로', '('];
+const probs = [0.40, 0.15, 0.10, 0.09, 0.08, 0.07, 0.06, 0.05];
+
+function topK(probs, k) {
+  if (k &lt;= 0 || k &gt;= probs.length) return probs.slice();
+  const order = probs.map((p, i) =&gt; i).sort((a, b) =&gt; probs[b] - probs[a]);
+  const keep = new Set(order.slice(0, k));
+  const out = probs.map((p, i) =&gt; (keep.has(i) ? p : 0));
+  const s = out.reduce((a, b) =&gt; a + b, 0);
+  return out.map((p) =&gt; p / s);
+}
+
+function topP(probs, p) {
+  if (p &gt;= 1) return probs.slice();
+  const order = probs.map((q, i) =&gt; i).sort((a, b) =&gt; probs[b] - probs[a]);
+  const keep = new Set();
+  let cum = 0;
+  for (const i of order) {
+    keep.add(i);
+    cum += probs[i];
+    if (cum &gt;= p) break; // p에 닿는 토큰까지 포함한다
+  }
+  const out = probs.map((q, i) =&gt; (keep.has(i) ? q : 0));
+  const s = out.reduce((a, b) =&gt; a + b, 0);
+  return out.map((q) =&gt; q / s);
+}
+
+const show = (name, dist) =&gt; {
+  const kept = tokens.filter((_, i) =&gt; dist[i] &gt; 0);
+  console.log(name.padEnd(12), '남은 후보', kept.length, '→', kept.map((t) =&gt; `${t} ${(dist[tokens.indexOf(t)] * 100).toFixed(1)}%`).join(' · '));
+};
+show('top-k k=1', topK(probs, 1));
+show('top-k k=3', topK(probs, 3));
+show('top-k k=0', topK(probs, 0));
+show('top-p p=0.3', topP(probs, 0.3));
+show('top-p p=0.6', topP(probs, 0.6));
+show('top-p p=0.9', topP(probs, 0.9));
+
+// 엔진과 비교: 모든 경우 차이가 1e-12보다 작아야 한다
+const same = (a, b) =&gt; a.every((x, i) =&gt; Math.abs(x - b[i]) &lt; 1e-12);
+const checks = [
+  ...[0, 1, 3, 5, 8].map((k) =&gt; same(topK(probs, k), engineTopK(probs, k))),
+  ...[0.3, 0.6, 0.75, 0.9, 1].map((p) =&gt; same(topP(probs, p), engineTopP(probs, p))),
+];
+console.log('엔진과 일치:', checks.every(Boolean) ? '✓ 모두 일치' : checks);
+
+// 모양이 다른 분포에서 k와 p가 어떻게 다르게 동작하는가
+const peaked = [0.90, 0.04, 0.02, 0.01, 0.01, 0.01, 0.005, 0.005];
+const flat = Array(8).fill(1 / 8);
+for (const [name, d] of [['뾰족한 분포', peaked], ['평평한 분포', flat]]) {
+  const nk = topK(d, 3).filter((x) =&gt; x &gt; 0).length;
+  const np = topP(d, 0.9).filter((x) =&gt; x &gt; 0).length;
+  console.log(`${name}: top-k(3) → ${nk}개, top-p(0.9) → ${np}개`);
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> k = 1 → 은 100% · k = 3 → 은 61.5 · ␣ 23.1 · 과 15.4 · k = 0 → 8개 그대로 · p = 0.3 → 은 100% · p = 0.6 → k = 3과 같음 · p = 0.9 → 7개(은 42.1 · ␣ 15.8 · 과 10.5 · , 9.5 · 이 8.4 · 을 7.4 · 로 6.3) · 엔진과 일치: ✓ 모두 일치 · 뾰족한 분포: top-k(3) → 3개, top-p(0.9) → 1개 · 평평한 분포: top-k(3) → 3개, top-p(0.9) → 8개.</p>
+              <p><strong>자주 틀리는 곳:</strong> ① top-p에서 “p를 넘기 <em>전</em>까지”만 남겨 p = 0.3일 때 후보 0개가 되는 버그 → 누적합에 넣은 뒤 비교해야 한다. ② 다시 나누기(renormalize)를 잊어 합이 1이 아니다. ③ 원래 배열을 정렬해 버려 번호가 섞인다 → 번호 배열을 따로 정렬한다.</p>
+              <p>p = 0.9에서 0.4 + … + 0.07 = 0.89라 7번째(로 0.06)까지 들어간다. 부동소수점 때문에 누적합이 p와 정확히 같아지는 경계에서는 구현마다 후보가 하나 다를 수 있다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+
+const prompt = '언어 모델';
+function run(decode) {
+  const ctx = vocab.encode(prompt);
+  const { ids } = generate(model, ctx, 80, decode);
+  return vocab.decode(ids.slice(ctx.length)); // 생성된 부분만
+}
+
+/** 같은 조각(1~8글자)이 3번 이상 연달아 나오는 곳: [{ unit, times, at }] */
+function findLoops(text, minTimes = 3) {
+  const cs = [...text];
+  const found = [];
+  let i = 0;
+  while (i &lt; cs.length) {
+    let best = null;
+    for (let L = 1; L &lt;= 8; L++) {
+      const unit = cs.slice(i, i + L).join('');
+      if (!unit.trim()) continue; // 공백만 반복되는 것은 세지 않는다
+      let times = 1;
+      while (cs.slice(i + times * L, i + (times + 1) * L).join('') === unit) times++;
+      if (times &gt;= minTimes &amp;&amp; (!best || times * L &gt; best.times * best.unit.length)) best = { unit, times, at: i };
+    }
+    if (best) {
+      found.push(best);
+      i += best.times * best.unit.length;
+    } else i++;
+  }
+  return found;
+}
+
+/** 두 번 이상 나오는(겹치지 않게) 가장 긴 부분 문자열 */
+function longestRepeat(text) {
+  let best = '';
+  for (let i = 0; i &lt; text.length; i++) {
+    for (let L = best.length + 1; i + 2 * L &lt;= text.length; L++) {
+      const s = text.slice(i, i + L);
+      if (text.indexOf(s, i + L) &gt;= 0) best = s;
+      else break;
+    }
+  }
+  return best;
+}
+
+const rows = [
+  ['그리디', { greedy: true }],
+  ['샘플링 T=1 seed 1', { temperature: 1, seed: 1 }],
+  ['샘플링 T=1 seed 2', { temperature: 1, seed: 2 }],
+].map(([name, decode]) =&gt; {
+  const text = run(decode);
+  console.log(`[${name}] ${prompt}${text}`);
+  const loops = findLoops(text);
+  return {
+    설정: name,
+    '연속 반복': loops.map((l) =&gt; `“${l.unit}”×${l.times}`).join(' ') || '없음',
+    '가장 긴 반복 조각': `“${longestRepeat(text)}”`,
+  };
+});
+console.table(rows);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과</strong> (약 2~3초): 그리디 “언어 모델은 토큰을 보고 다.↵↵↵바이 모델은 모델은 토큰을 보고 학습한 이 보고, 학습한 이그램 모든 모든 모든 모든 모든 모든 모든 모델은 두 검색증” → 연속 반복 “ 모든”×7 · 가장 긴 반복 조각 “ 모든 모든 모든 모”. seed 1 “…은 실하지 음식의체 빈도로 너무 번이 답 본와 만 있다.↵40~회 전 문서가…” → 없음 · “은 ”. seed 2 → 없음 · “이 ”.</p>
+              <p><strong>해석:</strong> 그리디는 “모델은 토큰을 보고”(11글자)도 두 번 쓴다. 가장 긴 반복이 “ 모든 모든 모든 모”(12글자)로 나온 것은 루프 안에서 겹치지 않는 두 구간을 찾았기 때문이다. 샘플링에서 반복되는 것은 조사+공백(“은 ”, “이 ”) 정도로 자연스러운 수준이다.</p>
+              <p><strong>자주 틀리는 곳:</strong> 줄바꿈 세 개(↵↵↵)를 루프로 세는 경우 → <code>unit.trim()</code>으로 거른다. 겹치는 반복을 허용하면 “모든 모든 모든…” 전체가 거의 다 “가장 긴 반복”이 된다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+const prompt = vocab.encode('언어 모델');
+
+/** 서로 다른 2-gram 수 / 전체 2-gram 수 (1에 가까울수록 반복이 적다) */
+function distinct2(text) {
+  const cs = [...text];
+  const grams = [];
+  for (let i = 0; i + 1 &lt; cs.length; i++) grams.push(cs[i] + cs[i + 1]);
+  return grams.length ? new Set(grams).size / grams.length : 0;
+}
+
+const rows = [];
+for (const penalty of [1.0, 1.2, 1.5, 2.0]) {
+  const { ids } = generate(model, prompt, 70, { greedy: true, penalty });
+  const text = vocab.decode(ids.slice(prompt.length));
+  console.log(`penalty ${penalty.toFixed(1)}: 언어 모델${text.replaceAll('\n', '↵')}`);
+  rows.push({
+    penalty,
+    'distinct-2': +distinct2(text).toFixed(3),
+    '공백 비율': +([...text].filter((c) =&gt; c === ' ').length / [...text].length).toFixed(3),
+  });
+}
+console.table(rows);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과</strong> (약 2~3초): 1.0 → distinct-2 0.435 · 공백 0.271 (“…모든 모든 모든 모든 모든 모든 모든”) / 1.2 → 0.855 · 0.229 (“…실습한 수업은 30%, 2시간 12주 30%, 프로젝트…”) / 1.5 → 0.957 · 0.171 (“…검색증강생성(RAG) 구축을 정답변의”) / 2.0 → 0.986 · 0.143 (“…실수업기에서를 30%로젝트는 12시스템플릿으면…”).</p>
+              <p><strong>해석:</strong> distinct-2는 페널티를 올릴수록 계속 오르지만 1.2에서 이미 루프가 사라진다. 공백 비율은 0.271 → 0.143으로 거의 반이 된다. 공백의 점수는 대부분 양수라(페널티 2.0 실행에서 70자리 중 60자리) ÷ 페널티로 깎이고, 공백은 언제나 최근 48글자 안에 있기 때문이다(70자리 모두). “반복을 줄인다 ≠ 글이 좋아진다”. 1.2~1.3 근처가 적당하다.</p>
+              <p><strong>확장 발문:</strong> 공백과 문장부호는 페널티에서 빼면 어떻게 될까? (history에서 공백 번호를 제외하는 한 줄로 실험할 수 있다.)</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { deserialize, nextLogits } from '/assets/js/core/gpt.js';
+import { softmax, decodeStep } from '/assets/js/core/sampling.js';
+import { mulberry32 } from '/assets/js/core/rng.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+const prompt = vocab.encode('언어 모델');
+const LEN = 30;
+const SEEDS = [1, 2];
+
+/** 한 번 생성하며, 고른 글자마다 모델 원래 확률(T=1)의 로그를 모은다 */
+function sample(temperature, p, seed) {
+  const rand = mulberry32(seed);
+  const ids = [...prompt];
+  let logp = 0;
+  for (let i = 0; i &lt; LEN; i++) {
+    const logits = nextLogits(model, ids);
+    const { index } = decodeStep(logits, { temperature, p, rand });
+    logp += Math.log(softmax(logits)[index]); // 유창성: 모델이 원래 이 글자를 얼마나 그럴듯하게 봤나
+    ids.push(index);
+  }
+  return { text: vocab.decode(ids.slice(prompt.length)), logp };
+}
+
+function distinct2(texts) {
+  const grams = [];
+  for (const t of texts) {
+    const cs = [...t];
+    for (let i = 0; i + 1 &lt; cs.length; i++) grams.push(cs[i] + cs[i + 1]);
+  }
+  return new Set(grams).size / grams.length;
+}
+
+const rows = [];
+for (const T of [0.5, 1, 1.5]) {
+  for (const p of [0.5, 0.9, 1.0]) {
+    const outs = SEEDS.map((s) =&gt; sample(T, p, s));
+    rows.push({
+      T,
+      'top-p': p,
+      '평균 log P/글자': +(outs.reduce((a, o) =&gt; a + o.logp, 0) / (LEN * SEEDS.length)).toFixed(3),
+      'distinct-2': +distinct2(outs.map((o) =&gt; o.text)).toFixed(3),
+      '예시(seed 1)': outs[0].text.replaceAll('\n', '↵'),
+    });
+  }
+}
+console.table(rows);
+const fluent = rows.reduce((a, b) =&gt; (b['평균 log P/글자'] &gt; a['평균 log P/글자'] ? b : a));
+const diverse = rows.reduce((a, b) =&gt; (b['distinct-2'] &gt; a['distinct-2'] ? b : a));
+console.log(`가장 유창한 칸: T=${fluent.T}, top-p=${fluent['top-p']} · 가장 다양한 칸: T=${diverse.T}, top-p=${diverse['top-p']}`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과</strong> (Node 약 3~4초, 브라우저 워커 4~6초): 평균 log P / distinct-2 — T 0.5: p 0.5 −1.143 / 0.517 · p 0.9 −1.240 / 0.672 · p 1.0 −1.271 / 0.776 · T 1: −1.407 / 0.810 · −1.976 / 0.931 · −2.225 / 0.948 · T 1.5: −1.966 / 0.793 · −3.237 / 0.948 · −4.369 / 0.966. 가장 유창한 칸 T = 0.5 · p = 0.5, 가장 다양한 칸 T = 1.5 · p = 1.0.</p>
+              <p><strong>좋은 답의 예:</strong> “T = 1 · p = 0.5(−1.41 / 0.81)나 T = 0.5 · p = 1.0(−1.27 / 0.78)을 고른다. 유창성을 조금만 내주고 다양성을 크게 얻는다. T = 1.5 · p = 0.9는 다양성은 거의 같지만(0.95) 유창성이 −3.24로 무너진다.” 근거가 표에 있으면 어느 칸이든 인정한다.</p>
+              <p><strong>짚을 점:</strong> 유창성을 모델 자신의 확률로 쟀으므로 “모델이 보기에 자연스러운가”일 뿐이다. 모델이 틀리게 외운 것은 유창해도 틀리다(환각) → 12주차 · RAG로 연결.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>위젯이 “체크포인트를 불러오지 못했다”</td><td><code>file://</code>로 열었다</td><td><code>python -m http.server</code> 안내</td></tr>
+                <tr><td>그리디인데 온도를 바꿔도 그대로다</td><td>그리디는 ②~④를 쓰지 않는다</td><td>정상. 위젯에서 해당 슬라이더가 흐려진다</td></tr>
+                <tr><td>T = 0.1인데 “남은 후보 495”</td><td>온도는 후보를 없애지 않고 아주 작게 만들 뿐이다</td><td>“실질 후보 수(2<sup>H</sup>)”를 보게 한다</td></tr>
+                <tr><td>C1 결과가 NaN</td><td>최댓값을 빼지 않아 exp가 Infinity</td><td><code>z − max</code> 후 exp</td></tr>
+                <tr><td>C2 top-p에서 후보 0개</td><td>누적합 비교를 추가 전에 했다</td><td>넣고 나서 <code>cum &gt;= p</code>면 멈춘다</td></tr>
+                <tr><td>C5가 10초를 넘긴다</td><td>LEN이나 SEEDS를 늘렸다 · 느린 PC</td><td>LEN = 20으로 줄여 경향만 본다</td></tr>
+                <tr><td>“온도 0 = 항상 같은 답”이라고 단정</td><td>이 사이트에서는 맞지만 실제 API는 병렬 연산 오차로 달라질 수 있다</td><td>RAG 2주차의 같은 주의 사항을 짚는다</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>학과 안내 챗봇(RAG)을 만든다면 온도와 top-p를 얼마로 둘까? 시 쓰기 도우미라면?</li>
+              <li>“가장 확률이 높은 문장이 가장 좋은 문장은 아니다.” 사람이 쓴 글이 그리디처럼 보이지 않는 이유는 무엇일까?</li>
+              <li>외운 모델에는 어떤 디코딩도 새 문장을 만들어 주지 못했다. 디코딩으로 고칠 수 있는 문제와 학습으로만 고칠 수 있는 문제를 나눠 본다.</li>
+              <li>반복 페널티가 공백까지 깎는 문제를 어떻게 고칠 수 있을까? BPE 토큰(2주차)이라면 문제가 어떻게 달라질까?</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>분포 조작 (C1 · C2)</td><td>엔진과 일치 + 뾰족/평평 분포 차이 설명</td><td>동작하나 해석 없음</td><td>동작하지 않음</td></tr>
+                <tr><td>반복 분석 (C3 · C4)</td><td>루프 탐지 + 페널티의 대가(공백)까지 설명</td><td>표만 제시</td><td>미완성</td></tr>
+                <tr><td>격자 실험 (C5)</td><td>표 + 칸 선택을 수치로 근거</td><td>표만 제시</td><td>미제출</td></tr>
+                <tr><td>관찰 · 토론</td><td>용도별 설정을 맞바꿈으로 설명</td><td>현상만 서술</td><td>참여 없음</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w08-sampler.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w08-sampler'), { outputTitle: '샘플링 조절판 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

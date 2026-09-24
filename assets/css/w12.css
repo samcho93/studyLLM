@@ -1,0 +1,370 @@
+/* Week 12: hallucination anatomy widget, project guide. Tokens from tokens.css only. */
+
+.w12-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w12-small {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.w12-seed {
+  align-self: center;
+  color: var(--color-text-muted);
+  font: 12px var(--font-mono);
+}
+
+/* mode tabs */
+.w12-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.w12-tab {
+  margin-bottom: -1px;
+  padding: 7px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px 8px 0 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.w12-tab[aria-selected="true"] {
+  border-color: var(--color-border);
+  border-bottom-color: var(--color-surface);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-weight: var(--weight-bold);
+}
+
+.w12-tab:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+.w12-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  min-height: 36px;
+  font-size: var(--text-sm);
+}
+
+.w12-check input {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+.w12-llm {
+  margin: 4px 0 8px;
+}
+
+.w12-llm summary {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  cursor: pointer;
+}
+
+.w12-llm[open] summary {
+  margin-bottom: 10px;
+}
+
+.w12-keyrow {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.w12-keyrow input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* output */
+.w12-out h4 {
+  margin: 12px 0 6px;
+  font-size: var(--text-sm);
+}
+
+.w12-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.w12-busy {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.w12-gen {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-size: 15px;
+  line-height: 2.1;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.w12-prompt {
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--weight-bold);
+}
+
+.w12-ch {
+  padding: 1px 0;
+  border-radius: 2px;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 5px;
+}
+
+.w12-ch.hi { background: var(--color-success-soft); }
+.w12-ch.mid { background: var(--color-warning-soft); }
+.w12-ch.lo { background: var(--color-danger-soft); }
+
+.w12-ch.m-topic { text-decoration: underline solid var(--color-success); }
+.w12-ch.m-other { text-decoration: underline dashed var(--color-more); }
+.w12-ch.m-none { text-decoration: underline wavy var(--color-danger); }
+
+.legend .w12-lg-prompt { background: var(--color-accent); }
+.legend .w12-lg-hi { background: var(--color-success-soft); border: 1px solid var(--color-success); }
+.legend .w12-lg-mid { background: var(--color-warning-soft); border: 1px solid var(--color-warning); }
+.legend .w12-lg-lo { background: var(--color-danger-soft); border: 1px solid var(--color-danger); }
+
+/* grounding spans */
+.w12-spans {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.w12-span {
+  padding: 5px 8px;
+  border-left: 3px solid var(--color-border-strong);
+  border-radius: 4px;
+  background: var(--color-surface-2);
+  word-break: break-all;
+}
+
+.w12-span q {
+  quotes: "“" "”";
+}
+
+.w12-span.k-topic { border-left-color: var(--color-success); }
+.w12-span.k-other { border-left-color: var(--color-more); }
+.w12-span.k-none { border-left-color: var(--color-danger); }
+
+.w12-tag {
+  display: inline-block;
+  margin-right: 4px;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: var(--weight-bold);
+}
+
+.k-topic .w12-tag { background: var(--color-success-soft); color: var(--color-success); }
+.k-other .w12-tag { background: var(--color-more-soft); color: var(--color-more); }
+.k-none .w12-tag { background: var(--color-danger-soft); color: var(--color-danger); }
+
+.w12-truth {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.w12-note {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+/* compare table */
+.w12-table-wrap {
+  overflow-x: auto;
+}
+
+.w12-table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.w12-table th,
+.w12-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.w12-table td:first-child {
+  white-space: normal;
+}
+
+.w12-table tr.g2 td:first-child { border-left: 3px solid var(--color-more); }
+.w12-table tr.g3 td:first-child { border-left: 3px solid var(--color-danger); }
+.w12-table tr.g1 td:first-child { border-left: 3px solid var(--color-success); }
+
+.w12-meter {
+  display: inline-block;
+  width: 48px;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-surface-2);
+  vertical-align: middle;
+}
+
+.w12-meter i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+/* RAG view */
+.w12-src {
+  margin: 0 0 6px;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.w12-err {
+  color: var(--color-danger);
+}
+
+.w12-hits {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w12-hit {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  font-size: 13px;
+}
+
+.w12-hit.has-gold {
+  border-color: var(--color-success);
+}
+
+.w12-hit p {
+  margin: 4px 0 0;
+}
+
+.w12-hit mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--color-accent2-soft);
+  color: var(--color-text);
+  font-weight: var(--weight-bold);
+}
+
+.w12-hit-head code {
+  font-size: 11.5px;
+}
+
+.w12-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.w12-ans {
+  padding: 2px 10px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.w12-ans h4 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.w12-answer {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.w12-prompt-pre {
+  max-height: 220px;
+  margin: 6px 0 0;
+  padding: 8px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--color-code-bg);
+  color: var(--color-code-fg);
+  font: 11.5px/1.5 var(--font-mono);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* page: parametric vs non-parametric cards, project guide */
+.w12-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.w12-pair > div {
+  padding: 12px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.w12-pair h4 {
+  margin: 0 0 6px;
+}
+
+.w12-pair p,
+.w12-pair ul {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+.w12-project {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background: var(--color-accent-soft);
+}
+
+.w12-project > h3:first-child {
+  margin-top: 0;
+}

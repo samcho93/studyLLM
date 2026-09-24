@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>8주차 디코딩 전략 · LLM Lab</title>
+  <meta name="description" content="같은 모델도 고르는 방법에 따라 다른 글을 쓴다: 그리디, 샘플링, 온도, top-k, top-p, 반복 페널티를 7주차 미니 GPT로 직접 조절하며 반복 루프와 횡설수설을 재현한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w08.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="8" data-crumb="PART 3 · 미니 GPT 만들기 › <b>8주차 · 디코딩 전략</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🎛️ 8주차 · 디코딩 전략</span>
+      <h1>같은 모델, 다른 글</h1>
+      <p class="lead">7주차에 학습시킨 미니 GPT는 글을 쓰지 않는다. 다음 글자 495개의 확률을 내놓을 뿐이다. 그 확률에서 실제로 한 글자를 고르는 규칙이 디코딩 전략이다. 규칙만 바꿔도 같은 모델이 같은 말을 되풀이하기도 하고, 횡설수설하기도 하고, 그럴듯한 문장을 쓰기도 한다. 이번 주는 그 손잡이를 하나씩 돌려 본다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 샘플링 조절판</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 글을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div>임베딩</div><div>어텐션</div><div>트랜스포머</div><div>다음 토큰 확률</div><div><b>뽑기 (디코딩)</b></div><div>학습·평가</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>그리디 디코딩, 샘플링, 온도, top-k, top-p, 반복 페널티가 다음 토큰 분포를 각각 어떻게 바꾸는지 설명할 수 있다.</li>
+          <li>온도가 들어간 소프트맥스와 top-k · top-p 거르기를 직접 구현하고, 엔트로피로 분포가 퍼진 정도를 잴 수 있다.</li>
+          <li>반복 루프 · 횡설수설 · 사실상 그리디 같은 실패를 재현하고, 유창성과 다양성의 맞바꿈을 근거로 용도에 맞는 설정을 고를 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>7주차 모델에 “언어 모델”을 넣으면 모델이 내놓는 것은 글이 아니라 표 하나다. “은” 39.0%, 공백 14.1%, “과” 9.2%, “,” 7.7% … 이렇게 495개 글자 전부에 확률이 붙어 있다. 여기서 한 글자를 골라 붙이고, 다시 모델에 넣어 다음 표를 받는다. 1주차의 자기회귀 생성과 똑같다. 문제는 <strong>“어떻게 고르는가”</strong>다.</p>
+        <p>가장 쉬운 답은 “항상 1등을 고른다”다. 그런데 이렇게 하면 미니 GPT는 이렇게 쓴다.</p>
+        <pre><code class="language-text">언어 모델은 토큰을 보고 다.↵↵↵바이 모델은 모델은 토큰을 보고 학습한 이 보고,
+학습한 이그램 모든 모든 모든 모든 모든 모든 모든 모델은 두 검색증</code></pre>
+        <p>반대로 확률대로 뽑되 분포를 평평하게 펴면(온도 2.0) 이렇게 된다.</p>
+        <pre><code class="language-text">언어 모델은↵선호해 업은 후 생구벡러 사Rt쌍를 4랭스컨기e야 제 장영중휴급주 떨본금과와 같다.</code></pre>
+        <p>둘 다 <em>같은 모델, 같은 가중치</em>에서 나왔다. 모델을 다시 학습시키지 않고도 글의 품질이 이만큼 달라진다. ChatGPT나 Claude API에 있는 <code>temperature</code>, <code>top_p</code> 같은 매개변수가 바로 이 손잡이다.</p>
+        <div class="callout">
+          <span class="callout__title">이번 주의 질문</span>
+          <p>모델이 준 확률 분포에서 무엇을 고를 것인가? 너무 안전하게 고르면 같은 말을 되풀이하고, 너무 모험하면 말이 안 된다. 그 사이 어디에 설 것인가?</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>디코딩 = 분포에서 토큰 하나를 고르는 규칙</h3>
+        <p>언어 모델이 계산한 확률에서 실제 토큰을 고르는 방법을 <strong>디코딩 전략(decoding strategy)</strong>이라 한다. 이 사이트의 <code>sampling.js</code>는 아래 순서로 한 글자를 고른다. 모델이 내놓은 점수(logit)를 먼저 조정하고, 확률로 바꾼 뒤, 후보를 거르고, 남은 후보에서 뽑는다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 680 214" role="img" aria-labelledby="w08-fig1-t" style="width: 100%">
+            <title id="w08-fig1-t">디코딩 파이프라인: 모델 점수에 반복 페널티를 적용하고, 온도로 나눠 소프트맥스를 한 뒤, top-k와 top-p로 후보를 거르고, 남은 후보에서 확률대로 뽑는다. 그리디는 페널티 뒤 1등을 바로 고른다.</title>
+            <style>
+              .w08f-l { font: 600 12.5px var(--font-sans); fill: var(--color-text); }
+              .w08f-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+              .w08f-m { font: 600 11.5px var(--font-mono); fill: var(--color-text); }
+              .w08f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w08f-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w08f-pick { fill: var(--color-accent2-soft); stroke: var(--color-accent2); }
+              .w08f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w08-a); }
+              .w08f-dash { stroke: var(--color-accent2); stroke-width: 2; fill: none; stroke-dasharray: 5 4; marker-end: url(#w08-a2); }
+            </style>
+            <defs>
+              <marker id="w08-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker>
+              <marker id="w08-a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-accent2)"/></marker>
+            </defs>
+            <rect class="w08f-box" x="0" y="20" width="92" height="74" rx="10"/>
+            <text class="w08f-l" x="46" y="44" text-anchor="middle">logit</text>
+            <text class="w08f-n" x="46" y="62" text-anchor="middle">글자 495개의</text>
+            <text class="w08f-n" x="46" y="78" text-anchor="middle">점수</text>
+            <path class="w08f-arr" d="M96 57 H112"/>
+            <rect class="w08f-hi" x="116" y="20" width="104" height="74" rx="10"/>
+            <text class="w08f-l" x="168" y="44" text-anchor="middle">① 반복 페널티</text>
+            <text class="w08f-n" x="168" y="62" text-anchor="middle">앞에 나온 글자</text>
+            <text class="w08f-n" x="168" y="78" text-anchor="middle">점수 깎기</text>
+            <path class="w08f-arr" d="M224 57 H240"/>
+            <rect class="w08f-hi" x="244" y="20" width="104" height="74" rx="10"/>
+            <text class="w08f-l" x="296" y="44" text-anchor="middle">② ÷ 온도 T</text>
+            <text class="w08f-m" x="296" y="62" text-anchor="middle">softmax(z/T)</text>
+            <text class="w08f-n" x="296" y="78" text-anchor="middle">점수 → 확률</text>
+            <path class="w08f-arr" d="M352 57 H368"/>
+            <rect class="w08f-hi" x="372" y="20" width="94" height="74" rx="10"/>
+            <text class="w08f-l" x="419" y="44" text-anchor="middle">③ top-k</text>
+            <text class="w08f-n" x="419" y="62" text-anchor="middle">상위 k개만</text>
+            <text class="w08f-n" x="419" y="78" text-anchor="middle">남긴다</text>
+            <path class="w08f-arr" d="M470 57 H486"/>
+            <rect class="w08f-hi" x="490" y="20" width="94" height="74" rx="10"/>
+            <text class="w08f-l" x="537" y="44" text-anchor="middle">④ top-p</text>
+            <text class="w08f-n" x="537" y="62" text-anchor="middle">누적 확률 p</text>
+            <text class="w08f-n" x="537" y="78" text-anchor="middle">까지만</text>
+            <path class="w08f-arr" d="M588 57 H604"/>
+            <rect class="w08f-pick" x="608" y="20" width="72" height="74" rx="10"/>
+            <text class="w08f-l" x="644" y="44" text-anchor="middle">⑤ 뽑기</text>
+            <text class="w08f-n" x="644" y="62" text-anchor="middle">남은 후보</text>
+            <text class="w08f-n" x="644" y="78" text-anchor="middle">확률대로</text>
+            <path class="w08f-dash" d="M168 98 V122 H644 V100"/>
+            <text class="w08f-l" x="406" y="142" text-anchor="middle" style="fill: var(--color-accent2)">그리디: ① 뒤 점수 1등을 바로 고른다 (②~④와 seed는 쓰지 않는다)</text>
+            <text class="w08f-n" x="0" y="172">모든 단계는 확률을 “바꾸거나 자르기”만 한다. 모델이 1등으로 본 글자는 ②~④를 거쳐도 여전히 1등이다.</text>
+            <text class="w08f-n" x="0" y="190">① 반복 페널티만 순위를 바꿀 수 있다. 뽑은 글자를 문맥에 붙이고 처음부터 다시 한다.</text>
+            <text class="w08f-n" x="0" y="208">top-k = 0, top-p = 1.0, 페널티 = 1.0이면 그 단계는 아무것도 하지 않는다(끔).</text>
+          </svg>
+          <figcaption>디코딩 파이프라인. <code>sampling.js</code>의 <code>decodeStep()</code>이 이 순서 그대로 동작한다.</figcaption>
+        </figure>
+
+        <h3>그리디 디코딩: 항상 1등</h3>
+        <p><strong>그리디 디코딩(greedy decoding)</strong>은 가장 확률이 높은 토큰만 고른다. 빠르고, 난수가 없어 몇 번을 돌려도 같은 결과가 나온다. 대신 같은 말을 반복하기 쉽다. 위 “왜 필요한가”의 “모든 모든 모든…”이 그 예다. 그리디에게 다음 글자는 <em>문맥의 함수</em>다. “모든 ” 뒤에 “모든”이 1등이면, 한 번 붙인 뒤의 문맥도 “… 모든 모든 ”이 되어 또 “모든”이 1등이 된다. 문맥 창(48글자) 안에 앞 내용이 남아 있어 이 모델은 7번 만에 빠져나왔지만, 빠져나온다는 보장은 없다.</p>
+
+        <h3>샘플링과 온도: 분포의 모양을 바꾼다</h3>
+        <p><strong>샘플링(sampling)</strong>은 확률에 비례해 무작위로 뽑는다. 1주차 C3에서 만든 <code>sampleIndex</code>가 바로 이것이다. 1등이 39%면 열 번 중 네 번쯤만 1등이 뽑히므로 같은 문맥에서도 다른 글이 나온다. 여기에 <strong>온도(temperature) T</strong>를 넣는다. 점수를 T로 나눈 뒤 소프트맥스를 한다.</p>
+        <pre><code class="language-text">P(i) = exp(zᵢ / T) / Σⱼ exp(zⱼ / T)</code></pre>
+        <p>T &lt; 1이면 점수 차이가 커져 높은 확률의 토큰이 더 강해지고, T &gt; 1이면 차이가 줄어 분포가 평평해진다. T → 0이면 그리디와 같아지고, T → ∞이면 495개가 모두 1/495인 균등 분포가 된다. 아래는 미니 GPT(300스텝)가 “언어 모델” 다음 글자에 낸 실제 분포다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 660 215" role="img" aria-labelledby="w08-fig2-t" style="width: 100%">
+            <title id="w08-fig2-t">“언어 모델” 다음 글자 분포를 온도 0.5, 1, 2로 바꾼 모습. 온도가 낮으면 “은”이 77.9%로 뾰족해지고, 높으면 11.0%로 평평해진다.</title>
+            <style>
+              .w08g-l { font: 600 12.5px var(--font-sans); fill: var(--color-text); }
+              .w08g-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+              .w08g-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w08g-v { font: 11px var(--font-mono); fill: var(--color-text-muted); }
+              .w08g-bar { fill: var(--color-accent); }
+              .w08g-top { fill: var(--color-accent2); }
+              .w08g-track { fill: var(--color-surface-2); }
+            </style>
+            <!-- panel T=0.5 (bar scale: 100% = 120px) -->
+            <text class="w08g-l" x="0" y="16">T = 0.5 · 뾰족하게</text>
+            <text class="w08g-n" x="0" y="34">엔트로피 1.28 bit</text>
+            <g transform="translate(0,46)">
+              <text class="w08g-m" x="0" y="11">은</text><rect class="w08g-track" x="22" y="1" width="120" height="12" rx="3"/><rect class="w08g-top" x="22" y="1" width="93.5" height="12" rx="3"/><text class="w08g-v" x="148" y="11">77.9%</text>
+              <text class="w08g-m" x="0" y="31">␣</text><rect class="w08g-track" x="22" y="21" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="21" width="12.1" height="12" rx="3"/><text class="w08g-v" x="148" y="31">10.1%</text>
+              <text class="w08g-m" x="0" y="51">과</text><rect class="w08g-track" x="22" y="41" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="41" width="5.2" height="12" rx="3"/><text class="w08g-v" x="148" y="51">4.3%</text>
+              <text class="w08g-m" x="0" y="71">,</text><rect class="w08g-track" x="22" y="61" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="61" width="3.6" height="12" rx="3"/><text class="w08g-v" x="148" y="71">3.0%</text>
+              <text class="w08g-m" x="0" y="91">이</text><rect class="w08g-track" x="22" y="81" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="81" width="2.9" height="12" rx="3"/><text class="w08g-v" x="148" y="91">2.4%</text>
+              <text class="w08g-m" x="0" y="111">을</text><rect class="w08g-track" x="22" y="101" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="101" width="1" height="12" rx="3"/><text class="w08g-v" x="148" y="111">0.8%</text>
+            </g>
+            <text class="w08g-n" x="0" y="182">top-p 0.9에 남는 후보 3개</text>
+            <!-- panel T=1 -->
+            <text class="w08g-l" x="225" y="16">T = 1 · 모델 그대로</text>
+            <text class="w08g-n" x="225" y="34">엔트로피 3.32 bit</text>
+            <g transform="translate(225,46)">
+              <text class="w08g-m" x="0" y="11">은</text><rect class="w08g-track" x="22" y="1" width="120" height="12" rx="3"/><rect class="w08g-top" x="22" y="1" width="46.8" height="12" rx="3"/><text class="w08g-v" x="148" y="11">39.0%</text>
+              <text class="w08g-m" x="0" y="31">␣</text><rect class="w08g-track" x="22" y="21" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="21" width="16.9" height="12" rx="3"/><text class="w08g-v" x="148" y="31">14.1%</text>
+              <text class="w08g-m" x="0" y="51">과</text><rect class="w08g-track" x="22" y="41" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="41" width="11" height="12" rx="3"/><text class="w08g-v" x="148" y="51">9.2%</text>
+              <text class="w08g-m" x="0" y="71">,</text><rect class="w08g-track" x="22" y="61" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="61" width="9.2" height="12" rx="3"/><text class="w08g-v" x="148" y="71">7.7%</text>
+              <text class="w08g-m" x="0" y="91">이</text><rect class="w08g-track" x="22" y="81" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="81" width="8.2" height="12" rx="3"/><text class="w08g-v" x="148" y="91">6.8%</text>
+              <text class="w08g-m" x="0" y="111">을</text><rect class="w08g-track" x="22" y="101" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="101" width="4.7" height="12" rx="3"/><text class="w08g-v" x="148" y="111">3.9%</text>
+            </g>
+            <text class="w08g-n" x="225" y="182">top-p 0.9에 남는 후보 10개</text>
+            <!-- panel T=2 -->
+            <text class="w08g-l" x="450" y="16">T = 2 · 평평하게</text>
+            <text class="w08g-n" x="450" y="34">엔트로피 6.47 bit</text>
+            <g transform="translate(450,46)">
+              <text class="w08g-m" x="0" y="11">은</text><rect class="w08g-track" x="22" y="1" width="120" height="12" rx="3"/><rect class="w08g-top" x="22" y="1" width="13.2" height="12" rx="3"/><text class="w08g-v" x="148" y="11">11.0%</text>
+              <text class="w08g-m" x="0" y="31">␣</text><rect class="w08g-track" x="22" y="21" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="21" width="7.9" height="12" rx="3"/><text class="w08g-v" x="148" y="31">6.6%</text>
+              <text class="w08g-m" x="0" y="51">과</text><rect class="w08g-track" x="22" y="41" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="41" width="6.4" height="12" rx="3"/><text class="w08g-v" x="148" y="51">5.3%</text>
+              <text class="w08g-m" x="0" y="71">,</text><rect class="w08g-track" x="22" y="61" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="61" width="5.9" height="12" rx="3"/><text class="w08g-v" x="148" y="71">4.9%</text>
+              <text class="w08g-m" x="0" y="91">이</text><rect class="w08g-track" x="22" y="81" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="81" width="5.5" height="12" rx="3"/><text class="w08g-v" x="148" y="91">4.6%</text>
+              <text class="w08g-m" x="0" y="111">을</text><rect class="w08g-track" x="22" y="101" width="120" height="12" rx="3"/><rect class="w08g-bar" x="22" y="101" width="4.2" height="12" rx="3"/><text class="w08g-v" x="148" y="111">3.5%</text>
+            </g>
+            <text class="w08g-n" x="450" y="182">top-p 0.9에 남는 후보 156개</text>
+            <text class="w08g-n" x="0" y="208">순위는 세 온도에서 똑같다. 달라지는 것은 1등과 나머지의 간격뿐이다.</text>
+          </svg>
+          <figcaption>온도는 순위를 바꾸지 않고 분포의 모양만 바꾼다. T = 2에서는 상위 6개를 다 합쳐도 36%뿐이고 나머지 64%가 489개 꼬리에 흩어진다.</figcaption>
+        </figure>
+        <p>분포가 얼마나 퍼져 있는지는 <strong>엔트로피(entropy)</strong> H = −Σ p log₂ p 로 잰다. 단위는 비트(bit)다. 한 글자에 몰려 있으면 0, 495개가 균등하면 log₂ 495 ≈ 8.95 bit다. 2<sup>H</sup>는 “확률이 고르게 퍼진 후보 몇 개와 맞먹는가”로 읽을 수 있다. 위 T = 1 분포는 2<sup>3.32</sup> ≈ 10개의 후보가 겨루는 셈이다.</p>
+
+        <h3>top-k와 top-p: 꼬리를 자른다</h3>
+        <p>샘플링의 위험은 <strong>꼬리</strong>에 있다. 후보 하나하나는 0.1%로 드물어도 수백 개를 합치면 무시할 수 없다. 이번 주 모델이 “언어 모델은 ” 다음 글자에 낸 분포는 1등이 9.6%에 불과하고, 상위 5개를 모두 합쳐도 25.9%다. 나머지 74%는 수백 개의 꼬리가 나눠 가진다. 그래서 뽑기 전에 꼬리를 자른다.</p>
+        <ul>
+          <li><strong>top-k 샘플링</strong>: 확률이 높은 k개 토큰 안에서만 뽑는다. 남은 k개의 확률을 합이 1이 되게 다시 나눈다.</li>
+          <li><strong>top-p 샘플링</strong>(핵 샘플링, nucleus sampling): 확률을 큰 순서로 더해 p를 넘을 때까지의 토큰 안에서만 뽑는다. 후보 수가 분포 모양에 따라 저절로 바뀐다.</li>
+        </ul>
+        <table>
+          <thead><tr><th>문맥</th><th>1등 확률</th><th>엔트로피</th><th>top-k (k = 5)</th><th>top-p (p = 0.9)</th></tr></thead>
+          <tbody>
+            <tr><td>“언어 모델은 다음” → ?</td><td>␣ 93.3%</td><td>0.68 bit</td><td>5개 (쓸데없는 4개 포함)</td><td><b>1개</b></td></tr>
+            <tr><td>“언어 모델” → ?</td><td>은 39.0%</td><td>3.32 bit</td><td>5개 (76.7%만 남김)</td><td>10개</td></tr>
+            <tr><td>“언어 모델은 ” → ?</td><td>토 9.6%</td><td>6.30 bit</td><td>5개 (25.9%만 남김)</td><td><b>93개</b></td></tr>
+          </tbody>
+        </table>
+        <p>top-k는 분포가 뾰족하든 평평하든 늘 k개를 남긴다. 뾰족할 때는 필요 없는 후보를 살려 두고, 평평할 때는 그럴듯한 후보까지 잘라 낸다. top-p는 “확실할 때는 적게, 애매할 때는 많이” 남긴다. 그래서 요즘 LLM API는 주로 온도와 top-p를 함께 쓴다.</p>
+
+        <h3>반복 페널티: 이미 쓴 글자의 점수를 깎는다</h3>
+        <p><strong>반복 페널티(repetition penalty)</strong>는 최근 문맥(이 모델은 48글자)에 이미 나온 토큰의 점수를 깎는다. 점수가 양수면 페널티로 나누고, 음수면 곱한다(CTRL 방식). 1.0이면 끔이다. 그리디의 반복 루프를 끊는 가장 직접적인 방법이다. 다만 이 페널티는 “무엇이 반복인가”를 구분하지 못한다. 한국어에서 공백과 “은 · 을 · 다” 같은 조사 · 어미는 원래 계속 반복되어야 하는 글자인데, 이것들까지 똑같이 깎인다. C4에서 그 대가를 직접 잰다.</p>
+
+        <h3>유창성과 다양성은 맞바뀐다</h3>
+        <p>분포를 좁히면(낮은 T, 작은 p) 모델이 자신 있는 글자만 쓰므로 글이 매끄럽지만 매번 같은 글, 같은 반복이 나온다. 넓히면 다양해지지만 모델도 드물다고 본 글자가 섞인다. 아래는 C5의 실제 결과다. 유창성은 고른 글자의 “모델 원래 확률”의 로그 평균(0에 가까울수록 모델이 보기에 자연스럽다), 다양성은 distinct-2(서로 다른 2글자 조각의 비율, 1에 가까울수록 반복이 적다)로 쟀다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 560 300" role="img" aria-labelledby="w08-fig3-t" style="width: 100%">
+            <title id="w08-fig3-t">온도 0.5, 1, 1.5와 top-p 0.5, 0.9, 1.0의 9가지 조합에 대한 다양성(가로)과 유창성(세로). 오른쪽으로 갈수록 아래로 내려간다.</title>
+            <style>
+              .w08s-ax { stroke: var(--color-border-strong); stroke-width: 1.5; }
+              .w08s-grid { stroke: var(--color-border); stroke-width: 1; stroke-dasharray: 3 4; }
+              .w08s-t { font: 11px var(--font-mono); fill: var(--color-text-muted); }
+              .w08s-l { font: 600 12px var(--font-sans); fill: var(--color-text); }
+              .w08s-n { font: 11px var(--font-sans); fill: var(--color-text-muted); }
+              .w08s-p { font: 600 10.5px var(--font-mono); }
+              .w08s-a { fill: var(--color-accent); }
+              .w08s-b { fill: var(--color-accent2); }
+              .w08s-c { fill: var(--color-danger); }
+              .w08s-good { fill: var(--color-success-soft); stroke: var(--color-success); stroke-dasharray: 4 3; }
+            </style>
+            <rect class="w08s-good" x="300" y="38" width="170" height="64" rx="10"/>
+            <text class="w08s-n" x="385" y="117" text-anchor="middle" style="fill: var(--color-success)">흔히 쓰는 영역</text>
+            <line class="w08s-grid" x1="70" y1="30" x2="510" y2="30"/>
+            <line class="w08s-grid" x1="70" y1="92.9" x2="510" y2="92.9"/>
+            <line class="w08s-grid" x1="70" y1="155.7" x2="510" y2="155.7"/>
+            <line class="w08s-grid" x1="70" y1="218.6" x2="510" y2="218.6"/>
+            <line class="w08s-ax" x1="70" y1="258" x2="512" y2="258"/>
+            <line class="w08s-ax" x1="70" y1="22" x2="70" y2="258"/>
+            <text class="w08s-t" x="64" y="34" text-anchor="end">−1</text>
+            <text class="w08s-t" x="64" y="97" text-anchor="end">−2</text>
+            <text class="w08s-t" x="64" y="160" text-anchor="end">−3</text>
+            <text class="w08s-t" x="64" y="223" text-anchor="end">−4</text>
+            <text class="w08s-t" x="70" y="274" text-anchor="middle">0.5</text>
+            <text class="w08s-t" x="158" y="274" text-anchor="middle">0.6</text>
+            <text class="w08s-t" x="246" y="274" text-anchor="middle">0.7</text>
+            <text class="w08s-t" x="334" y="274" text-anchor="middle">0.8</text>
+            <text class="w08s-t" x="422" y="274" text-anchor="middle">0.9</text>
+            <text class="w08s-t" x="510" y="274" text-anchor="middle">1.0</text>
+            <text class="w08s-l" x="0" y="14">↑ 유창성 (평균 log P / 글자)</text>
+            <text class="w08s-l" x="510" y="294" text-anchor="end">다양성 (distinct-2) →</text>
+            <!-- T = 0.5 -->
+            <circle class="w08s-a" cx="85" cy="39" r="5.5"/><text class="w08s-p w08s-a" x="93" y="43">p0.5</text>
+            <circle class="w08s-a" cx="221" cy="45" r="5.5"/><text class="w08s-p w08s-a" x="221" y="33" text-anchor="middle">p0.9</text>
+            <circle class="w08s-a" cx="313" cy="47" r="5.5"/><text class="w08s-p w08s-a" x="305" y="35" text-anchor="middle">p1.0</text>
+            <!-- T = 1 -->
+            <circle class="w08s-b" cx="343" cy="56" r="5.5"/><text class="w08s-p w08s-b" x="351" y="60">p0.5</text>
+            <circle class="w08s-b" cx="449" cy="91" r="5.5"/><text class="w08s-p w08s-b" x="441" y="95" text-anchor="end">p0.9</text>
+            <circle class="w08s-b" cx="464" cy="107" r="5.5"/><text class="w08s-p w08s-b" x="472" y="111">p1.0</text>
+            <!-- T = 1.5 -->
+            <circle class="w08s-c" cx="328" cy="91" r="5.5"/><text class="w08s-p w08s-c" x="320" y="95" text-anchor="end">p0.5</text>
+            <circle class="w08s-c" cx="464" cy="171" r="5.5"/><text class="w08s-p w08s-c" x="456" y="175" text-anchor="end">p0.9</text>
+            <circle class="w08s-c" cx="480" cy="242" r="5.5"/><text class="w08s-p w08s-c" x="472" y="246" text-anchor="end">p1.0</text>
+            <!-- legend -->
+            <circle class="w08s-a" cx="96" cy="200" r="5"/><text class="w08s-n" x="106" y="204">T = 0.5</text>
+            <circle class="w08s-b" cx="96" cy="218" r="5"/><text class="w08s-n" x="106" y="222">T = 1</text>
+            <circle class="w08s-c" cx="96" cy="236" r="5"/><text class="w08s-n" x="106" y="240">T = 1.5</text>
+          </svg>
+          <figcaption>온도와 top-p를 올릴수록 점이 오른쪽 아래로 간다. 왼쪽 위(T 0.5 · p 0.5)는 그리디와 같은 글을 쓰고, 오른쪽 아래(T 1.5 · p 1.0)는 횡설수설한다. 둘 다 가질 수는 없다.</figcaption>
+        </figure>
+
+        <div class="callout callout--more">
+          <span class="callout__title">빔 서치(beam search)는?</span>
+          <p>그리디는 한 글자씩 1등만 고르므로 “지금은 2등이지만 이어지는 글까지 합치면 더 그럴듯한” 길을 놓친다. 빔 서치는 매 단계에서 누적 로그 확률이 높은 후보 문장 B개(빔 너비)를 함께 들고 간다. 번역처럼 정답이 거의 하나인 일에는 좋지만, 자유롭게 글을 쓰는 일에서는 그리디보다도 더 밋밋하고 반복적인 글이 나오기 쉽다. 가장 확률이 높은 문장이 사람에게 가장 좋은 문장은 아니기 때문이다. 그래서 채팅용 LLM은 대부분 샘플링(온도 + top-p)을 쓴다. 이번 주는 빔 서치를 구현하지 않는다.</p>
+        </div>
+
+        <h3>외운 모델에는 손잡이가 듣지 않는다</h3>
+        <p>7주차에서 3000스텝까지 학습시켜 코퍼스를 외운 모델(학습 손실 0.12, 검증 손실 9.40)은 거의 모든 자리에서 분포가 한 글자에 몰려 있다. “언어 모델” 뒤로 80글자를 쓰는 동안 평균 엔트로피가 0.09 bit이고, 80자리 중 78자리가 0.5 bit 미만이다(300스텝 모델은 평균 3.4 bit). 그래서 온도 1로 샘플링해도 원문을 베낀다. seed 1~5로 80글자씩 만들면 평균 98%가 코퍼스에 10글자 이상 그대로 있는 구간이다(300스텝 모델은 0%). 결과가 갈리는 곳은 원문에 갈림길이 있는 자리뿐이다. 온도를 1.5로 올려야 48%, 2.0에서 15%로 떨어진다. 그때는 글도 함께 무너진다. 디코딩은 모델이 준 분포를 다듬을 뿐, 모델이 모르는 것을 만들어 내지 못한다.</p>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — 온도는 소프트맥스에 들어가기 전에 점수를 나누는 값일 뿐이다. <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 소프트맥스 단원에서 “점수 차이가 클수록 확률이 한쪽으로 몰린다”를 보았다. T로 나누면 그 점수 차이를 키우거나 줄이는 것이다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>7주차에서 미리 학습해 둔 미니 GPT(300스텝)로 바로 글을 쓴다. 손잡이를 움직이면 그 자리에서 다시 생성한다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). ① 다음 글자 분포는 막대 세 줄로 “모델 원래 → 페널티·온도 적용 → 거른 뒤”를 보여 주고, ② 생성된 글은 글자마다 <em>모델 원래 확률</em>로 색칠한다. 글자를 누르면 그 글자를 고를 때의 분포가 ①에 나온다. seed가 같으면 같은 글이 나온다.</p>
+        <div id="w08-sampler"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 화면(샘플링, T = 1, 거르기 없음)에서 ①의 세 막대가 모두 같은 이유는 무엇인가? 빨간 글자(모델 원래 확률 &lt; 10%)를 하나 눌러 본다. 그 순간 1등 후보는 무엇이었고 몇 %였나?</li>
+          <li><b>그리디 → 반복 루프</b>를 누른다. ④ 반복 탐지는 무엇을 찾았나? ③의 5개 샘플은 왜 모두 같은가? seed를 바꿔도 달라지지 않는 이유를 설명한다.</li>
+          <li>샘플링으로 돌아와 온도를 0.1 → 1.0 → 2.0으로 움직이며 ①의 엔트로피와 ② 아래의 “평균 log P / 글자”를 기록한다. 어디서부터 글이 무너지는가?</li>
+          <li><b>top-p = 0.1 → 사실상 그리디</b>를 누른다. 샘플링인데도 그리디와 거의 같은 글이 나오는 이유를 ①의 “남은 후보 수”로 설명한다. ③에서 5개가 완전히 같지는 않은 이유는?</li>
+          <li>그리디로 두고 반복 페널티를 1.0 → 1.2 → 2.0으로 올린다. 루프는 어느 값에서 사라지는가? 2.0에서 띄어쓰기는 어떻게 되는가? ①에서 ↺ 표시가 붙은 글자를 찾아본다.</li>
+          <li>▶ <b>한 글자</b>를 눌러 한 글자씩 만든다. 누르기 전에 ①의 막대를 보고 무엇이 나올지 예상한 뒤 누른다. 예상이 틀린 적이 있다면 그 글자의 “최종” 확률은 얼마였나?</li>
+          <li>모델을 <b>3000스텝 (코퍼스를 외운 모델)</b>로 바꾼다. T = 1에서 원문 복사율과 ③의 결과는? 온도를 몇까지 올려야 외운 글이 무너지는가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 페이지와 분리된 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. C3~C5는 미니 GPT로 수백 글자를 만들므로 3~6초쯤 걸린다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 온도가 들어간 소프트맥스와 엔트로피</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>“토큰” 다음에 올 후보 5개와 미니 GPT가 낸 점수(logit)가 있다. 온도 T로 나눈 소프트맥스와 엔트로피(bit)를 직접 구현해 T = 0.5, 1, 2에서 표로 비교한다. 기대 결과: T = 1에서 “을”은 39.5%, 엔트로피는 약 2.14 bit다. T가 커지면 엔트로피는 어떤 값을 향해 가는가?</p>
+          <pre data-run="c1" data-title="C1 온도와 엔트로피"><code class="language-javascript">import { softmax, entropyBits as H } from '/assets/js/core/sampling.js'; // 검산용
+
+// "토큰" 다음 후보 5개와 미니 GPT(300스텝)의 logit (소수 첫째 자리로 반올림)
+const tokens = ['을', '으', '은', '이', '␣'];
+const logits = [8.2, 7.6, 7.2, 7.2, 6.8];
+
+function softmaxT(logits, T) {
+  // TODO: 각 점수를 T로 나누고, 가장 큰 값을 뺀 뒤 exp → 합으로 나눈다
+  //       (가장 큰 값을 빼도 결과는 같고 exp가 넘치지 않는다)
+  return logits.map(() =&gt; 1 / logits.length);
+}
+
+function entropyBits(probs) {
+  // TODO: −Σ p · log2(p)  (p = 0인 항은 건너뛴다)
+  return 0;
+}
+
+const rows = [];
+for (const T of [0.5, 1, 2]) {
+  const p = softmaxT(logits, T);
+  const row = { T };
+  tokens.forEach((t, i) =&gt; (row[t] = +(p[i] * 100).toFixed(1)));
+  row['엔트로피(bit)'] = +entropyBits(p).toFixed(3);
+  rows.push(row);
+}
+console.table(rows);
+console.log('엔진 T=2:', softmax(logits, 2).map((p) =&gt; +(p * 100).toFixed(1)), 'H =', H(softmax(logits, 2)).toFixed(3));
+// TODO: 후보 5개가 균등할 때의 엔트로피(log2 5)를 출력하고, T를 키우면 어디로 가는지 적는다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. top-k와 top-p 거르기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>고정된 분포(“언어 모델” 다음 후보 8개)에 <code>topK</code>, <code>topP</code>를 구현해 적용한다. 거른 뒤에는 남은 확률의 합이 1이 되게 다시 나눈다. top-p는 “누적 확률이 p에 <em>닿는</em> 토큰까지 포함”한다. 기대 결과: top-p 0.6은 3개(은 61.5% · ␣ 23.1% · 과 15.4%), top-p 0.9는 7개가 남는다. 마지막 줄에서 뾰족한 분포와 평평한 분포에 같은 k, p를 주면 무엇이 달라지는지 확인한다.</p>
+          <pre data-run="c2" data-title="C2 top-k · top-p"><code class="language-javascript">import { topK as engineTopK, topP as engineTopP } from '/assets/js/core/sampling.js';
+
+const tokens = ['은', '␣', '과', ',', '이', '을', '로', '('];
+const probs = [0.40, 0.15, 0.10, 0.09, 0.08, 0.07, 0.06, 0.05];
+
+function topK(probs, k) {
+  if (k &lt;= 0 || k &gt;= probs.length) return probs.slice(); // 0 = 끔
+  // TODO: 확률이 큰 순서로 번호를 정렬해 앞 k개만 남기고 나머지는 0, 다시 합이 1이 되게 나눈다
+  return probs.slice();
+}
+
+function topP(probs, p) {
+  if (p &gt;= 1) return probs.slice();
+  // TODO: 큰 순서로 누적합을 더하며 토큰을 남긴다. 누적합이 p 이상이 되면 (그 토큰까지 넣고) 멈춘다
+  return probs.slice();
+}
+
+const show = (name, dist) =&gt; {
+  const kept = tokens.filter((_, i) =&gt; dist[i] &gt; 0);
+  console.log(name.padEnd(12), '남은 후보', kept.length, '→', kept.map((t) =&gt; `${t} ${(dist[tokens.indexOf(t)] * 100).toFixed(1)}%`).join(' · '));
+};
+show('top-k k=1', topK(probs, 1));
+show('top-k k=3', topK(probs, 3));
+show('top-p p=0.3', topP(probs, 0.3));
+show('top-p p=0.6', topP(probs, 0.6));
+show('top-p p=0.9', topP(probs, 0.9));
+
+const same = (a, b) =&gt; a.every((x, i) =&gt; Math.abs(x - b[i]) &lt; 1e-12);
+const checks = [...[0, 1, 3, 5, 8].map((k) =&gt; same(topK(probs, k), engineTopK(probs, k))),
+  ...[0.3, 0.6, 0.75, 0.9, 1].map((p) =&gt; same(topP(probs, p), engineTopP(probs, p)))];
+console.log('엔진과 일치:', checks.every(Boolean) ? '✓ 모두 일치' : checks);
+
+// TODO: 뾰족한 분포 [0.90, 0.04, 0.02, 0.01, 0.01, 0.01, 0.005, 0.005]와 평평한 분포(1/8씩 8개)에
+//       top-k(3)과 top-p(0.9)를 적용해 남은 후보 수를 비교한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 그리디 vs 샘플링, 반복을 찾아라</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>7주차 체크포인트를 불러와 “언어 모델” 뒤로 80글자를 그리디 한 번, 샘플링(T = 1) 두 번 만든다. 그리고 반복 탐지기 두 개를 구현한다. <code>findLoops</code>는 1~8글자 조각이 3번 이상 <em>연달아</em> 나오는 곳을, <code>longestRepeat</code>는 두 번 이상(겹치지 않게) 나오는 가장 긴 부분 문자열을 찾는다. 기대 결과: 그리디에서 “ 모든”이 7번 연달아 나온다. 샘플링에서는 루프가 없다.</p>
+          <pre data-run="c3" data-title="C3 반복 탐지"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt); // vocab.encode(글) → 번호 배열, vocab.decode(번호 배열) → 글
+
+const prompt = '언어 모델';
+function run(decode) {
+  const ctx = vocab.encode(prompt);
+  const { ids } = generate(model, ctx, 80, decode); // decode: { greedy } 또는 { temperature, seed }
+  return vocab.decode(ids.slice(ctx.length));      // 생성된 부분만
+}
+
+/** 같은 조각(1~8글자)이 minTimes번 이상 연달아 나오는 곳: [{ unit, times, at }] */
+function findLoops(text, minTimes = 3) {
+  const found = [];
+  // TODO: 위치 i마다 길이 L = 1…8인 조각 unit을 잡고, 바로 뒤에 unit이 몇 번 더 이어지는지 센다
+  //       (공백·줄바꿈만으로 된 조각은 건너뛴다. unit.trim()이 비어 있으면 건너뛴다)
+  //       times ≥ minTimes면 found에 넣고, i를 반복이 끝난 곳으로 옮긴다
+  return found;
+}
+
+/** 두 번 이상(겹치지 않게) 나오는 가장 긴 부분 문자열 */
+function longestRepeat(text) {
+  // TODO: text.slice(i, i + L)이 i + L 이후에 또 나오는지 text.indexOf(s, i + L)로 검사한다
+  return '';
+}
+
+const rows = [
+  ['그리디', { greedy: true }],
+  ['샘플링 T=1 seed 1', { temperature: 1, seed: 1 }],
+  ['샘플링 T=1 seed 2', { temperature: 1, seed: 2 }],
+].map(([name, decode]) =&gt; {
+  const text = run(decode);
+  console.log(`[${name}] ${prompt}${text}`);
+  const loops = findLoops(text);
+  return {
+    설정: name,
+    '연속 반복': loops.map((l) =&gt; `“${l.unit}”×${l.times}`).join(' ') || '없음',
+    '가장 긴 반복 조각': `“${longestRepeat(text)}”`,
+  };
+});
+console.table(rows);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 반복 페널티의 효과와 대가</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>그리디로 두고 반복 페널티만 1.0, 1.2, 1.5, 2.0으로 바꿔 70글자씩 만든다. 반복이 줄었는지는 <strong>distinct-2</strong>(서로 다른 2글자 조각 수 ÷ 전체 2글자 조각 수)로, 대가는 <strong>공백 비율</strong>로 잰다. 페널티가 커질수록 두 값은 각각 어느 쪽으로 움직이는가? 페널티가 공백에도 걸리는 이유를 <code>repetitionPenalty(logits, history, penalty)</code>의 동작으로 설명한다.</p>
+          <pre data-run="c4" data-title="C4 반복 페널티"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+const prompt = vocab.encode('언어 모델');
+
+/** 서로 다른 2-gram 수 / 전체 2-gram 수 (1에 가까울수록 반복이 적다) */
+function distinct2(text) {
+  // TODO: [...text]로 글자 배열을 만들고, 이웃한 두 글자를 이어 붙인 2-gram을 모아 비율을 구한다
+  return 0;
+}
+
+const rows = [];
+for (const penalty of [1.0, 1.2, 1.5, 2.0]) {
+  const { ids } = generate(model, prompt, 70, { greedy: true, penalty });
+  const text = vocab.decode(ids.slice(prompt.length));
+  console.log(`penalty ${penalty.toFixed(1)}: 언어 모델${text.replaceAll('\n', '↵')}`);
+  rows.push({
+    penalty,
+    'distinct-2': +distinct2(text).toFixed(3),
+    '공백 비율': 0, // TODO: 공백(' ') 글자 수 / 전체 글자 수
+  });
+}
+console.table(rows);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 디코딩 격자 실험: 유창성과 다양성</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>T ∈ {0.5, 1, 1.5} × top-p ∈ {0.5, 0.9, 1.0}의 9칸마다 seed 1, 2로 30글자씩 만든다. 칸마다 ① <strong>평균 log P / 글자</strong>(고른 글자의 <em>모델 원래</em>(T = 1) 확률의 로그 평균 — 유창성)와 ② 두 샘플을 합친 <strong>distinct-2</strong>(다양성)를 표로 만든다. 두 샘플이 같은 글이면 distinct-2가 낮아진다. 표를 보고 “가장 유창한 칸”과 “가장 다양한 칸”이 어디인지, 둘 사이에서 여러분이라면 어느 칸을 고를지 근거와 함께 적는다. 이번에는 <code>generate()</code> 대신 한 글자씩 도는 반복문을 직접 쓴다.</p>
+          <pre data-run="c5" data-title="C5 디코딩 격자"><code class="language-javascript">import { deserialize, nextLogits } from '/assets/js/core/gpt.js';
+import { softmax, decodeStep } from '/assets/js/core/sampling.js';
+import { mulberry32 } from '/assets/js/core/rng.js';
+const ckpt = await (await fetch('/assets/data/models/mini-gpt-300.json')).json();
+const { model, vocab } = deserialize(ckpt);
+const prompt = vocab.encode('언어 모델');
+const LEN = 30;
+const SEEDS = [1, 2];
+
+/** 한 번 생성하며, 고른 글자마다 모델 원래 확률(T=1)의 로그를 모은다 */
+function sample(temperature, p, seed) {
+  const rand = mulberry32(seed);
+  const ids = [...prompt];
+  let logp = 0;
+  for (let i = 0; i &lt; LEN; i++) {
+    const logits = nextLogits(model, ids);                          // 다음 글자 495개의 점수
+    const { index } = decodeStep(logits, { temperature, p, rand }); // 온도 · top-p로 하나 뽑기
+    // TODO: 고른 글자의 모델 원래 확률 softmax(logits)[index]의 로그를 logp에 더한다
+    ids.push(index);
+  }
+  return { text: vocab.decode(ids.slice(prompt.length)), logp };
+}
+
+function distinct2(texts) {
+  // TODO: 여러 글의 2-gram을 한데 모아(글과 글 사이는 잇지 않는다) 서로 다른 것의 비율을 구한다
+  return 0;
+}
+
+const rows = [];
+for (const T of [0.5, 1, 1.5]) {
+  for (const p of [0.5, 0.9, 1.0]) {
+    const outs = SEEDS.map((s) =&gt; sample(T, p, s));
+    rows.push({
+      T,
+      'top-p': p,
+      '평균 log P/글자': +(outs.reduce((a, o) =&gt; a + o.logp, 0) / (LEN * SEEDS.length)).toFixed(3),
+      'distinct-2': +distinct2(outs.map((o) =&gt; o.text)).toFixed(3),
+      '예시(seed 1)': outs[0].text.replaceAll('\n', '↵'),
+    });
+  }
+}
+console.table(rows);
+// TODO: 가장 유창한 칸과 가장 다양한 칸을 찾아 console.log로 출력하고, 고를 칸과 이유를 적는다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>모델은 다음 토큰의 분포만 준다. 그 분포에서 토큰을 고르는 규칙이 디코딩 전략이고, 같은 모델도 규칙에 따라 전혀 다른 글을 쓴다.</li>
+          <li>그리디는 결정적이지만 반복 루프에 빠지기 쉽다. 샘플링은 다양하지만 꼬리의 엉뚱한 토큰을 뽑을 수 있다.</li>
+          <li>온도는 순위를 그대로 둔 채 분포의 뾰족함을 바꾼다. top-k는 개수로, top-p는 누적 확률로 꼬리를 자른다. top-p는 분포 모양에 맞춰 후보 수가 저절로 바뀐다.</li>
+          <li>반복 페널티는 루프를 끊지만 공백 · 조사처럼 반복되어야 하는 토큰까지 깎는다.</li>
+          <li>유창성과 다양성은 맞바뀐다. 사실을 답하는 일에는 낮은 온도가, 아이디어를 내는 창작에는 높은 온도가 어울린다. 외운 모델에는 어떤 설정도 새로움을 만들어 주지 못한다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 과정과 연결</b> — <a href="https://samcho93.github.io/studyRAG/weeks/w02/" target="_blank" rel="noopener">RAG 2주차 프롬프트 엔지니어링</a>은 검색한 문서를 근거로 답하게 할 때 온도를 0~0.3으로 낮게 두라고 한다. 오늘 본 대로 온도가 높으면 모델이 “드물다고 본” 토큰, 즉 근거에 없는 말이 섞일 확률이 커지기 때문이다. 사실 기반 질의응답에서 낮은 온도는 환각을 줄이는 첫 번째 손잡이다.</p></div>
+        <div class="bridge"><span class="bi">🔗</span><p><b>이 과정 안에서</b> — <a href="../w01/">1주차</a> C3의 <code>sampleIndex</code>가 오늘 파이프라인의 마지막 단계 ⑤다. 11주차에 LLM API를 부를 때 넣는 <code>temperature</code>, <code>top_p</code>는 오늘 조절한 바로 그 값이다. 다만 실제 API의 토큰은 글자가 아니라 BPE 조각이다.</p></div>
+        <p><strong>다음 주(9주차 평가와 스케일링)</strong>에는 “이 모델은 얼마나 좋은가”를 숫자 하나로 잰다. 오늘 C5에서 쓴 평균 log P가 바로 퍼플렉서티의 재료다. 검증 문서로 퍼플렉서티를 재고, 모델을 키우면 무엇이 좋아지고 메모리는 얼마나 드는지 계산한다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="8"> ✅ 8주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="8" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w08-sampler.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w08-sampler'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>
