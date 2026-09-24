@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>2주차 토큰화와 BPE · 교사용 · LLM Lab</title>
+  <meta name="description" content="2주차 토큰화와 BPE 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w02.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="2" data-crumb="🧑‍🏫 교사용 › <b>2주차 · 토큰화와 BPE</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="2주차 · 토큰화와 BPE">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 2주차</div>
+            <h1>토큰화와 BPE</h1>
+            <p>글자와 단어 사이, 토큰을 직접 만든다</p>
+            <div class="deco" aria-hidden="true">✂️</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:10</td><td>1주차 C5 답 확인(가장 좋은 n = 2) · “토큰 = 글자”의 한계</td></tr>
+                <tr><td>0:10–0:35</td><td>두 극단: 글자 vs 어절 · 어휘 크기와 문장 길이 · [UNK]</td></tr>
+                <tr><td>0:35–1:10</td><td>BPE 학습 손으로 해 보기 · 코드 슬라이드 · 데모 · 관찰 질문 1~2</td></tr>
+                <tr><td>1:10–1:20</td><td>휴식</td></tr>
+                <tr><td>1:20–1:50</td><td>인코딩(병합 순위) · 바이트 단위 BPE · 한국어가 비싼 이유 · 관찰 질문 3~5</td></tr>
+                <tr><td>1:50–2:50</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · RAG 1주차 연결 · 3주차 예고</td></tr>
+              </table>
+              <p>칠판에 C1의 단어 다섯 개를 미리 적어 둔다. 손으로 쌍을 세는 활동이 오늘의 중심이다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="지난주에서 이어서">
+            <h2>지난주: 토큰 = 글자 하나</h2>
+            <ul>
+              <li>바이그램은 “모” 다음에 “델”이 온다는 것을 <strong>세어서</strong> 알았다</li>
+              <li>코퍼스 6,828자 = <strong>6,828토큰</strong> · 어휘 495</li>
+              <li>“모델”은 매번 두 토큰. 모델이 “모델”을 한 덩어리로 알 수는 없을까?</li>
+            </ul>
+            <p class="big-quote">토큰을 더 크게 자르면 어떻게 될까?</p>
+            <aside class="notes">
+              <p><strong>발문:</strong> “토큰을 단어로 하면 되지 않나?” 대부분 그렇게 답한다. 다음 슬라이드에서 그 답의 문제를 숫자로 보여 준다.</p>
+              <p>1주차 C5 과제 답(n = 2가 NLL 4.163으로 가장 좋음)을 먼저 짧게 확인한다.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>글자도 단어도 좋은 토큰이 아닌 이유: <strong>어휘 크기 ↔ 문장 길이</strong>, <strong>처음 보는 단어</strong></li>
+              <li>BPE <strong>학습</strong>(세기 → 합치기 → 반복)과 <strong>인코딩</strong>(병합 순위)을 코드로 쓴다</li>
+              <li>바이트 단위 BPE와 <strong>한국어가 토큰을 더 쓰는 이유</strong>를 설명한다</li>
+            </ol>
+            <aside class="notes">
+              <p>오늘 만든 토크나이저 개념은 3주차 임베딩(어휘 크기 = 임베딩 표의 행 수)과 RAG 과정의 토큰 비용 계산에서 다시 쓴다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="두 극단: 글자 vs 어절">
+            <h2>두 극단: 글자 vs 어절</h2>
+            <table>
+              <thead><tr><th>단위</th><th>어휘</th><th>코퍼스 토큰</th><th>문제</th></tr></thead>
+              <tbody>
+                <tr><td>글자</td><td>494</td><td>6,763</td><td>문장이 길다</td></tr>
+                <tr><td>어절</td><td>1,107</td><td>1,614</td><td>76%가 한 번만 나옴 · 새 문서 어절 <strong>65%가 [UNK]</strong></td></tr>
+              </tbody>
+            </table>
+            <p>“토큰” 하나가 <strong>13가지 어절</strong>로: 토큰 · 토큰을 · 토큰이 · 토큰으로 · 토큰의 · 토큰만 …</p>
+            <aside class="notes">
+              <p>새 문서 = 학습에서 뺀 “벡터 데이터베이스와 인덱스”(356자, 78어절). 51어절이 학습 텍스트에 없다. C5에서 학생이 직접 재현한다.</p>
+              <p>한국어는 교착어라 어절 단위 어휘가 특히 불리하다. 영어의 “token / tokens” 수준이 아니다.</p>
+              <p>글자 단위 토큰이 6,828이 아닌 6,763인 이유: 공백 1,679개 대신 단어 1,614개 앞에 ▁를 붙였기 때문(연속 공백·줄바꿈은 하나로).</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="BPE 학습: 손으로">
+            <h2>BPE: 가장 자주 붙어 나오는 쌍을 합친다</h2>
+            <div class="cols">
+              <div>
+                <h3>단어와 횟수</h3>
+                <pre><code>▁ 토 큰        ×5
+▁ 토 큰 을     ×3
+▁ 토 크 나 이 저 ×2
+▁ 모 델        ×4
+▁ 모 델 을     ×2</code></pre>
+              </div>
+              <div>
+                <h3>병합 기록</h3>
+                <ol>
+                  <li>▁ + 토 → ▁토 (×10) · 59 → 49</li>
+                  <li>▁토 + 큰 → ▁토큰 (×8) · → 41</li>
+                  <li>▁ + 모 → ▁모 (×6) · → 35</li>
+                </ol>
+                <p class="muted">병합 한 번 = 어휘 +1, 토큰 −횟수</p>
+              </div>
+            </div>
+            <aside class="notes">
+              <p><strong>활동(10분):</strong> 짝과 함께 칠판의 단어로 인접 쌍을 모두 세게 한다(10종). 1등 쌍을 합친 뒤 다시 세면 “▁토 큰”이 8이 된다는 것을 스스로 발견하게 한다.</p>
+              <p>병합 3에서 “▁ 모”(6)와 “모 델”(6)이 동점이다. 동점 처리 규칙이 필요하다는 것을 짚는다(core는 사전순). C3의 “core와 같은 병합 50/50” 검사가 이 규칙에 달려 있다.</p>
+              <p>토큰 감소량 = 합친 쌍의 횟수(10, 8, 6)라는 점을 확인시킨다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>코퍼스로 학습하면</h2>
+            <pre data-run="demo-bpe" data-title="BPE 글자 vs 바이트"><code class="language-javascript">import { train, encode, showSymbol } from '/assets/js/core/bpe.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const text = corpus.documents.map((d) =&gt; d.text).join('\n\n');
+const sentence = '토큰 수는 곧 비용이다.';
+for (const unit of ['char', 'byte']) {
+  for (const merges of [0, 100]) {
+    const tok = train(text, { merges, unit });
+    const toks = encode(tok, sentence).map((t) =&gt; showSymbol(t, unit));
+    console.log(`${unit} · 병합 ${merges}회 · ${toks.length}토큰:`, toks.join(' | '));
+  }
+}
+const tok = train(text, { merges: 10 });
+console.log('처음 배운 병합 10개:', tok.merges.map((m) =&gt; `${m.a}+${m.b}(${m.count})`).join(' '));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 처음 배운 병합 10개 = 다+.(157) ▁+토(44) ▁+문(43) ▁토+큰(42) ▁+모(41) 이+다.(30) 한+다.(30) ▁+수(28) ▁+가(27) ▁+검(27).</p>
+              <p>“토큰 수는 곧 비용이다.” → 글자 0회 14토큰, 100회 8토큰(▁토큰 | ▁수 | 는 | ▁ | 곧 | ▁비 | 용 | 이다.) · 바이트 0회 32토큰, 100회 11토큰(▁&lt;EC&gt; | &lt;88&gt;&lt;98&gt; 같은 조각이 남음).</p>
+              <p><strong>발문:</strong> “첫 병합이 왜 ‘다 + .’일까?” → 한국어 문장이 “~다.”로 끝난다. 사람이 문법을 알려 주지 않아도 어미가 먼저 토큰이 된다.</p>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="인코딩: 병합 순위">
+            <h2>새 단어 자르기: 배운 순서대로</h2>
+            <pre><code>“벡터스토어는” (학습에 없던 어절, 병합 200회)
+▁ 벡 터 스 토 어 는
+→ ▁벡 터 스 토 어 는     (20번째 병합 ▁+벡)
+→ ▁벡터 스 토 어 는      (24번째 병합 ▁벡+터)
+→ 더 합칠 쌍 없음 → 5토큰</code></pre>
+            <ul>
+              <li>매번 <strong>순위가 가장 높은(먼저 배운)</strong> 쌍부터 합친다 = 학습 때와 같은 조각</li>
+              <li>아는 조각은 크게, 모르는 부분은 낱글자로 → [UNK] 없음 (<strong>서브워드</strong>)</li>
+              <li>디코딩: 이어 붙이고 ▁ → 공백</li>
+            </ul>
+            <aside class="notes">
+              <p>“왼쪽부터 아무 병합이나 적용하면 안 되나?” → 학습 때와 다른 조각이 나올 수 있다. 같은 단어가 늘 같은 토큰열이 되어야 모델이 배운 것을 쓸 수 있다.</p>
+              <p>단, 학습 텍스트에 없던 <em>글자</em>는 글자 단위 어휘에 없다 → 여전히 [UNK]. 데모에서 “챗”, “봇”으로 보여 준다. 이것이 바이트 단위로 가는 동기다.</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide slide--demo" data-title="데모: BPE 병합 스텝퍼">
+            <h2>데모 · BPE 병합 스텝퍼</h2>
+            <div id="deck-w02-bpe"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>“0회” → 한 단계 ▶ 몇 번: 다+.(157), ▁+토(44) … 병합 목록이 위로 쌓인다</li>
+                <li>▶ 재생: 그래프 점이 오른쪽 아래로. 처음엔 한 번에 많이 줄고 나중엔 조금씩 준다</li>
+                <li>테스트 “처음 보는 문장”: 27자가 0회 28토큰, 400회에서도 23토큰. “메타버스”는 낱글자, “챗”·“봇”은 빨간 [UNK]</li>
+                <li>UTF-8 바이트로 전환: 빨간 상자가 사라지고 노란 점선 조각(&lt;EB&gt;&lt;A9&gt;…)이 생긴다. 0회 72토큰 → 100회 38토큰 → 400회 30토큰 (글자 단위보다 여전히 많다)</li>
+                <li>400회 근처의 병합(×3 “▁사용한다.”, “▁미세조정” 등): 어절을 통째로 외우기 시작</li>
+                <li>“실습실 이용 규정 한 편” + 글자 단위: 30회에서 합칠 쌍이 바닥난다</li>
+                <li>“영어 문장”: 400회에서도 40자 → 39토큰. “GPT-2가 한국어를 볼 때 이렇다”</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="바이트 단위 BPE">
+            <h2>바이트 단위 BPE: [UNK]가 없다</h2>
+            <table>
+              <thead><tr><th>“토큰A”</th><th>토큰</th></tr></thead>
+              <tbody>
+                <tr><td>글자</td><td>토 | 큰 | A → 3</td></tr>
+                <tr><td>UTF-8 바이트</td><td>ED 86 A0 | ED 81 B0 | 41 → 7</td></tr>
+              </tbody>
+            </table>
+            <ul>
+              <li>시작 어휘 = 바이트 <strong>256개</strong> → 어떤 글자·이모지든 표현</li>
+              <li>한글 음절 = <strong>3바이트</strong>, 영어 = 1바이트</li>
+              <li>우리 코퍼스: 바이트 15,645토큰 = 글자(6,763)의 <strong>2.3배</strong> · 400회 병합 후 5,476</li>
+            </ul>
+            <aside class="notes">
+              <p>GPT-2 이후 GPT 계열 토크나이저가 모두 이 방식이다. 위젯의 바이트 모드 “어휘 크기”는 코퍼스에 실제로 나온 바이트 135종부터 센다. 실제 토크나이저는 256종 전부를 넣는다고 짚는다.</p>
+              <p>초기 병합(“▁&lt;EC&gt;” ×589, “▁&lt;EB&gt;” ×456, “&lt;EC&gt;&lt;9D&gt;” ×370)은 음절의 앞부분이다. 한글은 첫 바이트가 EA~ED로 몰려 있어 이 조각들이 매우 흔하다.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="한국어가 비싼 이유">
+            <h2>영어 중심 어휘에서 한국어가 비싼 이유</h2>
+            <table>
+              <thead><tr><th>GPU 규정 (같은 뜻)</th><th>문자</th><th>GPT-2</th><th>GPT-4o</th></tr></thead>
+              <tbody>
+                <tr><td>한국어</td><td>84</td><td>161</td><td>43</td></tr>
+                <tr><td>영어</td><td>167</td><td>35</td><td>36</td></tr>
+              </tbody>
+            </table>
+            <p>GPT-2: 한국어 ≈ 영어의 <strong>4.6배</strong> · GPT-4o: 약 1.2배 — <strong>어휘를 만든 데이터</strong>의 차이</p>
+            <aside class="notes">
+              <p>수치는 studyRAG 1주차 토큰 카운터의 실측값이다(<a href="https://samcho93.github.io/studyRAG/weeks/w01/" target="_blank" rel="noopener">RAG 1주차</a>). GPT-2 어휘 50,257개는 영어 웹 문서로 병합을 배웠고, GPT-4o 어휘(약 20만 개)는 다국어 데이터로 배웠다.</p>
+              <p>거울상: 우리 코퍼스(한국어)로 만든 어휘는 영어 문장을 거의 글자마다 자른다(40자 → 39토큰). “한국어가 어려워서”가 아니라 “어휘가 한국어를 적게 봐서”다.</p>
+              <p>토큰 수 = 컨텍스트 창 사용량 = API 비용. RAG 과정에서 청크 크기를 토큰으로 정하는 이유.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="어휘 크기의 맞바꿈">
+            <h2>어휘는 얼마나 커야 하나?</h2>
+            <div class="cols">
+              <div>
+                <h3>어휘를 키우면</h3>
+                <ul>
+                  <li>문장이 짧아진다 → 같은 창에 더 많은 글</li>
+                  <li>임베딩 표(V × d)가 커진다</li>
+                  <li>드문 토큰은 학습 예가 적다 (외우기)</li>
+                </ul>
+              </div>
+              <div>
+                <h3>실제 값</h3>
+                <ul>
+                  <li>GPT-2: 50,257 × 768 ≈ 3,860만 파라미터</li>
+                  <li>GPT-4o: 약 20만</li>
+                  <li>7주차 미니 GPT: <strong>글자 495개</strong></li>
+                </ul>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>3주차 임베딩 예고. 어휘 크기 V가 임베딩 표의 행 수라는 점만 짚는다. GPT-2 small의 토큰 임베딩만 50,257 × 768 = 38,597,376개 파라미터다.</p>
+              <p>7주차 미니 GPT는 구현을 단순하게 하려고 글자 단위(어휘 495)를 쓴다. 대신 같은 글이 더 많은 토큰이 되어 문맥 창을 빨리 채운다.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>토큰 단위 = <strong>어휘 크기 ↔ 문장 길이</strong>의 맞바꿈</li>
+              <li>BPE 학습: 세기 → 1등 합치기 → 반복. <strong>병합 목록이 곧 토크나이저</strong></li>
+              <li>인코딩은 병합 순위대로 · 처음 보는 단어는 조각과 낱글자로</li>
+              <li>바이트 BPE: [UNK] 없음, 한글 = 3바이트 → 영어 중심 어휘에서 비싸다</li>
+            </ul>
+            <h3>다음 주 · 임베딩: 단어를 벡터로</h3>
+            <p class="muted">토큰 번호를 벡터로 바꾸고, “비슷한 토큰은 가까운 벡터”를 확인한다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분 동안 “우리 바이트 BPE 300은 GPT-2와 GPT-4o 중 어디에 가까운가?”(답: 0.98토큰/글자로 사이)를 확인한다.</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>10분</td><td>1주차 과제 확인 · “토큰 = 글자”의 한계</td><td>—</td></tr>
+                <tr><td>25분</td><td>글자 vs 어절 · [UNK] · 한국어 어절 변화</td><td>“토큰” 어절 목록</td></tr>
+                <tr><td>35분</td><td>손으로 BPE 3단계 · 코드 슬라이드 · 데모 · 관찰 1~2</td><td>짝 활동 병합 기록</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>30분</td><td>병합 순위 인코딩 · 바이트 BPE · 한국어 비용 · 관찰 3~5</td><td>관찰 기록표</td></tr>
+                <tr><td>60분</td><td>Challenge C1~C4</td><td>C3·C4 코드</td></tr>
+                <tr><td>10분</td><td>정리 · RAG 1주차 연결 · 3주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1·C2 정답" data-appendix>
+            <h2>부록 B · C1 · C2 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">// word → how many times it appears in the training text (▁ = the space before a word)
+const words = { '▁토큰': 5, '▁토큰을': 3, '▁토크나이저': 2, '▁모델': 4, '▁모델을': 2 };
+
+function countPairs(words) {
+  const pairs = new Map();
+  for (const [word, count] of Object.entries(words)) {
+    const syms = [...word];
+    for (let i = 0; i &lt; syms.length - 1; i++) {
+      const key = syms[i] + ' ' + syms[i + 1];
+      pairs.set(key, (pairs.get(key) ?? 0) + count);
+    }
+  }
+  return pairs;
+}
+
+const pairs = countPairs(words);
+const rows = [...pairs].map(([pair, count]) =&gt; ({ pair, count })).sort((a, b) =&gt; b.count - a.count);
+console.table(rows);
+console.log('서로 다른 쌍:', pairs.size, '· 1등:', rows[0]);</code></pre>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">// each word is now a list of symbols; one merge rewrites these lists
+let words = [
+  { syms: [...'▁토큰'], count: 5 },
+  { syms: [...'▁토큰을'], count: 3 },
+  { syms: [...'▁토크나이저'], count: 2 },
+  { syms: [...'▁모델'], count: 4 },
+  { syms: [...'▁모델을'], count: 2 },
+];
+const total = (ws) =&gt; ws.reduce((s, w) =&gt; s + w.syms.length * w.count, 0);
+const show = (ws) =&gt; ws.map((w) =&gt; `${w.syms.join(' ')} ×${w.count}`).join('  |  ');
+
+function bestPair(words) {
+  const pairs = new Map();
+  for (const { syms, count } of words)
+    for (let i = 0; i &lt; syms.length - 1; i++) {
+      const key = syms[i] + ' ' + syms[i + 1];
+      pairs.set(key, (pairs.get(key) ?? 0) + count);
+    }
+  let best = null, bestCount = 0;
+  for (const [key, c] of pairs) if (c &gt; bestCount) [best, bestCount] = [key, c];
+  return { pair: best.split(' '), count: bestCount };
+}
+
+function mergeWord(syms, a, b) {
+  const out = [];
+  for (let i = 0; i &lt; syms.length; i++) {
+    if (i &lt; syms.length - 1 &amp;&amp; syms[i] === a &amp;&amp; syms[i + 1] === b) {
+      out.push(a + b);
+      i++; // skip b: it is now inside the merged symbol
+    } else out.push(syms[i]);
+  }
+  return out;
+}
+
+console.log('병합 전:', show(words), '· 전체 토큰', total(words));
+for (let step = 1; step &lt;= 3; step++) {
+  const { pair: [a, b], count } = bestPair(words);
+  words = words.map((w) =&gt; ({ ...w, syms: mergeWord(w.syms, a, b) }));
+  console.log(`병합 ${step}: ${a} + ${b} → ${a + b} (×${count}) · 전체 토큰 ${total(words)}`);
+}
+console.log('병합 후:', show(words));
+console.log(mergeWord(['a', 'a', 'a'], 'a', 'a')); // overlap check → ['aa', 'a']</code></pre>
+            <aside class="notes">
+              <p><strong>C1 결과:</strong> ▁ 토 10 · 토 큰 8 · ▁ 모 6 · 모 델 6 · 큰 을 3 · 토 크·크 나·나 이·이 저·델 을 각 2. 서로 다른 쌍 10개, 1등 “▁ 토” 10.</p>
+              <p><strong>C2 결과:</strong> 병합 전 59토큰 → 병합 1: ▁ + 토 → ▁토 (×10) 49 → 병합 2: ▁토 + 큰 → ▁토큰 (×8) 41 → 병합 3: ▁ + 모 → ▁모 (×6) 35. 병합 후: ▁토큰 ×5 | ▁토큰 을 ×3 | ▁토 크 나 이 저 ×2 | ▁모 델 ×4 | ▁모 델 을 ×2. 겹침 검사 [ 'aa', 'a' ].</p>
+              <p><strong>자주 틀리는 곳:</strong> 합친 뒤 <code>i++</code>를 빼먹으면 b가 한 번 더 들어가 토큰 수가 줄지 않는다. <code>['a','a','a']</code>가 <code>['aa','aa']</code>가 되면 이 실수다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">import { train as coreTrain } from '/assets/js/core/bpe.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const text = corpus.documents.map((d) =&gt; d.text).join('\n\n');
+
+// word counts: split on whitespace, mark the start of each word with ▁
+const freq = new Map();
+for (const w of text.split(/\s+/).filter(Boolean)) freq.set('▁' + w, (freq.get('▁' + w) ?? 0) + 1);
+let words = [...freq].map(([w, count]) =&gt; ({ syms: [...w], count }));
+const total = () =&gt; words.reduce((s, w) =&gt; s + w.syms.length * w.count, 0);
+
+function mergeWord(syms, a, b) {
+  const out = [];
+  for (let i = 0; i &lt; syms.length; i++) {
+    if (i &lt; syms.length - 1 &amp;&amp; syms[i] === a &amp;&amp; syms[i + 1] === b) { out.push(a + b); i++; }
+    else out.push(syms[i]);
+  }
+  return out;
+}
+
+function train(numMerges) {
+  const merges = [];
+  for (let step = 1; step &lt;= numMerges; step++) {
+    const pairs = new Map();
+    for (const { syms, count } of words)
+      for (let i = 0; i &lt; syms.length - 1; i++) {
+        const key = syms[i] + '\u0000' + syms[i + 1];
+        pairs.set(key, (pairs.get(key) ?? 0) + count);
+      }
+    let best = null, bestCount = 0;
+    for (const [key, c] of pairs) if (c &gt; bestCount || (c === bestCount &amp;&amp; key &lt; best)) [best, bestCount] = [key, c];
+    if (bestCount &lt; 2) break; // a pair seen only once is not worth a vocabulary slot
+    const [a, b] = best.split('\u0000');
+    words = words.map((w) =&gt; ({ ...w, syms: mergeWord(w.syms, a, b) }));
+    merges.push({ step, a, b, merged: a + b, count: bestCount, tokens: total() });
+  }
+  return merges;
+}
+
+const before = total();
+const merges = train(50);
+console.log('병합 전 전체 토큰:', before, '→ 50회 후:', merges.at(-1).tokens);
+console.table(merges.slice(0, 12).map(({ step, a, b, merged, count, tokens }) =&gt; ({ step, pair: `${a} + ${b}`, merged, count, tokens })));
+const core = coreTrain(text, { merges: 50 });
+const same = merges.filter((m, i) =&gt; core.merges[i]?.merged === m.merged).length;
+console.log(`core/bpe.js와 같은 병합: ${same} / ${merges.length}`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 병합 전 6,763 → 50회 후 5,575. 처음 12개: 다+.(157, 6,606) · ▁+토(44) · ▁+문(43) · ▁토+큰(42) · ▁+모(41) · 이+다.(30) · 한+다.(30) · ▁+수(28) · ▁+가(27) · ▁+검(27) · ▁+1(26) · ▁+벡(26, 6,242). core/bpe.js와 같은 병합 50 / 50.</p>
+              <p><strong>자주 틀리는 곳:</strong> 동점 규칙을 빼면 “이+다.”와 “한+다.”(둘 다 30) 순서가 바뀌어 일치 수가 50보다 작아질 수 있다. 틀린 것이 아니라 규칙이 다른 것이라고 설명한다. key 구분자로 <code>'\u0000'</code>을 쓰는 이유: 텍스트에 나오지 않는 문자라 <code>split</code>으로 a와 b를 안전하게 되돌릴 수 있다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">import { train, encodeWord as coreEncodeWord } from '/assets/js/core/bpe.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const trainText = corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb').map((d) =&gt; d.text).join('\n\n');
+const heldOut = corpus.documents.find((d) =&gt; d.id === 'rag-vectordb').text;
+
+const tok = train(trainText, { merges: 200 }); // tok.merges = [{ a, b, merged, count }, …] in learned order
+const rank = new Map(tok.merges.map((m, i) =&gt; [m.a + '\u0000' + m.b, i]));
+
+function encodeWord(word) {
+  let syms = [...word];
+  for (;;) {
+    let bestI = -1, bestR = Infinity;
+    for (let i = 0; i &lt; syms.length - 1; i++) {
+      const r = rank.get(syms[i] + '\u0000' + syms[i + 1]);
+      if (r !== undefined &amp;&amp; r &lt; bestR) [bestR, bestI] = [r, i];
+    }
+    if (bestI &lt; 0) return syms; // no learned merge applies any more
+    syms = [...syms.slice(0, bestI), syms[bestI] + syms[bestI + 1], ...syms.slice(bestI + 2)];
+  }
+}
+const encode = (text) =&gt; text.split(/\s+/).filter(Boolean).flatMap((w) =&gt; encodeWord('▁' + w));
+const decode = (tokens) =&gt; tokens.join('').replaceAll('▁', ' ').trim();
+
+for (const w of ['토크나이저를', '벡터스토어는', '메타버스', '챗봇으로']) {
+  const t = encodeWord('▁' + w);
+  console.log(w.padEnd(8, ' '), '→', t.join(' | '), `(${t.length}토큰)`, t.join('|') === coreEncodeWord(tok, '▁' + w).join('|') ? '' : '≠ core');
+}
+const tokens = encode(heldOut);
+const normalized = heldOut.split(/\s+/).filter(Boolean).join(' ');
+console.log('처음 보는 문서:', heldOut.length, '자 →', tokens.length, '토큰');
+console.log('왕복 검사 decode(encode(x)) === x :', decode(tokens) === normalized);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 토크나이저를 → ▁토 | 크 | 나 | 이 | 저 | 를 (6) · 벡터스토어는 → ▁벡터 | 스 | 토 | 어 | 는 (5) · 메타버스 → ▁ | 메 | 타 | 버 | 스 (5) · 챗봇으로 → ▁ | 챗 | 봇 | 으로 (4). 처음 보는 문서 356자 → 261토큰, 왕복 검사 true.</p>
+              <p><strong>해석:</strong> “메타버스”는 ▁와 붙는 병합조차 없어 ▁가 혼자 남는다. “챗”, “봇”은 학습 텍스트에 없던 글자라 글자 어휘에서는 [UNK]가 되어야 한다(C5의 UNK 열). 디코딩은 그래도 성공한다. 문자열을 그대로 이어 붙이기 때문이다. 실제 토크나이저는 번호로 바꾸는 순간 이 정보가 사라진다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { train, encode } from '/assets/js/core/bpe.js';
+// train(text, { merges, unit: 'char'|'byte' }) → tok · encode(tok, text) → token strings
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const trainText = corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb').map((d) =&gt; d.text).join('\n\n');
+const heldOut = corpus.documents.find((d) =&gt; d.id === 'rag-vectordb').text;
+const chars = heldOut.length;
+
+const rows = [];
+// word level: every distinct 어절 in the training text is one token
+const trainWords = new Set(trainText.split(/\s+/).filter(Boolean));
+const testWords = heldOut.split(/\s+/).filter(Boolean);
+rows.push({ 방식: '단어(어절) 단위', 어휘: trainWords.size, 토큰: testWords.length,
+  '토큰/글자': +(testWords.length / chars).toFixed(3), UNK: testWords.filter((w) =&gt; !trainWords.has(w)).length });
+
+for (const [name, unit, merges] of [['글자 단위', 'char', 0], ['BPE 100', 'char', 100], ['BPE 300', 'char', 300],
+                                    ['바이트 단위', 'byte', 0], ['바이트 BPE 300', 'byte', 300]]) {
+  const tok = train(trainText, { merges, unit });
+  const vocab = new Set(tok.vocab);
+  const tokens = encode(tok, heldOut);
+  // char vocab: a character never seen in training is unknown. byte vocab: all 256 bytes exist → never unknown
+  const unk = unit === 'byte' ? 0 : tokens.filter((t) =&gt; !vocab.has(t)).length;
+  rows.push({ 방식: name, 어휘: unit === 'byte' ? 256 + tok.merges.length : tok.vocab.length, 토큰: tokens.length,
+    '토큰/글자': +(tokens.length / chars).toFixed(3), UNK: unk });
+}
+console.log(`처음 보는 문서 “벡터 데이터베이스와 인덱스” ${chars}자`);
+console.table(rows);
+const gpt2 = 161 / 84, gpt4o = 43 / 84; // studyRAG 1주차: GPU 규정 한국어 84자
+console.log(`참고(RAG 1주차 실측) GPT-2 ${gpt2.toFixed(2)} · GPT-4o ${gpt4o.toFixed(2)} 토큰/글자`);
+console.log('바이트 BPE 300은 0.98로 두 값의 사이다. 한국어 문서로 학습해 한글 바이트가 합쳐졌지만(GPT-2보다 낫다), 병합이 300번뿐이라 어휘가 작다(GPT-4o는 약 20만 개).');</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과 (문서 356자):</strong> 어절 단위 어휘 1,058 · 78토큰 · 0.219 · UNK 51 / 글자 단위 482 · 354 · 0.994 · 16 / BPE 100: 582 · 281 · 0.789 · 16 / BPE 300: 782 · 252 · 0.708 · 16 / 바이트 단위 256 · 794 · 2.23 · 0 / 바이트 BPE 300: 556 · 349 · 0.98 · 0. 참고 GPT-2 1.92 · GPT-4o 0.51 토큰/글자.</p>
+              <p><strong>핵심:</strong> 어절 단위는 토큰이 가장 적지만 65%가 UNK라 쓸 수 없다. UNK 0이면서 토큰이 적은 것은 바이트 BPE다. 우리 바이트 BPE 300(0.98)은 GPT-2(1.92)보다 낫고 GPT-4o(0.51)보다 못하다. 한국어로 병합을 배웠지만 어휘가 556개로 작기 때문이다.</p>
+              <p>시간이 오래 걸리면(약 1초) 병합 횟수를 줄이게 한다. 10초 제한에는 여유가 있다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>C2 토큰 수가 안 줄어든다</td><td>합친 뒤 <code>i++</code> 누락, 또는 <code>return syms</code>를 그대로 둠</td><td>겹침 검사 <code>['a','a','a']</code>로 확인</td></tr>
+                <tr><td>C3가 core와 몇 개 다르다</td><td>동점 처리 규칙이 다름</td><td>사전순 규칙을 넣으면 50/50</td></tr>
+                <tr><td>C3가 오래 걸린다</td><td>병합마다 문자열 전체를 다시 split</td><td>단어 빈도표(<code>freq</code>)로 한 번만 쪼갠다</td></tr>
+                <tr><td>C4 왕복 검사가 false</td><td>원문의 줄바꿈·연속 공백</td><td>비교 대상을 공백 정리한 <code>normalized</code>로</td></tr>
+                <tr><td>“바이트 조각이 왜 &lt;EC&gt;로 보이나”</td><td>한 바이트는 글자가 아니다</td><td><code>showSymbol</code>이 온전한 글자가 될 때만 글자로 보여 준다</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>같은 질문을 한국어로 하면 영어보다 API 비용이 몇 배 드는 것은 공정한가? 토크나이저를 만드는 회사는 무엇을 해야 하는가?</li>
+              <li>어휘를 100만 개로 키우면 모든 문제가 해결될까? 무엇을 잃는가?</li>
+              <li>“ㅋㅋㅋㅋ”, 신조어, 오타는 BPE에서 어떻게 잘릴까? 모델이 오타에 약한 이유와 관련 있는가?</li>
+              <li>숫자 “12,345”가 토큰마다 다르게 잘리면 LLM의 산수에 어떤 영향이 있을까?</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>쌍 세기·병합 (C1·C2)</td><td>정답 + 겹침 검사 통과</td><td>결과만 맞음</td><td>동작하지 않음</td></tr>
+                <tr><td>학습 루프 (C3)</td><td>core와 50/50 일치 + 동점 규칙 설명</td><td>학습은 되나 불일치</td><td>미완성</td></tr>
+                <tr><td>인코딩 (C4)</td><td>병합 순위 적용 + 왕복 검사 true</td><td>인코딩만 동작</td><td>미완성</td></tr>
+                <tr><td>비교·해석 (C5·토론)</td><td>UNK·토큰/글자로 단위를 비교하고 GPT-2/4o와 연결</td><td>표만 제시</td><td>미제출</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w02-bpe.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w02-bpe'), { outputTitle: 'BPE 병합 스텝퍼 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

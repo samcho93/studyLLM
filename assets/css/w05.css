@@ -1,0 +1,339 @@
+/* Week 5: attention calculator widget. Tokens from tokens.css only. */
+
+.w05-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w05-at-out h4 {
+  margin: 12px 0 6px;
+  font-size: var(--text-sm);
+}
+
+.w05-at-out h5 {
+  margin: 10px 0 4px;
+  font-size: 12.5px;
+}
+
+.w05-at-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* toggles */
+.w05-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: var(--space-3);
+  font-size: var(--text-sm);
+}
+
+.w05-tg {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  cursor: pointer;
+  font-weight: var(--weight-medium);
+}
+
+.w05-tg input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.w05-tg input:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* embedding editor */
+.w05-edit {
+  margin-top: var(--space-3);
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+}
+
+.w05-edit__head {
+  margin-bottom: 8px;
+  font-size: var(--text-sm);
+}
+
+.w05-edit__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-2) var(--space-4);
+  align-items: end;
+}
+
+.w05-pos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  font: 12px var(--font-mono);
+}
+
+.w05-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.w05-chip {
+  min-height: 32px;
+  padding: 2px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.w05-chip.sel {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--weight-bold);
+}
+
+.w05-chip.edited::after {
+  content: " ✎";
+}
+
+.w05-chip:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* step buttons */
+.w05-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0 2px;
+}
+
+/* matrices */
+.w05-mat-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.w05-mat,
+.w05-sum {
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.w05-mat th,
+.w05-mat td,
+.w05-sum th,
+.w05-sum td {
+  min-width: 2.9em;
+  height: 2.1em;
+  padding: 0 4px;
+  border: 1px solid var(--color-border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.w05-mat th,
+.w05-sum th {
+  background: var(--color-surface-2);
+  font-weight: var(--weight-bold);
+}
+
+.w05-mat .corner {
+  padding: 0 6px;
+  font-size: 10.5px;
+}
+
+.w05-mat td {
+  background: color-mix(in srgb, var(--color-accent) var(--w, 0%), var(--color-surface));
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.w05-mat td.num {
+  background: var(--color-surface);
+}
+
+.w05-mat td.dim {
+  color: var(--color-text-muted);
+}
+
+.w05-mat td.masked {
+  background: repeating-linear-gradient(135deg, var(--color-surface-2) 0 4px, var(--color-border) 4px 5px);
+  color: var(--color-text-muted);
+}
+
+.w05-mat td.future {
+  outline: 2px solid var(--color-danger);
+  outline-offset: -2px;
+}
+
+.w05-mat tr.sel th,
+.w05-mat tr.sel td {
+  border-top: 2px solid var(--color-accent2);
+  border-bottom: 2px solid var(--color-accent2);
+}
+
+.w05-mat th button {
+  width: 100%;
+  min-height: 28px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.w05-mat th button:hover {
+  background: var(--color-accent-soft);
+}
+
+.w05-mat th button:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.w05-mat tr.sel th button {
+  color: var(--color-accent2);
+}
+
+.w05-mat.plain td {
+  background: var(--color-surface);
+}
+
+.w05-sum td {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.w05-sum td.w {
+  color: var(--color-accent);
+  font-weight: var(--weight-bold);
+}
+
+.w05-sum tfoot th,
+.w05-sum tfoot td {
+  border-top: 2px solid var(--color-text-muted);
+  background: var(--color-accent2-soft);
+}
+
+.legend .w05-lg-w { background: color-mix(in srgb, var(--color-accent) 60%, var(--color-surface)); }
+.legend .w05-lg-mask { background: repeating-linear-gradient(135deg, var(--color-surface-2) 0 3px, var(--color-border-strong) 3px 4px); }
+.legend .w05-lg-fut { border: 2px solid var(--color-danger); }
+
+/* weight bars for the selected query */
+.w05-bars {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 8px;
+}
+
+.w05-bar {
+  display: grid;
+  grid-template-columns: 4em 1fr 3.4em;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.w05-bar .t {
+  overflow: hidden;
+  text-align: right;
+  font-weight: var(--weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w05-bar .b {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+}
+
+.w05-bar .b i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.w05-bar .v {
+  color: var(--color-text-muted);
+  font: 12px var(--font-mono);
+  text-align: right;
+}
+
+.w05-bar.masked .t,
+.w05-bar.masked .v {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w05-bar.future .b i {
+  background: var(--color-danger);
+}
+
+.w05-bar.future .t {
+  color: var(--color-danger);
+}
+
+/* multi-head */
+.w05-minis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.w05-mini {
+  margin: 0;
+}
+
+.w05-mini figcaption {
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+.w05-mat.mini th,
+.w05-mat.mini td {
+  min-width: 0;
+  width: 1.8em;
+  height: 1.8em;
+  padding: 0 2px;
+  font-size: 10.5px;
+}
+
+.w05-mat.mini th {
+  width: auto;
+}
+
+.w05-note {
+  margin: 8px 0 0;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.w05-details {
+  margin-top: 12px;
+}
+
+/* student-page figures */
+.w05-fig-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}

@@ -1,0 +1,430 @@
+/* Week 10: chat template viewer + LoRA calculator. Tokens from tokens.css only. */
+
+.w10-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w10-ct-out h4,
+.w10-lora-out h4 {
+  margin: 12px 0 6px;
+  font-size: var(--text-sm);
+}
+
+.w10-ct-out .callout,
+.w10-lora-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+/* ------------------------------------------------ chat template: controls */
+.w10-checks label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  font-weight: var(--weight-regular);
+}
+
+.w10-checks input {
+  accent-color: var(--color-accent);
+}
+
+.w10-msgs {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.w10-msg {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: start;
+  padding: 6px;
+  border: 1px solid var(--color-border);
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+}
+
+.w10-msg.w10-r-system { border-left-color: var(--color-more); }
+.w10-msg.w10-r-user { border-left-color: var(--color-accent); }
+.w10-msg.w10-r-assistant { border-left-color: var(--color-success); }
+
+.w10-msg select,
+.w10-msg textarea {
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 13.5px;
+}
+
+.w10-msg textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.w10-msg .w10-del {
+  min-width: 36px;
+  min-height: 36px;
+}
+
+@media (max-width: 520px) {
+  .w10-msg {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .w10-msg textarea {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.w10-fail-row {
+  align-items: center;
+  margin-top: 8px;
+}
+
+.w10-fail-label {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+.w10-fail-row .btn[aria-pressed="true"] {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ------------------------------------------------ chat template: view */
+.w10-view {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.w10-special {
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: var(--color-accent2-soft);
+  color: var(--color-accent2);
+  font-weight: var(--weight-bold);
+}
+
+.w10-role {
+  color: var(--color-more);
+  font-weight: var(--weight-bold);
+}
+
+.w10-nl {
+  color: var(--color-text-muted);
+  opacity: 0.6;
+}
+
+.w10-view.masked .off {
+  opacity: 0.4;
+}
+
+.w10-view.masked .tr {
+  background: var(--color-success-soft);
+  box-shadow: inset 0 -2px 0 var(--color-success);
+}
+
+.w10-view.masked .w10-special.tr {
+  color: var(--color-success);
+}
+
+.w10-cursor {
+  color: var(--color-accent);
+  animation: w10-blink 1s steps(1) infinite;
+}
+
+@keyframes w10-blink {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .w10-cursor { animation: none; }
+}
+
+.legend .w10-lg-sp { background: var(--color-accent2-soft); border: 1px solid var(--color-accent2); }
+.legend .w10-lg-role { background: var(--color-more-soft); border: 1px solid var(--color-more); }
+.legend .w10-lg-train { background: var(--color-success-soft); border-bottom: 3px solid var(--color-success); }
+.legend .w10-lg-mask { background: var(--color-surface-2); border: 1px solid var(--color-border); opacity: 0.6; }
+
+/* one cell per token */
+.w10-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.w10-strip i {
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--color-surface-2);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.w10-strip i.sp {
+  box-shadow: inset 0 0 0 2px var(--color-accent2);
+}
+
+.w10-strip i.tr {
+  background: var(--color-success);
+}
+
+/* failure panels */
+.w10-fail {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 2px dashed var(--color-border-strong);
+}
+
+.w10-tag {
+  margin-left: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.w10-cont {
+  margin: 8px 0;
+}
+
+.w10-cont-l {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+.w10-prompt {
+  padding: 1px 3px;
+  border-radius: 4px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.w10-gen {
+  background: var(--color-warning-soft);
+}
+
+.w10-dead {
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+/* ------------------------------------------------ LoRA calculator */
+.w10-targets {
+  margin: 0 0 10px;
+  padding: 6px 10px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.w10-targets legend {
+  padding: 0 4px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.w10-targets div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.w10-targets label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+}
+
+.w10-targets input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-accent);
+}
+
+.w10-mem {
+  display: grid;
+  gap: 8px;
+}
+
+.w10-mbar {
+  display: grid;
+  grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.w10-mbar .l {
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+}
+
+.w10-mbar .l small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: var(--weight-regular);
+}
+
+.w10-mbar .b {
+  position: relative;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--color-surface-2);
+}
+
+.w10-mbar .fill {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--color-accent);
+}
+
+.w10-mbar.lora .fill {
+  background: var(--color-success);
+}
+
+.w10-mbar .fill .frozen {
+  display: block;
+  height: 100%;
+  background: var(--color-text-muted);
+  opacity: 0.55;
+}
+
+.w10-mbar.infer .fill {
+  background: var(--color-border-strong);
+}
+
+.w10-mbar.over .fill {
+  background: var(--color-danger);
+}
+
+.w10-mbar .gpu {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--color-text);
+}
+
+.w10-mbar .v {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.w10-mbar .ok { color: var(--color-success); }
+.w10-mbar .no { color: var(--color-danger); }
+
+.w10-gpu-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+@media (max-width: 520px) {
+  .w10-mbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .w10-mbar .b {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.w10-table-wrap {
+  overflow-x: auto;
+}
+
+.w10-mods {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.w10-mods th,
+.w10-mods td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.w10-mods th[scope="row"],
+.w10-mods thead th:first-child {
+  text-align: left;
+}
+
+.w10-mods td {
+  font-family: var(--font-mono);
+}
+
+.w10-mods tr.off {
+  opacity: 0.45;
+}
+
+.w10-mods tr.bad td {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.w10-mods tr.sum th,
+.w10-mods tr.sum td {
+  color: var(--color-text-muted);
+  font-family: var(--font-sans);
+}
+
+.w10-formula pre {
+  margin: 6px 0 0;
+  padding: 10px 12px;
+  overflow-x: auto;
+  border-radius: 8px;
+  background: var(--color-code-bg);
+  color: var(--color-code-fg);
+  font: 12px/1.6 var(--font-mono);
+  white-space: pre;
+}
+
+/* ------------------------------------------------ page figures */
+.w10-fig-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}

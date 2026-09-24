@@ -1,0 +1,319 @@
+/* Week 3: embedding space explorer. Tokens from tokens.css only. */
+
+.w03-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w03-emb .btn[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.w03-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.w03-busy[hidden] {
+  display: none;
+}
+
+.w03-msg {
+  min-height: 0;
+  margin: 6px 0 0;
+  color: var(--color-warning);
+  font-size: 12.5px;
+}
+
+.w03-msg:empty {
+  display: none;
+}
+
+.w03-out h4 {
+  margin: 12px 0 6px;
+  font-size: var(--text-sm);
+}
+
+.w03-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.w03-out .callout + .w03-muted,
+.w03-note {
+  margin: 4px 0 8px;
+  font-size: 12px;
+}
+
+/* 2D map */
+.w03-map {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+}
+
+.w03-map svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.w03-dot {
+  fill: var(--color-text-muted);
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.w03-dot.fq {
+  opacity: 0.8;
+}
+
+.w03-dot.nb {
+  fill: var(--color-accent);
+  opacity: 1;
+}
+
+.w03-dot.sel {
+  fill: var(--color-accent2);
+  stroke: var(--color-surface);
+  stroke-width: 1.5;
+  opacity: 1;
+}
+
+.w03-pt {
+  cursor: pointer;
+}
+
+.w03-lab {
+  font: 11px var(--font-sans);
+  fill: var(--color-text-muted);
+  paint-order: stroke;
+  stroke: var(--color-bg);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.w03-lab.nb {
+  fill: var(--color-accent);
+  font-weight: var(--weight-bold);
+}
+
+.w03-lab.sel {
+  fill: var(--color-accent2);
+  font-size: 13px;
+  font-weight: var(--weight-heavy);
+}
+
+.w03-link-line {
+  stroke: var(--color-accent);
+  stroke-width: 1.4;
+}
+
+.legend .w03-lg-sel { border-radius: 50%; background: var(--color-accent2); }
+.legend .w03-lg-nb { border-radius: 50%; background: var(--color-accent); }
+.legend .w03-lg-dot { border-radius: 50%; background: var(--color-text-muted); }
+
+/* neighbour table */
+.w03-nb {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.w03-nb th,
+.w03-nb td {
+  padding: 3px 6px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+}
+
+.w03-nb th {
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: var(--weight-medium);
+}
+
+.w03-num {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.w03-simcell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.w03-simbar {
+  flex: 1;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+}
+
+.w03-simbar i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.w03-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.w03-link:focus-visible {
+  border-radius: 3px;
+  box-shadow: var(--focus-ring);
+}
+
+.w03-rare {
+  margin-left: 4px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 10.5px;
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+/* the vector itself */
+.w03-vec p {
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.w03-mono {
+  font-family: var(--font-mono);
+  word-break: break-all;
+}
+
+.w03-cell {
+  padding: 0 2px;
+  border-radius: 3px;
+  color: var(--color-text-muted);
+}
+
+.w03-cell.on {
+  background: var(--color-accent2-soft);
+  color: var(--color-accent2);
+  font-weight: var(--weight-bold);
+}
+
+.w03-strip {
+  display: grid;
+  grid-template-columns: repeat(var(--n), 1fr);
+  gap: 1px;
+  height: 22px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
+.w03-comp.pos {
+  background: color-mix(in srgb, var(--color-accent) var(--w, 0%), var(--color-surface));
+}
+
+.w03-comp.neg {
+  background: color-mix(in srgb, var(--color-danger) var(--w, 0%), var(--color-surface));
+}
+
+.w03-bar {
+  display: grid;
+  grid-template-columns: 5em 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 2px 0;
+  font-size: 13px;
+}
+
+.w03-bar .t {
+  overflow: hidden;
+  font-weight: var(--weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w03-bar .b {
+  height: 12px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+}
+
+.w03-bar .b i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.w03-bar .v {
+  color: var(--color-text-muted);
+  font: 12px var(--font-mono);
+  white-space: nowrap;
+}
+
+/* similarity heatmap */
+.w03-heat-wrap {
+  overflow-x: auto;
+}
+
+.w03-heat {
+  margin: 0;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.w03-heat th,
+.w03-heat td {
+  min-width: 2.9em;
+  height: 2.2em;
+  padding: 0 3px;
+  border: 1px solid var(--color-border);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.w03-heat th {
+  background: var(--color-surface-2);
+  font-weight: var(--weight-medium);
+}
+
+.w03-heat th.sel {
+  background: var(--color-accent2-soft);
+  color: var(--color-accent2);
+}
+
+.w03-heat .corner {
+  color: var(--color-text-muted);
+  font-size: 10.5px;
+}
+
+.w03-heat td {
+  background: color-mix(in srgb, var(--color-accent) var(--w, 0%), var(--color-surface));
+  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.w03-heat td.neg {
+  background: color-mix(in srgb, var(--color-danger) var(--w, 0%), var(--color-surface));
+}

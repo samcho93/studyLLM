@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3주차 임베딩: 단어를 벡터로 · LLM Lab</title>
+  <meta name="description" content="원-핫 벡터가 비슷함을 담지 못하는 이유에서 출발해, 동시 출현 횟수 · PPMI · SVD로 단어 벡터를 직접 만들고 코사인 유사도로 이웃을 찾는다. LLM 첫 층의 임베딩 표로 연결한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w03.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="3" data-crumb="PART 1 · 언어를 숫자로 › <b>3주차 · 임베딩: 단어를 벡터로</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🧭 3주차 · 임베딩: 단어를 벡터로</span>
+      <h1>비슷한 단어는 가까이 둔다</h1>
+      <p class="lead">1주차 빈도표는 “실습실은 평일”을 알아도 “실습실은 토요일”에는 확률 0을 줬다. 평일과 토요일이 비슷하다는 것을 모르기 때문이다. 이번 주는 토큰을 숫자 여러 개로 된 벡터로 바꿔 “비슷한 단어는 가까운 벡터”가 되게 만든다. 주변 단어를 세는 것만으로 이것을 직접 해 보고, LLM의 첫 층이 바로 이런 벡터 표라는 것을 확인한다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 임베딩 공간 탐색기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 글을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div><b>임베딩</b></div><div>어텐션</div><div>트랜스포머</div><div>다음 토큰 확률</div><div>뽑기</div><div>학습·평가</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>원-핫 벡터끼리는 코사인 유사도가 모두 0이라 “비슷함”을 담지 못한다는 것과, 분포 가설(비슷한 문맥에 나오는 단어는 뜻도 비슷하다)을 설명할 수 있다.</li>
+          <li>창 안의 동시 출현을 세어 단어 벡터를 만들고, PPMI와 SVD로 다듬은 뒤 코사인 유사도로 가까운 단어를 찾는 코드를 작성할 수 있다.</li>
+          <li>LLM의 첫 층이 “어휘 크기 × d” 임베딩 표이고, LLM은 이 표를 세지 않고 역전파로 학습한다는 것을 설명할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>2주차 토크나이저를 거치면 문장은 토큰 번호의 열이 된다. 그런데 번호는 이름표일 뿐이다. 17번 토큰과 18번 토큰은 번호가 가까워도 뜻이 가깝지 않다. 1주차 빈도표도 토큰을 서로 무관한 기호로 다뤘다. 그래서 “평일”로 배운 것을 “토요일”에 조금도 나눠 주지 못했고, 처음 보는 문맥에서는 확률이 0이 됐다.</p>
+        <p>사람은 다르다. “온도를 낮추면 ___가 뾰족해진다”에서 빈칸이 “확률”이든 “분포”든 비슷하게 말이 된다는 것을 안다. 두 단어가 <em>비슷한 자리에 나온다</em>는 것을 봐 왔기 때문이다. 모델이 일반화하려면 토큰마다 “무엇과 비슷한가”를 담은 표현이 필요하다.</p>
+        <div class="callout">
+          <span class="callout__title">분포 가설 (distributional hypothesis)</span>
+          <p>비슷한 문맥에 나타나는 단어는 비슷한 의미를 가진다. 언어학자 퍼스(J. R. Firth)는 “단어는 함께 어울리는 단어를 보면 알 수 있다”고 요약했다. 이번 주의 모든 계산은 이 한 줄을 숫자로 옮기는 일이다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>원-핫: 공평하지만 아무것도 모른다</h3>
+        <p>토큰을 벡터로 바꾸는 가장 쉬운 방법은 <strong>원-핫(one-hot)</strong> 벡터다. 어휘가 V개면 길이 V짜리 벡터를 만들고 자기 번호 칸에만 1, 나머지는 모두 0을 넣는다. 번호의 크기 차이가 사라져 공평하다. 그러나 너무 공평하다.</p>
+        <p>두 벡터가 얼마나 같은 방향인지는 <strong>코사인 유사도(cosine similarity)</strong>로 잰다. 1이면 같은 방향, 0이면 직각, −1이면 반대 방향이다.</p>
+        <pre><code class="language-text">cos(a, b) = (a · b) / (|a| × |b|)        a · b = Σ aᵢ bᵢ  (내적)</code></pre>
+        <p>서로 다른 두 원-핫 벡터는 1이 있는 칸이 겹치지 않는다. 내적이 0이므로 코사인도 0이고, 거리는 모두 √2 ≈ 1.414다. “확률”과 “온도”도, “확률”과 “실습실”도 똑같이 무관하다. 원-핫은 단어를 구별만 할 뿐 비슷함은 전혀 담지 못한다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 230" role="img" aria-labelledby="w03-fig1-t" style="width: 100%">
+            <title id="w03-fig1-t">왼쪽: 원-핫 벡터는 세 단어가 서로 직각인 세 축 위에 있어 모든 코사인이 0이다. 오른쪽: 임베딩에서는 확률과 온도가 거의 같은 방향이고 실습실은 다른 방향이다.</title>
+            <style>
+              .w03f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w03f-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w03f-w { font: 700 12.5px var(--font-sans); fill: var(--color-text); }
+              .w03f-a { stroke: var(--color-accent); stroke-width: 3; fill: none; marker-end: url(#w03-a1); }
+              .w03f-a2 { stroke: var(--color-accent2); stroke-width: 3; fill: none; marker-end: url(#w03-a2); }
+              .w03f-ax { stroke: var(--color-border-strong); stroke-width: 1; stroke-dasharray: 3 3; }
+              .w03f-arc { stroke: var(--color-text-muted); stroke-width: 1.2; fill: none; }
+              .w03f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+            </style>
+            <defs>
+              <marker id="w03-a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-accent)"/></marker>
+              <marker id="w03-a2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-accent2)"/></marker>
+            </defs>
+            <rect class="w03f-box" x="0" y="0" width="300" height="200" rx="10"/>
+            <text class="w03f-l" x="14" y="24">원-핫 (279차원 중 3칸만 그림)</text>
+            <path class="w03f-a" d="M110 160 H240"/>
+            <path class="w03f-a" d="M110 160 V52"/>
+            <path class="w03f-a" d="M110 160 L52 196"/>
+            <text class="w03f-w" x="246" y="164">확률</text>
+            <text class="w03f-w" x="116" y="56">온도</text>
+            <text class="w03f-w" x="8" y="178">실습실</text>
+            <path class="w03f-arc" d="M134 160 A24 24 0 0 0 110 136"/>
+            <text class="w03f-n" x="138" y="136">90°</text>
+            <text class="w03f-n" x="170" y="96">모든 쌍의 cos = 0</text>
+            <text class="w03f-n" x="170" y="114">모든 쌍의 거리 = √2</text>
+            <rect class="w03f-box" x="340" y="0" width="300" height="200" rx="10"/>
+            <text class="w03f-l" x="354" y="24">임베딩 (밀집 벡터, 30차원 → 2D 개념도)</text>
+            <path class="w03f-ax" d="M450 170 H620 M450 170 V40"/>
+            <path class="w03f-a2" d="M450 170 L582 122"/>
+            <path class="w03f-a2" d="M450 170 L511 67"/>
+            <path class="w03f-a" d="M450 170 L411 67"/>
+            <text class="w03f-w" x="588" y="126">확률</text>
+            <text class="w03f-w" x="515" y="62">온도</text>
+            <text class="w03f-w" x="366" y="62">실습실</text>
+            <text class="w03f-n" x="410" y="190">cos(확률, 온도) = 0.77 (약 40°)</text>
+            <text class="w03f-n" x="0" y="222">오른쪽 값은 이 코퍼스로 만든 PPMI + SVD 30차원 벡터에서 잰 실제 값이다. cos(확률, 실습실) = −0.01.</text>
+          </svg>
+          <figcaption>원-핫은 모든 단어가 서로 직각이다. 임베딩은 비슷하게 쓰이는 단어를 같은 방향으로 모은다.</figcaption>
+        </figure>
+
+        <h3>분포 가설을 숫자로: 창 안의 이웃 세기</h3>
+        <p>“함께 어울리는 단어”를 세는 가장 직접적인 방법은 <strong>창(window)</strong>이다. 각 단어의 앞뒤 w개 단어를 문맥으로 보고, (단어, 문맥 단어) 쌍이 몇 번 나왔는지 센다. 결과는 어휘 × 어휘 크기의 <strong>동시 출현 행렬(co-occurrence matrix)</strong>이고, 그 한 행이 곧 그 단어의 벡터다. 1주차 빈도표가 “바로 다음 글자”만 셌다면, 이번에는 “앞뒤 이웃 전부”를 센다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 250" role="img" aria-labelledby="w03-fig2-t" style="width: 100%">
+            <title id="w03-fig2-t">문장 “온도는 확률 분포의 모양을 바꾼다”를 조사를 뗀 단어로 나누고, 확률을 가운데 둔 창 ±2 안의 온도, 분포, 모양을 확률 행에 한 번씩 더하는 과정. 아래는 코퍼스 전체로 센 확률 행의 큰 칸.</title>
+            <style>
+              .w03g-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w03g-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w03g-t { font: 700 13px var(--font-sans); fill: var(--color-text); }
+              .w03g-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w03g-tok { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w03g-ctx { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w03g-mid { fill: var(--color-accent2-soft); stroke: var(--color-accent2); stroke-width: 2; }
+              .w03g-win { fill: none; stroke: var(--color-accent); stroke-width: 1.5; stroke-dasharray: 5 4; }
+              .w03g-bar { fill: var(--color-accent); }
+              .w03g-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w03-g); }
+            </style>
+            <defs><marker id="w03-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w03g-n" x="0" y="16">원문: 온도는 확률 분포의 모양을 바꾼다. → 조사를 떼고 단어로 나눈다</text>
+            <rect class="w03g-win" x="4" y="28" width="398" height="52" rx="10"/>
+            <rect class="w03g-ctx" x="12" y="36" width="80" height="36" rx="8"/><text class="w03g-t" x="36" y="59">온도</text>
+            <rect class="w03g-mid" x="108" y="36" width="80" height="36" rx="8"/><text class="w03g-t" x="132" y="59">확률</text>
+            <rect class="w03g-ctx" x="204" y="36" width="80" height="36" rx="8"/><text class="w03g-t" x="228" y="59">분포</text>
+            <rect class="w03g-ctx" x="300" y="36" width="80" height="36" rx="8"/><text class="w03g-t" x="324" y="59">모양</text>
+            <rect class="w03g-tok" x="412" y="36" width="80" height="36" rx="8"/><text class="w03g-t" x="428" y="59">바꾼다</text>
+            <text class="w03g-n" x="506" y="52">창 ±2: 확률의</text>
+            <text class="w03g-n" x="506" y="68">왼쪽 1개, 오른쪽 2개</text>
+            <path class="w03g-arr" d="M148 84 V112"/>
+            <text class="w03g-m" x="0" y="132">확률 행 += { 온도: +1, 분포: +1, 모양: +1 }</text>
+            <text class="w03g-l" x="0" y="164">코퍼스 전체(창 ±3)로 센 “확률” 행의 큰 칸</text>
+            <text class="w03g-m" x="0" y="188">토큰</text><rect class="w03g-bar" x="60" y="177" width="240" height="13" rx="3"/><text class="w03g-m" x="308" y="188">8</text>
+            <text class="w03g-m" x="0" y="208">높은</text><rect class="w03g-bar" x="60" y="197" width="90" height="13" rx="3"/><text class="w03g-m" x="158" y="208">3</text>
+            <text class="w03g-m" x="0" y="228">바꾼다</text><rect class="w03g-bar" x="60" y="217" width="90" height="13" rx="3"/><text class="w03g-m" x="158" y="228">3</text>
+            <text class="w03g-m" x="0" y="248">샘플링</text><rect class="w03g-bar" x="60" y="237" width="90" height="13" rx="3"/><text class="w03g-m" x="158" y="248">3</text>
+            <text class="w03g-n" x="360" y="190">1등 “토큰”은 코퍼스에서</text>
+            <text class="w03g-n" x="360" y="208">가장 흔한 단어(36번)다.</text>
+            <text class="w03g-n" x="360" y="226">흔해서 어디에나 끼어 있다.</text>
+          </svg>
+          <figcaption>창 안의 이웃을 세면 단어마다 “어떤 단어들과 어울렸는가”를 담은 벡터가 생긴다.</figcaption>
+        </figure>
+        <p>이번 주 단어는 공백과 문장 부호로 자른 뒤 흔한 조사·어미(은/는/이/가/을/를/에/의/로/으로/와/과/도/에서/이다/한다)를 하나 떼어 만든다. 형태소 분석기보다 거칠어서 “계산하”, “고르” 같은 조각도 남는다. 코퍼스 17문서는 1,626단어, 902종이고, 그중 623종은 딱 한 번 나온다. 한 번 나온 단어는 벡터를 만들 근거가 없으므로 <strong>두 번 이상 나온 279단어</strong>만 어휘로 쓴다.</p>
+
+        <h3>PPMI: 흔한 단어의 힘을 뺀다</h3>
+        <p>횟수를 그대로 쓰면 흔한 단어가 벡터를 지배한다. “확률” 벡터의 가장 큰 칸이 “토큰”인 것은 둘이 특별한 사이여서라기보다 “토큰”이 워낙 흔해서다. 이런 흔한 단어 근처에 있던 단어끼리는 모두 비슷해진다. 실제로 창 ±3 횟수 벡터에서 이웃 목록에 가장 자주 끼는 단어(허브)는 “바이그램”(38개 단어의 이웃), “다음”(32), “확률”(31)이다.</p>
+        <p><strong>점별 상호정보량(PMI, pointwise mutual information)</strong>은 “우연이라면 이만큼 만났을 텐데, 실제로는 몇 배 더 만났나”를 로그로 잰다. 음수(우연보다 덜 만남)는 믿을 만하지 않으므로 0으로 자른 것이 <strong>PPMI(positive PMI)</strong>다.</p>
+        <pre><code class="language-text">PMI(w, c) = log( P(w, c) / (P(w) × P(c)) )     PPMI = max(PMI, 0)
+P(w, c) = count(w, c) / 전체 쌍 수,   P(w) = w 행의 합 / 전체 쌍 수</code></pre>
+        <table>
+          <thead><tr><th>“확률”의 이웃 (창 ±3)</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+          <tbody>
+            <tr><td>동시 출현 횟수</td><td>뽑는다 .64</td><td>다음 .64</td><td>보고 .63</td><td>1보다 .62</td><td>top .60</td></tr>
+            <tr><td>PPMI</td><td>샘플링 .57</td><td>높은 .51</td><td>1보다 .44</td><td>토큰 .44</td><td>온도 .41</td></tr>
+            <tr><td>PPMI + SVD 30차원</td><td>샘플링 .88</td><td>뽑는다 .85</td><td>top .85</td><td>높은 .81</td><td>안에서만 .78</td></tr>
+          </tbody>
+        </table>
+        <p>PPMI 뒤에는 “샘플링”, “온도”처럼 디코딩 주제의 단어가 올라온다. 대신 PPMI에는 약점이 있다. 두 번만 나온 단어도 한두 번 겹치면 PMI가 커진다. 코퍼스가 작을수록 엉뚱한 이웃이 섞인다(예: “임베딩”의 이웃에 “비용”, “못”). 이것은 버그가 아니라 데이터가 1,626단어뿐이라서 생기는 일이다.</p>
+
+        <h3>SVD: 279차원을 k차원으로 압축한다</h3>
+        <p>PPMI 벡터는 279차원이고 칸의 96%가 0이다(희소). 어휘가 5만이면 벡터도 5만 차원이 된다. <strong>특잇값 분해(SVD)</strong>로 가장 중요한 방향 k개만 남기면 모든 칸에 값이 있는 짧은 <strong>밀집 벡터(dense vector)</strong>가 된다. 자주 함께 움직이는 차원이 하나로 합쳐지므로, 두 단어가 직접 만난 적이 없어도 비슷한 이웃을 가졌다면 가까워진다.</p>
+        <p>이번 주 <code>cooc.js</code>는 거듭제곱 반복(power iteration)으로 SVD를 구한다. 무작위 벡터 k개에 행렬을 반복해서 곱하고 서로 직교하게 맞추면(그람-슈미트) 가장 큰 방향 k개로 수렴한다. k를 너무 작게 잡으면 망가진다.</p>
+        <table>
+          <thead><tr><th>SVD 차원 k</th><th>2</th><th>5</th><th>10</th><th>30</th><th>100</th></tr></thead>
+          <tbody>
+            <tr><td>1등 이웃의 평균 코사인 (흔한 단어 50개)</td><td><strong>1.000</strong></td><td>0.984</td><td>0.924</td><td>0.790</td><td>0.477</td></tr>
+            <tr><td>PPMI 이웃 8개와 겹친 개수</td><td>0.9</td><td>2.58</td><td>3.8</td><td>5.08</td><td>6.14</td></tr>
+          </tbody>
+        </table>
+        <p>k = 2면 모든 단어가 두 방향 중 하나에 몰려 1등 이웃의 코사인이 1.000이 된다. 모두가 이웃이면 아무도 이웃이 아니다. k를 키울수록 PPMI 원본에 가까워진다. 압축과 보존 사이의 균형점을 고르는 것이다.</p>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — SVD로 차원을 줄이는 것은 <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a> “군집과 차원 축소” 단원의 주성분 분석(PCA)과 같은 계산이다. 위젯의 2D 지도도 PCA로 그린다. 그때 “2차원에 담긴 분산 비율”을 확인했듯, 여기서도 2D 지도에 담긴 분산은 10%도 안 된다(횟수 8.6%, PPMI 5.1%, SVD 30차원 9.4%). 지도보다 이웃 표를 믿는다.</p></div>
+
+        <h3>LLM의 첫 층 = 어휘 × d 임베딩 표</h3>
+        <p>SVD로 만든 결과를 다시 보면 “단어 279개 × 30차원” 표다. 단어 번호로 행 하나를 꺼내면 그 단어의 벡터다. LLM의 첫 층인 <strong>임베딩 층(embedding layer)</strong>이 정확히 이 모양이다. 원-핫 벡터에 표를 곱하는 것과 표의 행 하나를 꺼내는 것은 같은 계산이어서, 실제 구현은 곱셈 없이 행을 꺼낸다.</p>
+        <pre><code class="language-text">원-핫(확률) [0 … 0 1 0 … 0]  ×  표 E (어휘 V × d)  =  E의 “확률” 행 (d개의 숫자)
+GPT-2 small:  V = 50,257,  d = 768  →  표 하나에 파라미터 38,597,376개</code></pre>
+        <p>차이는 표를 채우는 방법이다. 이번 주는 이웃을 <em>세서</em> 채웠다. LLM은 표를 무작위 숫자로 시작해, 다음 토큰을 더 잘 맞히도록 <strong>역전파</strong>로 조금씩 고친다. 비슷한 자리에 나오는 토큰은 비슷한 방향으로 고쳐지므로, 세지 않아도 분포 가설이 표에 스며든다. 4주차에 이 학습을 직접 해 보고, 7주차 미니 GPT에서 표 전체를 학습한다.</p>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>표현 방식, 창 크기, SVD 차원 k를 바꾸면 코퍼스 전체의 단어 벡터를 그 자리에서 다시 만든다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). 이웃 표나 지도의 단어를 누르면 그 단어로 바뀐다. 표의 <span class="w03-rare">⚠ 드묾</span>은 코퍼스에 두 번만 나온 단어다.</p>
+        <div id="w03-embedding"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>표현 방식을 ① 원-핫으로 둔다. 이웃 8개의 코사인은 얼마인가? 이웃 순서는 무엇을 따른 것인가? 유사도 표는 어떤 모양인가?</li>
+          <li>② 동시 출현 횟수로 바꾸고 “확률”을 본다. 벡터에서 가장 큰 칸은 어떤 단어이고, 그 단어는 코퍼스에 몇 번 나오는가? 허브 목록의 단어들은 “확률”과 무슨 관계인가?</li>
+          <li>③ PPMI로 바꾼다. 이웃 목록과 허브가 어떻게 달라졌나? 평균 코사인은 올랐나 내렸나? <span class="w03-rare">⚠ 드묾</span> 표시가 붙은 이웃은 몇 개인가?</li>
+          <li>④ PPMI + SVD로 두고 k를 2 → 5 → 30 → 100으로 바꾼다. 결과 상자가 “모두가 이웃이다”로 바뀌는 k는 어디까지인가? 유사도 표의 블록(디코딩 · 벡터 · 검색)은 언제 가장 뚜렷한가?</li>
+          <li>k = 30에서 창 크기를 1과 5로 바꿔 “실습실”과 “검색”의 이웃을 비교한다. 창이 넓을 때와 좁을 때 이웃의 성격(같은 주제 / 같은 문장 성분)이 어떻게 다른가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. C2부터는 이번 주 도구 <code>/assets/js/core/cooc.js</code>의 단어 나누기(<code>corpusWords</code>)와 어휘(<code>buildVocab</code>)를 가져다 쓴다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 원-핫 벡터와 코사인 유사도</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>코퍼스의 모든 단어 종류(902개)로 원-핫 벡터를 만들고, 코사인 유사도와 유클리드 거리를 직접 구현한다. 네 단어의 유사도 표를 출력하면 대각선만 1이고 나머지는 모두 0이어야 한다. 거리는 어떤 쌍이든 √2 ≈ 1.414다. “확률”이 “온도”와 “실습실” 중 어느 쪽에 더 가까운지 원-핫으로 판단할 수 있는가?</p>
+          <pre data-run="c1" data-title="C1 원-핫과 코사인"><code class="language-javascript">import { tokenizeWords } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const words = corpus.documents.flatMap((d) =&gt; tokenizeWords(d.text));
+const vocab = [...new Set(words)].sort(); // 모든 단어 종류, 가나다순
+console.log('단어 수:', words.length, '어휘 크기 V:', vocab.length);
+console.log('첫 문장의 단어:', words.slice(0, 8).join(' | '));
+
+function oneHot(word) {
+  const v = new Array(vocab.length).fill(0);
+  // TODO: vocab에서 word의 번호를 찾아 그 칸만 1로 만든다
+  return v;
+}
+
+function cosine(a, b) {
+  // TODO: 내적 / (길이 × 길이). 길이가 0이면 0을 돌려준다
+  return 0;
+}
+
+function distance(a, b) {
+  // TODO: 유클리드 거리 √Σ(aᵢ − bᵢ)²
+  return 0;
+}
+
+const probe = ['확률', '온도', '토큰', '실습실'];
+console.table(probe.map((a) =&gt; Object.fromEntries([['단어', a], ...probe.map((b) =&gt; [b, +cosine(oneHot(a), oneHot(b)).toFixed(3)])])));
+console.log('거리(확률, 온도) =', distance(oneHot('확률'), oneHot('온도')).toFixed(3));
+console.log('거리(확률, 실습실) =', distance(oneHot('확률'), oneHot('실습실')).toFixed(3));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 창 안의 동시 출현 세기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>문서마다 단어 배열이 주어진다. 각 단어의 앞뒤 <code>window</code>개 단어를 세어 “단어 → (문맥 단어 → 횟수)” 표를 만든다. 창은 문서 경계를 넘지 않는다. 창 ±1과 ±3에서 “확률” 행을 비교한다. 기대 결과: ±1에서는 0이 아닌 칸이 15개, ±3에서는 43개이고, ±3의 1등은 “토큰” 8회다.</p>
+          <pre data-run="c2" data-title="C2 동시 출현 세기"><code class="language-javascript">import { corpusWords } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus); // 문서마다 단어 배열 (조사를 뗀 형태)
+console.log('첫 문서 앞부분:', docs[0].slice(0, 10).join(' '));
+
+/** table: Map&lt;word, Map&lt;context word, count&gt;&gt; — 창은 문서를 넘지 않는다 */
+function countWindow(docs, window) {
+  const table = new Map();
+  for (const doc of docs) {
+    for (let i = 0; i &lt; doc.length; i++) {
+      // TODO: j = i − window … i + window (i 자신과 문서 밖은 제외) 에 대해
+      //       table의 doc[i] 행에서 doc[j] 칸을 1 늘린다
+    }
+  }
+  return table;
+}
+
+function topContexts(table, word, k = 8) {
+  // TODO: word 행을 횟수 내림차순으로 정렬해 [{ ctx, count }] 상위 k개를 돌려준다
+  return [];
+}
+
+for (const w of [1, 3]) {
+  const table = countWindow(docs, w);
+  console.log(`창 ±${w}: “확률” 행의 0 아닌 칸 수 =`, table.get('확률')?.size ?? 0);
+  console.table(topContexts(table, '확률'));
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 코사인 유사도로 가까운 단어 찾기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>이번에는 <code>cooccurrence()</code>가 만든 279 × 279 횟수 행렬을 쓴다. 행 하나가 단어 벡터다. 코사인 유사도와 최근접 이웃 <code>nearest</code>를 구현하고 “확률”, “임베딩”, “실습실”의 이웃 8개를 출력한다. 기대 결과: cos(확률, 온도) = 0.527, cos(확률, 실습실) = 0.000. 원-핫과 무엇이 달라졌는가? 이웃 목록에서 이상한 단어도 찾아본다.</p>
+          <pre data-run="c3" data-title="C3 코사인 최근접"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, row } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);          // 두 번 이상 나온 단어 → vocab.words, vocab.index
+const C = cooccurrence(docs, vocab, 3);     // V × V 횟수 행렬, row(C, i) = i번 단어의 벡터
+console.log('어휘:', vocab.size, '벡터 차원:', C.cols);
+
+function cosine(a, b) {
+  // TODO: 내적 / (길이 × 길이), 길이 0이면 0
+  return 0;
+}
+
+function nearest(word, k = 8) {
+  const i = vocab.index.get(word);
+  const out = [];
+  // TODO: 자신을 뺀 모든 단어 j에 대해 { word, sim: cosine(row(C, i), row(C, j)) }를 모으고
+  //       sim 내림차순으로 정렬해 상위 k개를 돌려준다
+  return out;
+}
+
+const sim = (a, b) =&gt; cosine(row(C, vocab.index.get(a)), row(C, vocab.index.get(b)));
+console.log('cos(확률, 온도) =', sim('확률', '온도').toFixed(3), ' cos(확률, 실습실) =', sim('확률', '실습실').toFixed(3));
+for (const w of ['확률', '임베딩', '실습실']) {
+  console.log(w, '→', nearest(w).map((r) =&gt; `${r.word} ${r.sim.toFixed(2)}`).join(', '));
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. PPMI로 흔한 단어의 힘 빼기</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>횟수 행렬을 PPMI 행렬로 바꾸는 <code>ppmi</code>를 구현하고, 세 단어의 이웃 5개를 횟수와 PPMI로 나란히 비교한다. “확률” 벡터의 가장 큰 칸도 두 방식으로 출력한다(횟수의 1등은 빈도 36인 “토큰”). 마지막 TODO에서 모든 단어의 이웃 5개를 모아 가장 자주 등장한 <strong>허브</strong> 단어를 찾는다. PPMI의 허브가 횟수의 허브보다 덜 몰리는지 확인한다.</p>
+          <pre data-run="c4" data-title="C4 PPMI"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, matrix, row, nearest } from '/assets/js/core/cooc.js';
+// nearest(M, i, k, words) → [{ id, word, sim }]  (C3에서 만든 것과 같다)
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const C = cooccurrence(docs, vocab, 3);
+const n = vocab.size;
+
+function ppmi(C) {
+  const M = matrix(n, n); // M.data[i * n + j]
+  // TODO: 행 합 rowSum[i], 전체 합 total을 구한다 (C는 대칭이라 열 합 = 행 합)
+  // TODO: C의 0이 아닌 칸마다 pmi = log( C[i][j] · total / (rowSum[i] · rowSum[j]) )
+  //       pmi &gt; 0 이면 M에 넣고, 아니면 0으로 둔다
+  return M;
+}
+const P = ppmi(C);
+
+const top = (M, w, k = 5) =&gt; nearest(M, vocab.index.get(w), k, vocab.words).map((r) =&gt; `${r.word} ${r.sim.toFixed(2)}`).join(', ');
+for (const w of ['확률', '임베딩', '검색']) {
+  console.log(`${w}\n  횟수 → ${top(C, w)}\n  PPMI → ${top(P, w)}`);
+}
+
+// “확률” 벡터에서 가장 큰 칸 (차원 = 문맥 단어)
+const biggest = (M, w) =&gt; [...row(M, vocab.index.get(w))].map((x, j) =&gt; ({ ctx: vocab.words[j], value: +x.toFixed(2), 빈도: vocab.counts[j] }))
+  .sort((a, b) =&gt; b.value - a.value).slice(0, 5);
+console.table(biggest(C, '확률'));
+console.table(biggest(P, '확률'));
+
+// TODO: 허브 찾기 — 모든 단어의 이웃 5개를 모아, 가장 자주 등장한 단어 5개를 횟수(C)와 PPMI(P)에서 각각 출력한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. SVD 차원과 벡터 산술</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p><code>truncatedSVD</code>로 PPMI를 k = 2, 5, 10, 30, 100차원으로 줄인다. 흔한 단어 50개에 대해 ① SVD 이웃 8개 중 PPMI 이웃과 겹치는 개수 ② 1등 이웃의 코사인을 평균 내어 표로 만든다. 이어서 “a : b = c : ?”를 b − a + c에 가장 가까운 단어로 푸는 <code>analogy</code>를 구현한다. 대규모 코퍼스의 임베딩에서는 “왕 − 남자 + 여자 ≈ 여왕”이 유명하다. 이 코퍼스에서는 어떤가? 답이 c의 이웃 목록과 얼마나 비슷한지 비교하고, 왜 그런지 설명한다.</p>
+          <pre data-run="c5" data-title="C5 SVD와 유추"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, ppmi, truncatedSVD, nearest, row } from '/assets/js/core/cooc.js';
+// truncatedSVD(M, k).vectors → V × k 밀집 벡터 · nearest(M, i, k, words) → [{ id, word, sim }]
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const P = ppmi(cooccurrence(docs, vocab, 3)); // 279차원 희소 벡터
+const id = (w) =&gt; vocab.index.get(w);
+const probe = vocab.words.slice(0, 50).map(id); // 가장 흔한 단어 50개로 잰다
+
+const rows = [];
+for (const k of [2, 5, 10, 30, 100]) {
+  const S = truncatedSVD(P, k).vectors;
+  let overlap = 0, top1 = 0;
+  for (const i of probe) {
+    // TODO: SVD 이웃 8개(S)와 PPMI 이웃 8개(P)가 몇 개 겹치는지 overlap에 더한다
+    // TODO: SVD 1등 이웃의 코사인을 top1에 더한다
+  }
+  rows.push({
+    k,
+    '겹친 이웃 (8개 중)': +(overlap / probe.length).toFixed(2),
+    '1등 이웃 코사인': +(top1 / probe.length).toFixed(3),
+    '확률의 이웃': nearest(S, id('확률'), 3, vocab.words).map((r) =&gt; r.word).join(' '),
+  });
+}
+console.table(rows);
+
+/** a : b = c : ?  →  b − a + c 와 가장 가까운 단어 (a, b, c는 뺀다) */
+function analogy(M, a, b, c, k = 5) {
+  const q = new Float64Array(M.cols);
+  // TODO: row(M, id(x))를 길이 1로 맞춘 뒤 q = b − a + c
+  // TODO: 모든 단어와 q의 코사인을 구해 a, b, c를 뺀 상위 k개 단어를 돌려준다
+  return [];
+}
+const S30 = truncatedSVD(P, 30).vectors;
+for (const [a, b, c] of [['청킹', '청크', '임베딩'], ['확률', '온도', '검색']]) {
+  console.log(`${a} : ${b} = ${c} : ?  →`, analogy(S30, a, b, c).join(', '));
+  console.log(`   (참고) ${c}의 이웃 →`, nearest(S30, id(c), 5, vocab.words).map((r) =&gt; r.word).join(', '));
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>토큰 번호와 원-핫 벡터는 비슷함을 담지 못한다. 서로 다른 원-핫 벡터의 코사인은 언제나 0이다.</li>
+          <li>분포 가설: 비슷한 문맥에 나오는 단어는 뜻도 비슷하다. 창 안의 이웃을 세면 이 가설이 벡터가 된다.</li>
+          <li>횟수는 흔한 단어가 지배한다. PPMI는 “우연보다 얼마나 더 만났나”로 바꿔 이를 줄인다. 대신 드문 단어에 과민하다.</li>
+          <li>SVD로 희소한 고차원 벡터를 k차원 밀집 벡터로 압축한다. k가 너무 작으면 모든 단어가 한 방향에 몰린다.</li>
+          <li>그 결과인 “어휘 × d” 표가 LLM의 첫 층, 임베딩 표와 같은 모양이다. LLM은 이 표를 세지 않고 역전파로 학습한다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 과정과 연결</b> — <a href="https://samcho93.github.io/studyRAG/weeks/w05/" target="_blank" rel="noopener">RAG 5주차 “비슷하다”를 숫자로 만들기</a>는 같은 생각을 <em>문장</em> 단위로 쓴다. 사전학습된 다국어 문장 임베딩 모델(multilingual-e5)이 질문과 문서를 벡터로 바꾸고, 코사인 유사도가 높은 문서를 찾아 LLM에 넣는다. 이번 주의 <code>nearest()</code>가 RAG 검색기의 핵심이다. 다른 점은 벡터를 만든 방법(세기 대 대규모 학습)과 단위(단어 대 문장)뿐이다.</p></div>
+        <p><strong>다음 주(4주차 신경망 언어 모델과 학습)</strong>에는 표를 세지 않고 <em>학습</em>한다. 임베딩 표에서 벡터를 꺼내 다음 토큰의 확률을 내는 작은 신경망을 만들고, 소프트맥스 · 교차 엔트로피 · 자동 미분으로 표와 가중치를 함께 고친다. 1주차 NLL이 손실 함수로 다시 등장한다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="3"> ✅ 3주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="3" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w03-embedding.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w03-embedding'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

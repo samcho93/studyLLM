@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>6주차 트랜스포머 블록 · 교사용 · LLM Lab</title>
+  <meta name="description" content="6주차 트랜스포머 블록 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w06.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="6" data-crumb="🧑‍🏫 교사용 › <b>6주차 · 트랜스포머 블록</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="6주차 · 트랜스포머 블록">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 6주차</div>
+            <h1>트랜스포머 블록</h1>
+            <p>어텐션에 살을 붙여 GPT를 조립한다</p>
+            <div class="deco" aria-hidden="true">🧱</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:15</td><td>5주차 복습 · “어텐션만으로 GPT가 될까?” 세 가지 문제</td></tr>
+                <tr><td>0:15–0:45</td><td>전체 구조 · 텐서 모양 따라가기 · 해부도 데모 · 관찰 ① 1~2</td></tr>
+                <tr><td>0:45–1:15</td><td>위치 임베딩 · “5-3=” vs “3-5=” · 위치 위젯 데모 · 관찰 ② 1~3</td></tr>
+                <tr><td>1:15–1:25</td><td>휴식</td></tr>
+                <tr><td>1:25–1:55</td><td>잔차 연결 · 층 정규화 · 피드포워드 · 파라미터 세기 · 관찰 ① 3~5</td></tr>
+                <tr><td>1:55–2:50</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · 7주차(브라우저에서 학습) 예고</td></tr>
+              </table>
+              <p>오늘은 새 알고리즘보다 “조립”이 주제다. 칠판 한쪽에 [B, T, D]를 크게 써 두고 수업 내내 모양을 부르며 진행한다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="어텐션만으로는">
+            <h2>어텐션 하나로 GPT가 될까?</h2>
+            <ol>
+              <li><strong>순서를 모른다</strong> — “5-3=”과 “3-5=”가 같은 입력이 된다</li>
+              <li><strong>섞기만 한다</strong> — 출력은 값 벡터의 가중 평균, 토큰별 가공이 없다</li>
+              <li><strong>깊이 쌓을 수 없다</strong> — 층을 지날수록 신호가 사라지거나 폭발한다</li>
+            </ol>
+            <p class="big-quote">블록 = 교환(어텐션) + 생각(피드포워드) + 배관(잔차 · 정규화)</p>
+            <aside class="notes">
+              <p><strong>발문:</strong> “지난주 어텐션 계산기에서 토큰 순서를 바꾸면 점수 표는 어떻게 되었나?” → 행과 열이 같이 뒤바뀌기만 한다. 오늘 그것을 정확히 확인한다.</p>
+              <p>세 문제 각각이 오늘의 부품 하나에 대응한다: 위치 임베딩, 피드포워드, 잔차 연결 + 층 정규화.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>순전파의 각 지점에서 <strong>텐서 모양</strong>을 적는다 ([B, T, D] · [B, H, T, T] · [B, T, V])</li>
+              <li><strong>위치 정보</strong>가 왜 필요한지, <strong>잔차 연결 · 층 정규화</strong>가 무엇을 하는지 설명한다</li>
+              <li>설정으로 <strong>파라미터 수</strong>를 세고 <code>paramCount</code>로 검증한다 (블록 ≈ 12·D²)</li>
+            </ol>
+            <aside class="notes">
+              <p>오늘 조립한 모델(106,959개)을 다음 주에 그대로 학습시킨다고 먼저 알려 동기를 준다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="전체 구조">
+            <h2>GPT = 임베딩 → 블록 × L → 헤드</h2>
+            <pre><code>x = wte[id] + wpe[pos]                   [B, T, D]
+for each block (× L):
+    x = x + 어텐션(층정규화(x))            [B, T, D]
+    x = x + 피드포워드(층정규화(x))        [B, T, D]
+logits = 헤드(층정규화(x))               [B, T, V]</code></pre>
+            <ul>
+              <li>블록을 지나도 모양이 <strong>그대로</strong> → 몇 개든 쌓을 수 있다</li>
+              <li><code>core/gpt.js</code>의 <code>forward</code>가 정확히 이 다섯 줄이다</li>
+            </ul>
+            <aside class="notes">
+              <p><code>assets/js/core/gpt.js</code>의 forward 함수를 화면에 띄워 이 슬라이드와 한 줄씩 맞춰 본다. <code>add(x, …)</code>가 잔차 연결이다.</p>
+              <p>용어는 코퍼스의 “트랜스포머 블록” 문서와 같게 쓴다: 잔차 연결, 층 정규화, 위치 임베딩, 피드포워드.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="텐서 모양 따라가기">
+            <h2>모양을 따라가면 구조가 보인다</h2>
+            <table>
+              <thead><tr><th>지점</th><th>모양</th><th>미니 GPT (B = 1)</th></tr></thead>
+              <tbody>
+                <tr><td>입력 id</td><td>[B, T]</td><td>[1, 48]</td></tr>
+                <tr><td>임베딩 합</td><td>[B, T, D]</td><td>[1, 48, 48]</td></tr>
+                <tr><td>qkv</td><td>[B, T, 3D]</td><td>[1, 48, 144]</td></tr>
+                <tr><td>헤드별 Q</td><td>[B, H, T, hs]</td><td>[1, 4, 48, 12]</td></tr>
+                <tr><td><strong>어텐션 점수</strong></td><td>[B, H, T, T]</td><td>[1, 4, 48, 48]</td></tr>
+                <tr><td>피드포워드 fc</td><td>[B, T, 4D]</td><td>[1, 48, 192]</td></tr>
+                <tr><td>로짓</td><td>[B, T, V]</td><td>[1, 48, 495]</td></tr>
+              </tbody>
+            </table>
+            <aside class="notes">
+              <p>T가 두 번 들어가는 곳은 어텐션 점수뿐이다. T를 2배 → 점수는 4배(C1 결과). 긴 문맥이 비싼 이유이며 9주차 메모리 계산에서 다시 나온다.</p>
+              <p><code>core/gpt.js</code>는 [B, T, D]를 [B·T, D]로 펼쳐 저장한다. 학생이 <code>logits.shape</code>가 [192, 495]로 나와 당황하면 “B·T = 4·48 = 192”를 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide slide--demo" data-title="데모: 트랜스포머 해부도">
+            <h2>데모 · 트랜스포머 해부도</h2>
+            <div id="deck-w06-anatomy"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>처음 화면: 미니 GPT 106,959개. 블록 하나 28,272 vs 12·D² = 27,648. 임베딩 + 헤드 47%</li>
+                <li>H를 1 → 12: 헤드별 Q 모양과 점수 모양만 바뀌고 파라미터 수는 그대로. H = 5 → “나눌 수 없다” 오류</li>
+                <li>T를 48 → 1,024: 파라미터는 wpe만 늘지만 어텐션 점수 메모리는 T²로 커진다</li>
+                <li>“GPT-2 small” → 124,439,808. 공유 끄기 → 163,087,441 (우리 구조)</li>
+                <li>“큰 어휘 + 작은 모델” → 블록 1.1%. “이건 언어 모델인가 사전인가?”</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="위치: 어텐션은 순서를 모른다">
+            <h2>“5-3=”과 “3-5=”는 같은 입력?</h2>
+            <pre><code>out(=) = Σ softmax(q · kₛ) · vₛ      ← 합은 순서와 상관없다</code></pre>
+            <table>
+              <thead><tr><th>마지막 토큰 “=”의 가중치</th><th>5</th><th>-</th><th>3</th><th>=</th><th>출력 차이</th></tr></thead>
+              <tbody>
+                <tr><td>위치 없음 · 5-3= / 3-5=</td><td>.557 / .557</td><td>.120 / .120</td><td>.147 / .147</td><td>.176 / .176</td><td>1×10⁻¹⁶</td></tr>
+                <tr><td>위치 있음 · 5-3= / 3-5=</td><td>.302 / .190</td><td>.284 / .309</td><td>.105 / .165</td><td>.309 / .336</td><td><strong>0.445</strong></td></tr>
+              </tbody>
+            </table>
+            <p>해결: <code>x = wte[토큰] + wpe[위치]</code> — 학습형(GPT-2 · 우리) · 사인파(2017) · RoPE(요즘)</p>
+            <aside class="notes">
+              <p>숫자는 위치 위젯 기본 화면(층 정규화 + 어텐션 한 층, D = 16, seed 고정 무작위 가중치, 학습형 위치 임베딩)과 같다. 학습된 모델이어도 결론은 같다: 식 자체가 합이기 때문이다.</p>
+              <p>1×10⁻¹⁶이 0이 아닌 이유: 부동소수점 덧셈은 순서에 따라 마지막 자리가 달라진다. 수학적으로는 0이다.</p>
+              <p><strong>단서:</strong> 인과 마스크 층을 여러 개 쌓으면 “앞에 몇 개가 있나”가 새어 들어가 위치 임베딩 없이도 순서가 약간 드러난다(C5). 우수 학생용 심화 이야기로 남겨 둔다.</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide slide--demo" data-title="데모: 위치 정보가 없으면">
+            <h2>데모 · 위치 정보가 없으면</h2>
+            <div id="deck-w06-position"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong></p>
+              <ol>
+                <li>처음 화면 “5-3=” ↔ “3-5=”: 위치 없음 |Δ| ≈ 0(빨강), 위치 있음 0.445</li>
+                <li>가중치 표를 펼쳐 “5”의 가중치가 자리를 옮겨도 .557로 따라다니는 것을 보여 준다</li>
+                <li>🔀 몇 번 · 문장을 “어텐션은 순서를 모른다”로 → 위치 없음 쪽은 언제나 ≈ 0</li>
+                <li>사인파로 바꾸기 → 여전히 구별한다. 히트맵: 왼쪽 열은 빠르게, 오른쪽 열은 천천히 변한다</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="잔차 연결">
+            <h2>잔차 연결: x = x + f(x)</h2>
+            <table>
+              <thead><tr><th>무작위 선형 층 48개 (D = 64)</th><th>|x| 입력 → 48층</th><th>입력 쪽 기울기</th><th>cos(x₄₈, x₀)</th></tr></thead>
+              <tbody>
+                <tr><td>잔차 없음 · gain 0.8</td><td>7.81 → 0.0000634</td><td>0.0000135</td><td>0.234</td></tr>
+                <tr><td>잔차 없음 · gain 1.2</td><td>7.81 → 18,000</td><td>3,830</td><td>0.234</td></tr>
+                <tr><td>잔차 있음 · gain 0.1</td><td>7.81 → 10.2</td><td>1.33</td><td><strong>0.767</strong></td></tr>
+                <tr><td>잔차 있음 · gain 0.5</td><td>7.81 → 1,700</td><td>224</td><td>−0.149</td></tr>
+              </tbody>
+            </table>
+            <p>미분 = 1 + f′ → 기울기가 <strong>“1” 경로</strong>로 내려간다 · 더하는 양은 작게 (GPT-2: 1/√(2L))</p>
+            <aside class="notes">
+              <p>C3의 실제 실행 결과다. 잔차가 있어도 gain 0.5면 폭발한다. “잔차는 만능이 아니다, 더하는 가지를 작게 시작해야 한다” → <code>core/gpt.js</code>의 <code>projStd = std / √(2·nLayer)</code>를 보여 준다.</p>
+              <p>cos 0.234는 64차원 무작위 방향끼리의 전형적인 크기(±1/√64 = ±0.125 근처)와 비슷한 수준이다. 입력 방향 정보가 거의 남지 않았다는 뜻이다.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="층 정규화와 피드포워드">
+            <h2>층 정규화 · 피드포워드</h2>
+            <div class="cols">
+              <div>
+                <h3>층 정규화 (토큰마다)</h3>
+                <pre><code>y = γ·(x − 평균)/√(분산 + ε) + β
+[2,4,4,4,5,5,7,9]
+→ [−1.5,−0.5,−0.5,−0.5,0,0,1,2]</code></pre>
+                <p>각 층 <strong>입구</strong>에서 크기를 맞춘다 (pre-norm)</p>
+              </div>
+              <div>
+                <h3>피드포워드 (토큰마다)</h3>
+                <pre><code>D → 4D → GELU → D
+48 → 192 → 192 → 48</code></pre>
+                <p>MLBasic의 MLP 그대로 · 블록 파라미터의 <strong>2/3</strong></p>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>둘 다 “토큰마다 따로” 계산한다는 공통점을 강조한다. 토큰끼리 섞는 곳은 블록 전체에서 어텐션 하나뿐이다.</p>
+              <p>배치 정규화(MLBasic에서 봤을 수도 있음)와의 차이: 배치 정규화는 배치 방향으로, 층 정규화는 특징(D) 방향으로 평균을 낸다. 문장 길이와 배치 크기가 들쭉날쭉한 언어 모델에는 층 정규화가 맞다.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="파라미터 세기">
+            <h2>블록 하나 ≈ 12·D²</h2>
+            <table>
+              <thead><tr><th>부분</th><th>공식</th><th>미니 GPT</th><th>GPT-2 small</th></tr></thead>
+              <tbody>
+                <tr><td>wte + wpe</td><td>V·D + T·D</td><td>26,064</td><td>39,383,808</td></tr>
+                <tr><td>블록 × L</td><td>L·(12D² + 13D)</td><td>56,544</td><td>85,054,464</td></tr>
+                <tr><td>최종 층 정규화</td><td>2D</td><td>96</td><td>1,536</td></tr>
+                <tr><td>출력 헤드</td><td>D·V + V</td><td>24,255</td><td>0 (wte 공유)</td></tr>
+                <tr><td><strong>합계</strong></td><td></td><td><strong>106,959</strong></td><td><strong>124,439,808</strong></td></tr>
+              </tbody>
+            </table>
+            <p class="muted">임베딩 + 헤드 비중: 미니 GPT 47% · GPT-2 small 32% — 작은 모델일수록 “사전”이 크다</p>
+            <aside class="notes">
+              <p>헤드 수 H는 공식에 없다. “헤드를 늘리면 모델이 커지나요?” → 아니다(해부도에서 확인).</p>
+              <p>GPT-2는 출력 헤드가 wte를 공유하고 헤드 편향이 없다. 우리 <code>core/gpt.js</code>는 헤드를 따로 둔다. 같은 설정을 우리 구조로 만들면 163,087,441개다.</p>
+              <p>요즘 모델(Llama 등)은 RMSNorm · SwiGLU · RoPE · GQA로 부품이 조금 다르다. 예: Llama 3 8B 공개 설정으로 세면 약 80.3억 개. 해부도 위젯의 “요즘 LLM” 접기 상자를 참고한다. 정확한 비교는 9주차에 한다.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>미니 GPT의 파라미터 목록</h2>
+            <pre data-run="demo-params" data-title="미니 GPT 파라미터"><code class="language-javascript">import { createModel, paramCount, namedParams } from '/assets/js/core/gpt.js';
+const model = createModel({ vocabSize: 495, blockSize: 48, nLayer: 2, nHead: 4, nEmbd: 48 });
+console.table(namedParams(model)
+  .filter(([name]) =&gt; !name.startsWith('h1.')) // 두 번째 블록은 첫 번째와 모양이 같다
+  .map(([name, t]) =&gt; ({ name, shape: t.shape.join(' × '), count: t.size })));
+console.log('총 파라미터:', paramCount(model).toLocaleString());</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> wte 495×48 = 23,760 · wpe 48×48 = 2,304 · h0.qkvW 48×144 = 6,912 · h0.projW 2,304 · h0.fcW 48×192 = 9,216 · h0.fc2W 9,216 · headW 48×495 = 23,760 · headB 495 · 총 106,959.</p>
+              <p>이름 규칙(h0.qkvW 등)이 7주차 체크포인트 파일의 키와 같다는 점을 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 13 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>GPT = 임베딩(+ 위치) → [층 정규화 → 어텐션 → + → 층 정규화 → 피드포워드 → +] × L → 헤드</li>
+              <li>어텐션은 합이라 <strong>순서를 모른다</strong> → 위치 임베딩</li>
+              <li>잔차 = 신호 · 기울기의 고속도로, 층 정규화 = 입구의 크기 조절</li>
+              <li>블록 ≈ 12·D², 어텐션 점수 메모리 ∝ T²</li>
+            </ul>
+            <h3>다음 주 · 미니 GPT 학습</h3>
+            <p class="muted">오늘 조립한 106,959개짜리 모델을 브라우저에서 처음부터 학습시킨다. 손실은 ln 495 ≈ 6.2에서 출발한다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분 동안 “학습 전 손실이 왜 6.2인가?”를 묻고 답을 확인한다(기대: 로짓이 거의 0 → 균등 분포 → −ln(1/495)).</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>15분</td><td>5주차 복습 · 어텐션만으로는 안 되는 세 가지</td><td>칠판의 문제 목록</td></tr>
+                <tr><td>30분</td><td>전체 구조 · 텐서 모양 · 해부도 데모 · 관찰 ① 1~2</td><td>모양 표(짝 활동)</td></tr>
+                <tr><td>30분</td><td>위치 임베딩 · 위치 위젯 데모 · 관찰 ② 1~3</td><td>|Δ| 기록</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>30분</td><td>잔차 · 층 정규화 · 피드포워드 · 파라미터 세기 · 관찰 ① 3~5</td><td>파라미터 표</td></tr>
+                <tr><td>55분</td><td>Challenge C1~C4</td><td>C4 공식(9주차 재사용)</td></tr>
+                <tr><td>10분</td><td>정리 · 7주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">import { createModel, forward } from '/assets/js/core/gpt.js';
+const cfg = { vocabSize: 495, blockSize: 48, nLayer: 2, nHead: 4, nEmbd: 48 };
+
+function traceShapes({ vocabSize: V, nHead: H, nEmbd: D }, B, T) {
+  const hs = D / H;
+  const rows = [];
+  const add = (stage, shape) =&gt; rows.push({ stage, shape: `[${shape.join(', ')}]`, count: shape.reduce((a, b) =&gt; a * b, 1) });
+  add('입력 토큰 id', [B, T]);
+  add('토큰 임베딩 + 위치 임베딩', [B, T, D]);
+  add('층 정규화 ①', [B, T, D]);
+  add('qkv 선형', [B, T, 3 * D]);
+  add('헤드로 나눈 Q (K, V도 같다)', [B, H, T, hs]);
+  add('어텐션 점수 QKᵀ', [B, H, T, T]);
+  add('가중합 후 헤드 합치기', [B, T, D]);
+  add('출력 투영 (+ 잔차)', [B, T, D]);
+  add('층 정규화 ②', [B, T, D]);
+  add('확장 fc', [B, T, 4 * D]);
+  add('GELU', [B, T, 4 * D]);
+  add('축소 proj (+ 잔차)', [B, T, D]);
+  add('최종 층 정규화', [B, T, D]);
+  add('로짓', [B, T, V]);
+  add('마지막 위치 확률', [B, V]);
+  return rows;
+}
+
+const B = 4, T = 48;
+console.table(traceShapes(cfg, B, T));
+const model = createModel(cfg);
+const ids = new Int32Array(B * T);
+console.log('gpt.js logits.shape =', forward(model, ids, B, T).logits.shape);
+
+const find = (rows, name) =&gt; rows.find((r) =&gt; r.stage.startsWith(name)).count;
+const r48 = traceShapes(cfg, B, 48), r96 = traceShapes(cfg, B, 96);
+console.log('T 48 → 96: 어텐션 점수', find(r96, '어텐션 점수') / find(r48, '어텐션 점수'), '배 · qkv', find(r96, 'qkv') / find(r48, 'qkv'), '배');</code></pre>
+            <aside class="notes">
+              <p><strong>C1 결과 (B = 4, T = 48):</strong> 입력 [4, 48] 192 · 임베딩 [4, 48, 48] 9,216 · qkv [4, 48, 144] 27,648 · Q [4, 4, 48, 12] 9,216 · 점수 [4, 4, 48, 48] 36,864 · fc [4, 48, 192] 36,864 · 로짓 [4, 48, 495] 95,040 · 마지막 위치 [4, 495] 1,980. <code>gpt.js logits.shape = [192, 495]</code>. T 48 → 96: 점수 4배, qkv 2배.</p>
+              <p><strong>자주 틀리는 곳:</strong> 헤드로 나눈 뒤의 모양을 [B, T, H, hs]로 적는 학생이 있다. 계산 순서상 헤드 축을 앞으로 빼야 헤드마다 [T, T] 점수 표를 만들 수 있다고 설명한다(gpt.js는 인덱스 계산으로 같은 일을 한다).</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2 정답" data-appendix>
+            <h2>부록 B · C2 정답</h2>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">import { Tensor, layerNorm } from '/assets/js/core/tensor.js';
+
+const mean = (a) =&gt; a.reduce((s, v) =&gt; s + v, 0) / a.length;
+const variance = (a) =&gt; mean(a.map((v) =&gt; (v - mean(a)) ** 2));
+
+function layerNormArr(x, gamma = null, beta = null, eps = 1e-5) {
+  const m = mean(x);
+  const v = variance(x);
+  return x.map((xi, i) =&gt; {
+    const h = (xi - m) / Math.sqrt(v + eps);
+    return gamma ? h * gamma[i] + beta[i] : h;
+  });
+}
+
+const x = [2, 4, 4, 4, 5, 5, 7, 9];
+const y = layerNormArr(x);
+console.log('y =', y.map((v) =&gt; +v.toFixed(3)));
+console.log('평균', mean(y).toFixed(6), '분산', variance(y).toFixed(6));
+const t = layerNorm(new Tensor(x, [1, 8]), Tensor.fill([8], 1), Tensor.zeros([8]));
+console.log('tensor.js =', Array.from(t.data, (v) =&gt; +v.toFixed(3)));
+
+const big = layerNormArr(x.map((v) =&gt; v * 100 + 1000));
+console.log('100x + 1000 →', big.map((v) =&gt; +v.toFixed(3)));
+console.log('[3,3,3,3] →', layerNormArr([3, 3, 3, 3]), '· eps 없으면 →', layerNormArr([3, 3, 3, 3], null, null, 0));
+const g = layerNormArr(x, x.map(() =&gt; 2), x.map(() =&gt; 1));
+console.log('γ=2, β=1 → 평균', mean(g).toFixed(4), '분산', variance(g).toFixed(4));</code></pre>
+            <aside class="notes">
+              <p><strong>C2 결과:</strong> y = [−1.5, −0.5, −0.5, −0.5, 0, 0, 1, 2], 평균 0.000000, 분산 0.999998(ε 때문에 1보다 아주 조금 작다), tensor.js와 같다. 100x + 1000도 같은 y. [3,3,3,3] → [0,0,0,0], ε = 0이면 [NaN × 4]. γ = 2, β = 1 → 평균 1, 분산 4.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const D = 64, DEPTH = 48;
+const norm = (v) =&gt; Math.sqrt(v.reduce((s, x) =&gt; s + x * x, 0));
+const cos = (a, b) =&gt; a.reduce((s, x, i) =&gt; s + x * b[i], 0) / (norm(a) * norm(b));
+const matVec = (W, v) =&gt; W.map((row) =&gt; row.reduce((s, w, j) =&gt; s + w * v[j], 0)); // W · v
+const matTVec = (W, g) =&gt; W[0].map((_, j) =&gt; W.reduce((s, row, i) =&gt; s + row[j] * g[i], 0)); // Wᵀ · g
+
+/** DEPTH개의 무작위 층 W (D×D). 원소는 평균 0, 표준편차 gain/√D. */
+function makeLayers(gain, seed = 1) {
+  const rand = mulberry32(seed);
+  return Array.from({ length: DEPTH }, () =&gt; Array.from({ length: D }, () =&gt; Array.from({ length: D }, () =&gt; (gaussian(rand) * gain) / Math.sqrt(D))));
+}
+
+function run(gain, residual) {
+  const layers = makeLayers(gain);
+  const r = mulberry32(99);
+  const x0 = Array.from({ length: D }, () =&gt; gaussian(r));
+  let x = x0;
+  const norms = [norm(x)];
+  for (const W of layers) {
+    const f = matVec(W, x);
+    x = residual ? x.map((v, i) =&gt; v + f[i]) : f;
+    norms.push(norm(x));
+  }
+  // 역전파: 맨 위에서 크기 1인 기울기 g를 아래로 보낸다
+  let g = Array.from({ length: D }, () =&gt; 1 / Math.sqrt(D));
+  for (let l = DEPTH - 1; l &gt;= 0; l--) {
+    const back = matTVec(layers[l], g);
+    g = residual ? g.map((v, i) =&gt; v + back[i]) : back;
+  }
+  return { norms, cosIn: cos(x, x0), grad: norm(g) };
+}
+
+const rows = [];
+for (const [gain, residual] of [[0.8, false], [1.0, false], [1.2, false], [0.1, true], [0.5, true]]) {
+  const res = run(gain, residual);
+  rows.push({
+    설정: `${residual ? '잔차 있음' : '잔차 없음'} · gain ${gain}`,
+    '|x| 0층': +res.norms[0].toFixed(2),
+    '|x| 12층': +res.norms[12].toPrecision(3),
+    '|x| 48층': +res.norms[DEPTH].toPrecision(3),
+    'cos(x48, x0)': +res.cosIn.toFixed(3),
+    '입력 기울기 |g|': +res.grad.toPrecision(3),
+  });
+}
+console.table(rows);
+console.log('gain 0.1 ≈ 1/√(2·48) =', (1 / Math.sqrt(2 * 48)).toFixed(3), '· gpt.js projStd (nLayer 2) =', (0.02 / Math.sqrt(4)).toFixed(3), '= std 0.02 × 1/√(2·2)');</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과 (|x| 0층 / 12층 / 48층 · cos · 기울기):</strong> 잔차 없음 0.8: 7.81 / 0.371 / 0.0000634 · 0.234 · 0.0000135 — 잔차 없음 1.0: 7.81 / 5.4 / 2.84 · 0.234 · 0.605 — 잔차 없음 1.2: 7.81 / 48.2 / 18,000 · 0.234 · 3,830 — 잔차 있음 0.1: 7.81 / 8.14 / 10.2 · 0.767 · 1.33 — 잔차 있음 0.5: 7.81 / 30.3 / 1,700 · −0.149 · 224.</p>
+              <p><strong>해석:</strong> 잔차 없는 세 경우는 같은 행렬의 배율만 다르므로(선형) 방향 cos가 모두 0.234로 같다. gain 1.0도 크기는 유지되지만 방향 정보는 사라진다. 잔차 + 작은 gain만 크기와 방향을 모두 지킨다. 마지막 줄 출력: gain 0.1 ≈ 1/√(2·48) = 0.102, gpt.js projStd(nLayer 2) = 0.010.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">import { createModel, paramCount } from '/assets/js/core/gpt.js';
+
+function countByFormula({ vocabSize: V, blockSize: T, nLayer: L, nEmbd: D }) {
+  const wte = V * D;
+  const wpe = T * D;
+  const block = 2 * D + (D * 3 * D + 3 * D) + (D * D + D) + 2 * D + (D * 4 * D + 4 * D) + (4 * D * D + D); // = 12D² + 13D
+  const lnf = 2 * D;
+  const head = D * V + V;
+  return { total: wte + wpe + L * block + lnf + head, block, emb: wte + wpe + head };
+}
+
+const configs = [
+  { vocabSize: 495, blockSize: 48, nLayer: 2, nHead: 4, nEmbd: 48 },
+  { vocabSize: 495, blockSize: 64, nLayer: 4, nHead: 4, nEmbd: 64 },
+  { vocabSize: 495, blockSize: 64, nLayer: 6, nHead: 8, nEmbd: 128 },
+  { vocabSize: 495, blockSize: 128, nLayer: 8, nHead: 8, nEmbd: 256 },
+];
+console.table(configs.map((c) =&gt; {
+  const f = countByFormula(c);
+  const real = paramCount(createModel(c));
+  return {
+    'L·D': `${c.nLayer}·${c.nEmbd}`,
+    공식: f.total,
+    'gpt.js': real,
+    같은가: f.total === real ? '✓' : '✗',
+    '12·L·D²': 12 * c.nLayer * c.nEmbd ** 2,
+    '임베딩+헤드 %': +((100 * f.emb) / real).toFixed(1),
+  };
+}));
+const g2 = { vocabSize: 50257, blockSize: 1024, nLayer: 12, nEmbd: 768 };
+const f = countByFormula(g2);
+const tied = f.total - (g2.nEmbd * g2.vocabSize + g2.vocabSize);
+console.log('GPT-2 small 우리 구조(헤드 따로):', f.total.toLocaleString(), '· 헤드 공유:', tied.toLocaleString(), tied === 124439808 ? '✓ 124,439,808' : '✗');
+console.log('블록 하나:', f.block.toLocaleString(), '· 12·D² =', (12 * 768 ** 2).toLocaleString());</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 2·48: 106,959 = 106,959 ✓, 12LD² 55,296, 임베딩+헤드 47% · 4·64: 268,015 ✓, 196,608, 25.4% · 6·128: 1,325,295 ✓, 1,179,648, 10.2% · 8·256: 6,605,295 ✓, 6,291,456, 4.3%. GPT-2 small 우리 구조 163,087,441 · 헤드 공유 124,439,808 ✓ · 블록 하나 7,087,872 vs 12·D² 7,077,888.</p>
+              <p><strong>자주 틀리는 곳:</strong> 편향(qkvB 3D, fcB 4D)과 층 정규화 β를 빠뜨린다. 스켈레톤을 그대로 실행하면 공식이 wte만 세어 23,760이 나온다. 모델이 커질수록 12·L·D² 근사가 정확해진다는 점을 표로 확인시킨다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { charVocab, corpusText } from '/assets/js/core/text.js';
+import { createModel, forward } from '/assets/js/core/gpt.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const vocab = charVocab(corpusText(corpus));
+const V = vocab.size, T = 48;
+const text = corpus.documents.find((d) =&gt; d.id === 'llm-transformer').text;
+const ids = vocab.encode(text).slice(0, T + 1);
+const x = ids.slice(0, T), y = ids.slice(1, T + 1);
+console.log('입력:', vocab.decode(x));
+
+const model = createModel({ vocabSize: V, blockSize: T, nLayer: 2, nHead: 4, nEmbd: 48 }, 1337);
+const { logits, loss } = forward(model, x, 1, T, y);
+console.log('logits.shape', logits.shape, '· 손실', loss.data[0].toFixed(4), '· ln V', Math.log(V).toFixed(4));
+
+const last = Array.from(logits.data.slice((T - 1) * V));
+const mx = Math.max(...last);
+const ex = last.map((v) =&gt; Math.exp(v - mx));
+const sum = ex.reduce((a, b) =&gt; a + b, 0);
+const probs = ex.map((e) =&gt; e / sum);
+console.log('로짓 범위', Math.min(...last).toFixed(3), '~', mx.toFixed(3), '· 확률 최대', Math.max(...probs).toFixed(5), '최소', Math.min(...probs).toFixed(5), '· 1/V', (1 / V).toFixed(5));
+
+const xs = [...x.slice(0, T - 1).reverse(), x[T - 1]];
+function lastDiff(m, a, b) {
+  const la = forward(m, a, 1, T).logits.data.slice((T - 1) * V);
+  const lb = forward(m, b, 1, T).logits.data.slice((T - 1) * V);
+  return Math.max(...la.map((v, i) =&gt; Math.abs(v - lb[i])));
+}
+const rows = [];
+for (const nLayer of [1, 2]) {
+  for (const usePos of [true, false]) {
+    const m = createModel({ vocabSize: V, blockSize: T, nLayer, nHead: 4, nEmbd: 48 }, 1337);
+    if (!usePos) m.params.wpe.data.fill(0);
+    rows.push({ nLayer, 위치임베딩: usePos ? '있음' : '0으로', '마지막 로짓 차이': lastDiff(m, x, xs).toExponential(2) });
+  }
+}
+console.table(rows);
+console.log('1층·위치 없음: 마지막 토큰은 같은 (토큰, 값) 집합을 가중합하므로 덧셈 순서에 따른 float32 반올림만 남는다.');
+console.log('2층·위치 없음: 1층에서 각 토큰은 "자기 앞의 토큰들"만 본다. 섞으면 앞 토큰 집합이 바뀌어 1층 출력이 달라지고, 2층의 마지막 토큰이 그 차이를 받는다.');</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 입력 “트랜스포머 블록은 어텐션 층과 피드포워드 층으로 이루어진다. 각 층 앞에는 층 정규화가” · logits.shape [48, 495] · 손실 6.2242 · ln V 6.2046 · 로짓 범위 −0.351 ~ 0.345 · 확률 최대 0.00284, 최소 0.00141, 1/V 0.00202. 순서 실험(마지막 로짓 최대 차이): 1층·위치 있음 3.49e-3 · 1층·위치 0 <strong>1.19e-7</strong> · 2층·위치 있음 7.53e-3 · 2층·위치 0 <strong>1.70e-2</strong>.</p>
+              <p><strong>왜 ln V인가:</strong> 가중치를 표준편차 0.02로 초기화해서 로짓이 거의 0이다 → 소프트맥스가 거의 균등(1/495) → 손실 = −ln(1/495) = ln 495. 학습 전 손실이 ln V에서 크게 벗어나면 초기화가 잘못된 것이다(7주차 점검 항목).</p>
+              <p><strong>예상과 다른 결과:</strong> 2층·위치 0에서도 차이가 0이 아니다. 1층에서 각 토큰은 인과 마스크 때문에 “자기 앞”만 보므로, 앞 토큰들을 뒤집으면 각 토큰의 1층 출력이 달라진다. 2층의 마지막 토큰은 그 달라진 값을 모은다. 인과 마스크가 순서 정보를 간접적으로 흘린다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>로짓 모양이 [192, 495]라 헷갈린다</td><td>gpt.js가 [B, T, V]를 [B·T, V]로 펼친다</td><td>B·T = 4·48 = 192를 계산하게 한다</td></tr>
+                <tr><td>“헤드를 늘리면 파라미터가 는다”</td><td>헤드마다 새 행렬이 있다고 오해</td><td>해부도에서 H만 바꿔 총합이 그대로임을 확인</td></tr>
+                <tr><td>C4 공식이 몇백 개 모자란다</td><td>편향 · 층 정규화 β · 헤드 편향 누락</td><td><code>namedParams</code> 출력과 이름별로 대조</td></tr>
+                <tr><td>C2 출력이 NaN</td><td>분산 0인 벡터에서 ε 누락</td><td>ε의 역할(0으로 나누기 방지) 설명</td></tr>
+                <tr><td>위치 없음 |Δ|가 0이 아니라며 “틀렸다”</td><td>1e-16 · 1e-7은 부동소수점 반올림</td><td>float64 ≈ 1e-16, float32 ≈ 1e-7 수준임을 짚는다</td></tr>
+                <tr><td>C5 순서 실험에서 “2층은 왜 다르지?”</td><td>인과 마스크가 순서를 흘린다</td><td>부록 B C5 노트로 설명 · 토론 주제로 연결</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>한국어는 조사가 있어 “개가 사람을 문다”와 “사람을 개가 문다”의 뜻이 같다. 그래도 한국어 모델에 위치 정보가 필요한가? 어떤 문장에서 필요한가?</li>
+              <li>학습형 위치 임베딩은 학습 때 본 길이(T)보다 긴 문장을 처리할 수 없다. 사인파나 RoPE는 이 문제를 어떻게 피하는가?</li>
+              <li>작은 모델에서 파라미터의 절반이 임베딩과 헤드라면, 어휘를 줄이는 것(2주차 BPE 어휘 크기)은 어떤 득실이 있는가?</li>
+              <li>인과 마스크만으로도 순서가 새어 나온다면(C5), 위치 임베딩을 아예 빼도 될까?</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>텐서 모양 (C1)</td><td>전 지점 모양 + T² 증가 설명</td><td>모양 표만 제시</td><td>동작하지 않음</td></tr>
+                <tr><td>층 정규화 · 잔차 (C2 · C3)</td><td>ε · 배율 불변 · 소실/폭발을 근거로 설명</td><td>코드만 동작</td><td>미완성</td></tr>
+                <tr><td>파라미터 (C4)</td><td>네 설정 일치 + GPT-2 재현 + 비중 해석</td><td>일부 설정만 일치</td><td>미제출</td></tr>
+                <tr><td>순전파 · 위치 (C5 · 관찰)</td><td>ln V 이유 + 인과 마스크의 순서 누출 설명</td><td>손실만 계산</td><td>참여 없음</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount as mountAnatomy } from '../../assets/js/widgets/w06-anatomy.js';
+    import { mount as mountPosition } from '../../assets/js/widgets/w06-position.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mountAnatomy(document.getElementById('deck-w06-anatomy'), { outputTitle: '트랜스포머 해부도 (데모 슬라이드)' });
+    mountPosition(document.getElementById('deck-w06-position'), { outputTitle: '위치 정보 실험 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

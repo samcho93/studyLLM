@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>10주차 사전학습에서 챗봇까지 · LLM Lab</title>
+  <meta name="description" content="이어 쓰기만 하던 베이스 모델이 챗봇이 되는 과정: 사전학습, 채팅 템플릿과 손실 마스크를 쓰는 지시 미세조정(SFT), 선호 학습(RLHF·DPO), 그리고 GPU 한 장으로 미세조정하는 LoRA·QLoRA를 계산해 본다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w10.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="10" data-crumb="PART 4 · 실전 LLM으로 › <b>10주차 · 사전학습에서 챗봇까지</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">💬 10주차 · 사전학습에서 챗봇까지</span>
+      <h1>이어 쓰는 모델을 대답하는 모델로</h1>
+      <p class="lead">7~9주차에 만든 미니 GPT는 문서를 이어 쓸 줄만 안다. ChatGPT도 처음에는 똑같았다. 구조는 그대로 두고 <em>데이터와 손실</em>만 바꿔 두 번 더 학습하면 질문에 답하는 챗봇이 된다. 이번 주는 그 두 단계를 들여다보고, 80억 개 파라미터 모델을 GPU 한 장으로 미세조정하게 해 주는 LoRA를 직접 계산한다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 채팅 템플릿 · LoRA 계산기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 만들어지고 쓰이는 흐름에서 이번 주의 위치">
+        <div>사전학습 (7주차)</div><div>디코딩</div><div>평가</div><div><b>지시 미세조정</b></div><div><b>선호 학습</b></div><div>API로 쓰기</div><div>RAG</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>사전학습, 지시 미세조정(SFT), 선호 학습(RLHF·DPO)이 각각 어떤 데이터로 무엇을 학습하는지 설명할 수 있다.</li>
+          <li>대화를 채팅 템플릿 문자열로 바꾸고, 어시스턴트의 토큰만 학습하는 손실 마스크를 만들 수 있다.</li>
+          <li>LoRA의 학습 파라미터 수와 메모리를 계산해 전체 미세조정과 비교할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>7주차의 미니 GPT에 “실습실은 몇 시까지 이용할 수 있어?”를 넣으면 답이 나오지 않는다. 모델은 이 글이 <em>어떤 문서의 앞부분</em>이라고 보고 다음 글자를 이어 쓸 뿐이다. 수천억 개 토큰으로 학습한 거대한 모델도 사전학습만 했다면 마찬가지다. 질문 한 줄 뒤에 또 다른 질문을 늘어놓거나, 소설의 대사처럼 이어 쓴다.</p>
+        <p>그런데 ChatGPT의 몸체도 같은 디코더 트랜스포머다. 어텐션도, 다음 토큰 예측도 그대로다. 차이는 사전학습 <em>뒤에</em> 한 추가 학습에 있다. 여기서 두 가지 질문이 나온다.</p>
+        <ol>
+          <li>무엇을 어떻게 더 학습시키면 “이어 쓰기”가 “대답하기”로 바뀌는가?</li>
+          <li>80억 개 파라미터 모델을 다시 학습시키려면 메모리가 128GB를 넘는다. 학생 GPU 한 장(24GB)으로는 어떻게 하는가?</li>
+        </ol>
+        <div class="callout">
+          <span class="callout__title">이번 주의 한 줄</span>
+          <p>모델 구조는 그대로다. 바뀌는 것은 <strong>데이터</strong>(대화 형식), <strong>손실</strong>(답에서만 계산), 그리고 <strong>학습하는 파라미터</strong>(LoRA는 1%도 안 된다)다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>세 단계: 같은 모델, 다른 데이터</h3>
+        <figure class="figure">
+          <svg viewBox="0 0 640 236" role="img" aria-labelledby="w10-fig1-t" style="width: 100%">
+            <title id="w10-fig1-t">사전학습, 지시 미세조정, 선호 학습의 세 단계. 각 단계의 데이터와 학습 목표와 결과가 다르다.</title>
+            <style>
+              .w10f-h { font: 700 13px var(--font-sans); fill: var(--color-text); }
+              .w10f-t { font: 12px var(--font-sans); fill: var(--color-text); }
+              .w10f-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w10f-k { font: 700 11px var(--font-sans); fill: var(--color-accent2); }
+              .w10f-r { font: 700 12px var(--font-sans); fill: var(--color-accent); }
+              .w10f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w10f-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w10f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w10-a1); }
+            </style>
+            <defs><marker id="w10-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <rect class="w10f-box" x="0" y="8" width="190" height="178" rx="10"/>
+            <text class="w10f-h" x="12" y="32">① 사전학습</text>
+            <text class="w10f-k" x="12" y="56">데이터</text>
+            <text class="w10f-t" x="12" y="74">인터넷 문서·책</text>
+            <text class="w10f-t" x="12" y="92">(수조 개 토큰)</text>
+            <text class="w10f-k" x="12" y="116">목표</text>
+            <text class="w10f-t" x="12" y="134">모든 토큰의 다음 토큰 예측</text>
+            <text class="w10f-r" x="12" y="170">→ 베이스 모델: 이어 쓰기</text>
+            <path class="w10f-arr" d="M194 97 H222"/>
+            <rect class="w10f-hi" x="225" y="8" width="190" height="178" rx="10"/>
+            <text class="w10f-h" x="237" y="32">② 지시 미세조정(SFT)</text>
+            <text class="w10f-k" x="237" y="56">데이터</text>
+            <text class="w10f-t" x="237" y="74">지시 + 모범 답 대화</text>
+            <text class="w10f-t" x="237" y="92">(채팅 템플릿 문자열)</text>
+            <text class="w10f-k" x="237" y="116">목표</text>
+            <text class="w10f-t" x="237" y="134">다음 토큰 예측, 단</text>
+            <text class="w10f-t" x="237" y="152">어시스턴트 토큰만</text>
+            <text class="w10f-r" x="237" y="170">→ 지시를 따르는 모델</text>
+            <path class="w10f-arr" d="M419 97 H447"/>
+            <rect class="w10f-hi" x="450" y="8" width="190" height="178" rx="10"/>
+            <text class="w10f-h" x="462" y="32">③ 선호 학습</text>
+            <text class="w10f-k" x="462" y="56">데이터</text>
+            <text class="w10f-t" x="462" y="74">한 질문에 답 두 개 +</text>
+            <text class="w10f-t" x="462" y="92">사람이 더 낫다고 고른 쪽</text>
+            <text class="w10f-k" x="462" y="116">목표 (RLHF · DPO)</text>
+            <text class="w10f-t" x="462" y="134">고른 답의 확률 ↑</text>
+            <text class="w10f-t" x="462" y="152">버린 답의 확률 ↓</text>
+            <text class="w10f-r" x="462" y="170">→ 더 도움 되는 챗봇</text>
+            <text class="w10f-n" x="0" y="210">세 단계 모두 같은 트랜스포머다. 바뀌는 것은 데이터와 손실뿐이다.</text>
+            <text class="w10f-n" x="0" y="228">7~9주차의 미니 GPT는 ①까지 온 모델이다. 이번 주는 ②와 ③을 본다.</text>
+          </svg>
+          <figcaption>LLM이 챗봇이 되기까지. 계산 비용은 ①이 압도적으로 크고, ②·③은 훨씬 적은 데이터로 “말하는 방식”을 바꾼다.</figcaption>
+        </figure>
+        <table>
+          <thead><tr><th>단계</th><th>데이터</th><th>손실</th><th>결과</th></tr></thead>
+          <tbody>
+            <tr><td>사전학습</td><td>레이블 없는 대량의 글</td><td>모든 토큰의 교차 엔트로피</td><td>언어와 지식을 익힌 베이스 모델</td></tr>
+            <tr><td>지시 미세조정(SFT)</td><td>사람이 쓴 (지시, 모범 답) 대화</td><td>같은 교차 엔트로피, 어시스턴트 토큰에서만</td><td>질문에 답하고 멈출 줄 아는 모델</td></tr>
+            <tr><td>선호 학습</td><td>(질문, 좋은 답, 나쁜 답) 쌍</td><td>좋은 답이 나쁜 답보다 확률이 높아지도록</td><td>더 친절하고 안전한 답을 고르는 모델</td></tr>
+          </tbody>
+        </table>
+        <p>핵심은 ②다. SFT의 손실 함수는 4주차에 만든 교차 엔트로피와 <strong>완전히 같다</strong>. 다른 점은 딱 두 가지다. 학습 문서가 “대화 형식의 문자열”이라는 것, 그리고 그 문자열의 일부에서만 손실을 계산한다는 것이다.</p>
+
+        <h3>채팅 템플릿: 대화를 문자열 하나로</h3>
+        <p>모델이 받는 입력은 언제나 토큰 열 하나다. 그래서 “시스템 지시문, 사용자 질문, 어시스턴트 답”이라는 대화 구조를 문자열 하나에 담는 약속이 필요하다. 이것이 <strong>채팅 템플릿</strong>(chat template)이다. 차례마다 시작과 끝을 <strong>특수 토큰</strong>으로 표시하고, 역할 이름을 적는다. 아래는 ChatML 형식이다.</p>
+        <pre><code class="language-text">&lt;|im_start|&gt;system
+너는 AI응용소프트웨어과 학생을 돕는 조교다. 학과 규정에 근거해 짧게 답한다.&lt;|im_end|&gt;
+&lt;|im_start|&gt;user
+실습실은 몇 시까지 이용할 수 있어?&lt;|im_end|&gt;
+&lt;|im_start|&gt;assistant
+평일에는 오후 9시까지 이용할 수 있다. 주말과 공휴일에는 사전 신청한 학생만 쓸 수 있다.&lt;|im_end|&gt;</code></pre>
+        <p><code>&lt;|im_start|&gt;</code>는 글자 12개처럼 보이지만 어휘에 따로 추가된 <strong>토큰 하나</strong>다. 사용자가 이 글자를 그대로 쳐도 같은 토큰이 되지 않도록 토크나이저가 따로 다룬다. 템플릿은 모델마다 다르다(아래 표는 간략화한 형태다. 실제 템플릿에는 도구 호출, 기본 시스템 문구 같은 부분이 더 붙는다).</p>
+        <table>
+          <thead><tr><th>형식 (간략화)</th><th>차례 시작 · 역할</th><th>차례 끝</th><th>특징</th></tr></thead>
+          <tbody>
+            <tr><td>ChatML (Qwen 등)</td><td><code>&lt;|im_start|&gt;user↵</code></td><td><code>&lt;|im_end|&gt;</code></td><td>system 차례가 있다</td></tr>
+            <tr><td>Llama 3</td><td><code>&lt;|start_header_id|&gt;user&lt;|end_header_id|&gt;↵↵</code></td><td><code>&lt;|eot_id|&gt;</code></td><td>맨 앞에 <code>&lt;|begin_of_text|&gt;</code></td></tr>
+            <tr><td>Gemma</td><td><code>&lt;start_of_turn&gt;user↵</code></td><td><code>&lt;end_of_turn&gt;</code></td><td>어시스턴트 역할 이름이 <code>model</code>, system 차례가 없어 첫 user 차례 앞에 붙인다</td></tr>
+          </tbody>
+        </table>
+        <p>추론할 때는 마지막 사용자 차례 뒤에 <strong>어시스턴트 머리말만</strong> 붙여 넣는다(ChatML이면 <code>&lt;|im_start|&gt;assistant↵</code>). 이것을 생성 프롬프트(generation prompt)라 한다. 모델은 “이제 내 차례”임을 알고 답을 쓰다가, SFT에서 배운 대로 <code>&lt;|im_end|&gt;</code>를 내면 멈춘다. 실제 챗봇의 디코딩 루프는 이 토큰이 나오면 멈춘다(8주차의 미니 GPT는 정해진 길이만큼 뽑았다).</p>
+
+        <h3>손실 마스크: 답만 학습한다</h3>
+        <p>위 대화를 글자 단위 토큰(특수 토큰은 1개)으로 세면 146토큰이다. 이 중 손실을 계산하는 것은 어시스턴트의 답 51토큰과 그 끝의 <code>&lt;|im_end|&gt;</code> 1토큰, 합해서 52토큰(35.6%)뿐이다. 나머지 자리의 정답은 −100으로 바꿔 손실 계산에서 뺀다(PyTorch 교차 엔트로피의 <code>ignore_index</code>).</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 176" role="img" aria-labelledby="w10-fig2-t" style="width: 100%">
+            <title id="w10-fig2-t">146토큰짜리 학습 예시에서 시스템 차례 54토큰, 사용자 차례 28토큰, 어시스턴트 머리말 11토큰은 손실에서 빼고, 어시스턴트 답 51토큰과 끝 토큰 1개만 학습한다.</title>
+            <style>
+              .w10f2-t { font: 600 11.5px var(--font-sans); fill: var(--color-text); }
+              .w10f2-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w10f2-m { font: 600 11px var(--font-mono); fill: var(--color-text-muted); }
+              .w10f2-mt { font: 700 11px var(--font-mono); fill: var(--color-success); }
+              .w10f2-off { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w10f2-on { fill: var(--color-success-soft); stroke: var(--color-success); stroke-width: 2; }
+            </style>
+            <text class="w10f2-n" x="0" y="16">입력 (146토큰, 폭 ∝ 토큰 수)</text>
+            <rect class="w10f2-off" x="0" y="26" width="228" height="40" rx="6"/>
+            <text class="w10f2-t" x="10" y="44">system 차례</text><text class="w10f2-m" x="10" y="59">54토큰</text>
+            <rect class="w10f2-off" x="232" y="26" width="118" height="40" rx="6"/>
+            <text class="w10f2-t" x="240" y="44">user 차례</text><text class="w10f2-m" x="240" y="59">28토큰</text>
+            <rect class="w10f2-off" x="354" y="26" width="58" height="40" rx="6"/>
+            <text class="w10f2-t" x="360" y="44">머리말</text><text class="w10f2-m" x="360" y="59">11</text>
+            <rect class="w10f2-on" x="416" y="26" width="196" height="40" rx="6"/>
+            <text class="w10f2-t" x="426" y="44">assistant 답</text><text class="w10f2-mt" x="426" y="59">51토큰</text>
+            <rect class="w10f2-on" x="616" y="26" width="14" height="40" rx="3"/>
+            <text class="w10f2-n" x="0" y="96">정답(labels)</text>
+            <text class="w10f2-m" x="10" y="118">−100 −100 … −100</text>
+            <text class="w10f2-m" x="240" y="118">−100 … −100</text>
+            <text class="w10f2-m" x="358" y="118">−100…</text>
+            <text class="w10f2-mt" x="426" y="118">다음 글자 id …</text>
+            <text class="w10f2-mt" x="566" y="118">im_end ↑</text>
+            <text class="w10f2-n" x="0" y="148">회색 자리는 모델이 읽기만 한다(문맥). 초록 자리에서만 교차 엔트로피를 계산한다.</text>
+            <text class="w10f2-n" x="0" y="168">끝 토큰까지 학습해야 모델이 답을 마치고 멈출 줄 안다.</text>
+          </svg>
+          <figcaption>손실 마스크. 질문을 흉내 내는 법은 배우지 않고, “이 질문 뒤에는 이런 답”만 배운다.</figcaption>
+        </figure>
+        <p>왜 사용자 차례를 학습하지 않을까? 질문은 추론 때 사용자가 주는 것이라 모델이 만들 필요가 없고, 학습하면 오히려 “사용자처럼 질문을 지어내는” 습관이 든다. 반대로 템플릿 없이 대화를 그냥 이어 붙여 전부 학습하면(사전학습과 같은 방식) 누가 말하는지 표시가 없어 언제 멈춰야 할지도 모른다. 실습 위젯에서 두 경우를 모두 볼 수 있다.</p>
+
+        <h3>선호 학습: RLHF와 DPO</h3>
+        <p>SFT만 해도 질문에 답은 한다. 그러나 “맞지만 불친절한 답”, “장황한 답”, “위험한 요청에 순순히 따르는 답”도 모범 답을 흉내 낸 결과일 수 있다. 좋은 답을 사람이 매번 새로 쓰는 것은 비싸지만, 답 두 개 중 <em>어느 쪽이 나은지 고르는 것</em>은 훨씬 쉽다. 선호 학습은 이 선택을 데이터로 쓴다.</p>
+        <ul>
+          <li><strong>RLHF</strong>(Reinforcement Learning from Human Feedback): ① 선호 쌍으로 “답에 점수를 매기는” 보상 모델을 따로 학습한다. ② 챗봇이 답을 생성하고, 보상 모델의 점수가 높아지도록 강화학습(PPO 등)으로 고친다. 이때 SFT 모델에서 너무 멀어지지 않게 벌점을 준다. 학습 중에 여러 모델(챗봇, 기준 모델, 보상 모델 등)을 함께 돌려야 해서 복잡하고 불안정하다.</li>
+          <li><strong>DPO</strong>(Direct Preference Optimization): 보상 모델 없이 선호 쌍으로 바로 학습한다. 고른 답 y<sub>w</sub>와 버린 답 y<sub>l</sub>에 대해, 학습 중인 모델 π<sub>θ</sub>가 기준 모델(SFT 모델) π<sub>ref</sub>보다 y<sub>w</sub>의 로그 확률은 더 올리고 y<sub>l</sub>은 더 내리도록 한다.</li>
+        </ul>
+        <pre><code class="language-text">margin = β × [ (log πθ(y_w) − log π_ref(y_w)) − (log πθ(y_l) − log π_ref(y_l)) ]
+loss   = −log σ(margin)            σ: 시그모이드, β: 기준 모델에서 벗어나는 정도를 조절 (예: 0.1)</code></pre>
+        <table>
+          <thead><tr><th>상황 (β = 0.1)</th><th>고른 답 변화</th><th>버린 답 변화</th><th>margin</th><th>loss</th></tr></thead>
+          <tbody>
+            <tr><td>학습 시작 (π<sub>θ</sub> = π<sub>ref</sub>)</td><td>0</td><td>0</td><td>0.00</td><td>0.693</td></tr>
+            <tr><td>옳은 방향으로 학습</td><td>+2</td><td>−3</td><td>0.50</td><td>0.474</td></tr>
+            <tr><td>반대로 움직임</td><td>−2</td><td>+3</td><td>−0.50</td><td>0.974</td></tr>
+          </tbody>
+        </table>
+        <p>DPO의 손실은 이진 분류의 로지스틱 손실과 모양이 같다. “고른 답 쪽이 이긴다”를 정답으로 하는 분류 문제로 바꾼 셈이다.</p>
+
+        <h3>전체 미세조정은 왜 비싼가</h3>
+        <p>SFT든 DPO든, 모든 파라미터를 학습하면(전체 미세조정, full fine-tuning) 파라미터 하나마다 가중치만이 아니라 기울기와 옵티마이저 상태까지 메모리에 올라간다. 혼합 정밀도로 AdamW를 쓸 때 흔히 쓰는 어림셈은 <strong>파라미터당 16바이트</strong>다.</p>
+        <table>
+          <thead><tr><th>항목</th><th>바이트</th></tr></thead>
+          <tbody>
+            <tr><td>fp16/bf16 가중치 (계산용)</td><td>2</td></tr>
+            <tr><td>fp16/bf16 기울기</td><td>2</td></tr>
+            <tr><td>fp32 가중치 원본 (갱신용)</td><td>4</td></tr>
+            <tr><td>Adam 1차 모멘트 m · 2차 모멘트 v (fp32)</td><td>4 + 4</td></tr>
+            <tr><td><strong>합계</strong></td><td><strong>16</strong></td></tr>
+          </tbody>
+        </table>
+        <p>Llama 3 8B급 모델(8,030,261,248개)이면 16바이트 × 80억 = <strong>128.5GB</strong>다. 학습 중 활성값(activation)은 빼고도 그렇다. 24GB GPU라면 6장 분량이다. 9주차의 메모리 계산기에서 본 “추론에 필요한 메모리”와 비교하면 학습이 얼마나 무거운지 알 수 있다.</p>
+
+        <h3>LoRA: 작은 행렬 두 개만 학습한다</h3>
+        <p>LoRA(Low-Rank Adaptation)는 원래 가중치 W를 <strong>동결</strong>하고, 그 옆에 작은 행렬 두 개 A와 B를 붙여 그것만 학습한다. 미세조정으로 바뀌는 양 ΔW가 “낮은 rank의 행렬로 충분히 표현된다”는 가정이다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 214" role="img" aria-labelledby="w10-fig3-t" style="width: 100%">
+            <title id="w10-fig3-t">입력 x가 동결된 큰 행렬 W와, 학습하는 작은 행렬 A와 B를 거친 두 경로로 나뉘었다가 더해진다.</title>
+            <style>
+              .w10f3-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w10f3-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w10f3-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w10f3-w { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w10f3-ab { fill: var(--color-success-soft); stroke: var(--color-success); stroke-width: 2; }
+              .w10f3-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w10-a3); }
+            </style>
+            <defs><marker id="w10-a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w10f3-l" x="0" y="100">x</text>
+            <path class="w10f3-arr" d="M14 96 H44 V44 H86"/>
+            <path class="w10f3-arr" d="M44 96 V160 H86"/>
+            <rect class="w10f3-w" x="90" y="8" width="150" height="72" rx="8"/>
+            <text class="w10f3-l" x="104" y="34">W (동결 🔒)</text>
+            <text class="w10f3-m" x="104" y="54">d_out × d_in</text>
+            <text class="w10f3-n" x="104" y="71">4096² = 16,777,216개</text>
+            <rect class="w10f3-ab" x="90" y="140" width="110" height="40" rx="6"/>
+            <text class="w10f3-l" x="100" y="158">A (r × d_in)</text>
+            <text class="w10f3-n" x="100" y="174">65,536 · 무작위</text>
+            <path class="w10f3-arr" d="M204 160 H236"/>
+            <rect class="w10f3-ab" x="240" y="118" width="54" height="84" rx="6"/>
+            <text class="w10f3-l" x="252" y="150">B</text>
+            <text class="w10f3-n" x="246" y="168">d_out×r</text>
+            <text class="w10f3-n" x="248" y="184">0에서</text>
+            <text class="w10f3-n" x="248" y="198">시작</text>
+            <path class="w10f3-arr" d="M298 160 H330"/>
+            <text class="w10f3-m" x="334" y="164">× α/r</text>
+            <path class="w10f3-arr" d="M244 44 H400 V80"/>
+            <path class="w10f3-arr" d="M380 160 H400 V110"/>
+            <circle cx="400" cy="96" r="13" fill="var(--color-surface)" stroke="var(--color-text-muted)" stroke-width="2"/>
+            <text class="w10f3-l" x="394" y="101">+</text>
+            <path class="w10f3-arr" d="M414 96 H448"/>
+            <text class="w10f3-l" x="454" y="92">h = W·x + (α/r)·B·A·x</text>
+            <text class="w10f3-n" x="454" y="114">r = 16이면 A·B 합 131,072개</text>
+            <text class="w10f3-n" x="454" y="132">= W의 0.78%만 학습</text>
+            <text class="w10f3-n" x="454" y="162">B = 0이므로 학습 시작 때</text>
+            <text class="w10f3-n" x="454" y="180">출력은 원래 모델과 똑같다</text>
+          </svg>
+          <figcaption>LoRA 층 하나. 기울기와 Adam 상태는 A와 B에만 생긴다. 학습이 끝나면 W + (α/r)·B·A를 한 행렬로 합칠 수 있어 추론 속도는 그대로다.</figcaption>
+        </figure>
+        <ul>
+          <li><strong>파라미터 수</strong>: 층 하나가 d<sub>in</sub> × d<sub>out</sub>이면 LoRA는 r × (d<sub>in</sub> + d<sub>out</sub>)개다. 8B급 모델의 모든 선형층(q·k·v·o·MLP)에 r = 16을 붙이면 41,943,040개, 전체의 <strong>0.52%</strong>다.</li>
+          <li><strong>초기화</strong>: A는 작은 무작위 값, B는 0이다. 그래서 B·A = 0이고, 학습 첫 순간의 모델은 원래 모델과 똑같다. 망가진 상태에서 출발하지 않는다.</li>
+          <li><strong>α/r</strong>: 변화량의 배율이다. α를 고정해 두면 r을 바꿔도 학습률을 다시 맞출 필요가 적다.</li>
+          <li><strong>메모리</strong>: 기울기와 Adam 상태는 A·B에만 생기지만, <em>동결된 W는 그대로 메모리에 있어야 한다</em>. 8B급을 bf16으로 올리면 16.1GB, 학습 부분까지 약 16.7GB다. QLoRA는 이 동결 가중치를 4비트로 양자화해 약 6.3GB로 줄인다(모두 활성값을 뺀 추정치).</li>
+          <li><strong>한계</strong>: rank r이면 ΔW도 rank가 r 이하다. 너무 작으면 바꿀 수 있는 “방향”이 모자란다. 반대로 작은 모델에서 r을 키우면 LoRA가 원래 층보다 커진다. 미니 GPT의 48×48 층은 r = 24에서 같아진다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 과정과 연결</b> — 미세조정은 말투, 형식, 과제 수행 방식을 바꾸는 데 강하다. 그러나 <em>새 사실</em>을 넣는 데는 약하다. 문서가 바뀔 때마다 다시 학습해야 하고, 답의 근거를 보여 줄 수도 없다. 그래서 “새 지식을 넣으려면 미세조정보다 RAG가 먼저다.” <a href="https://samcho93.github.io/studyRAG/weeks/w01/" target="_blank" rel="noopener">RAG 1주차</a>의 “그냥 묻기 · 파인튜닝 · 문서 붙이기 · RAG” 비교표를 다시 본다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>위젯 두 개로 이번 주 개념을 직접 확인한다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래).</p>
+
+        <h3>4-1. 채팅 템플릿 뷰어</h3>
+        <p>메시지를 고치거나 더하면 모델이 실제로 보는 문자열이 바로 바뀐다. 보라색 칩이 특수 토큰이고, 초록 밑줄이 손실을 계산하는 자리다. 토큰은 미니 GPT처럼 글자 하나를 1개로, 특수 토큰도 1개로 센다. 아래 “실패 사례” 단추는 <strong>수업용으로 작성한 예시</strong>를 보여 준다(실제 모델을 돌린 결과가 아니다).</p>
+        <div id="w10-chat-template"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>기본 대화(ChatML)에서 전체 토큰 수, 학습 토큰 수, 학습 비율을 기록한다. 학습 토큰에는 무엇과 무엇이 들어 있는가?</li>
+          <li>템플릿을 Llama 3 형식으로 바꾼다. 글자 수는 크게 늘었는데 토큰 수는 조금만 늘었다. 왜 그런가?</li>
+          <li>Gemma 형식으로 바꾸면 시스템 지시문은 어디로 가는가? 이번에는 “＋ 사용자”를 두 번 눌러 사용자 메시지가 연달아 오게 한다. 무슨 경고가 나오는가?</li>
+          <li>마지막 어시스턴트 메시지를 지우고 “생성 프롬프트 붙이기”를 켠다. 문자열의 끝은 무엇인가? 모델은 어떤 토큰을 내면 멈추는가?</li>
+          <li>🧪 베이스 모델 사례와 ⚠ 템플릿 불일치 사례를 차례로 연다. 두 경우 모두 “모델이 멍청해서”가 아니다. 각각 무엇이 빠졌거나 어긋났는가?</li>
+          <li>“템플릿 없음”을 고른다. 학습 비율은 몇 %인가? 이 데이터로 SFT하면 모델은 무엇까지 배우게 되는가?</li>
+        </ol>
+
+        <h3>4-2. LoRA 계산기</h3>
+        <p>모델, rank r, LoRA를 붙일 층, 동결 가중치 정밀도를 고르면 학습 파라미터 수와 학습 메모리(가중치 + 기울기 + Adam 상태)를 계산한다. 막대의 세로선이 GPU 메모리다. 활성값은 빠진 <strong>추정치</strong>이고, 1GB = 10<sup>9</sup>바이트로 계산한다.</p>
+        <div id="w10-lora"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 설정(8B급, r = 16, 모든 층, bf16, 24GB)에서 전체 미세조정과 LoRA의 메모리를 기록한다. LoRA 막대에서 회색(동결 가중치)과 초록(학습 부분)의 비율은 어떤가?</li>
+          <li>정밀도를 fp32로 바꾼다. 학습 파라미터는 그대로인데 왜 24GB를 넘는가? 그다음 “8B QLoRA 4비트”를 누른다. 얼마로 줄었는가?</li>
+          <li>r을 1 → 16 → 128로 옮기며 LoRA 비율과 메모리를 기록한다. 메모리는 r에 비례해 늘어나는가?</li>
+          <li>“미니 GPT r = 32”를 누른다. 표에서 빨간 줄은 무엇을 뜻하는가? 미니 GPT에 LoRA를 쓰는 것이 이득인가?</li>
+          <li>GPU를 80GB로 바꿔도 8B급 전체 미세조정은 들어가는가? 몇 장이 필요할까?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 페이지와 분리된 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. <code>/assets/…</code> 경로는 사이트 루트 기준이다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 코퍼스로 SFT 데이터 만들기 (ChatML)</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>LLM 교안 문서 7편에서 (질문, 모범 답) 대화를 하나씩 만든다. 모범 답은 문서의 첫 문장이다. 대화를 ChatML 문자열로 바꾸는 <code>toChatML</code>을 완성한다. <code>addGenerationPrompt</code>가 참이면 끝에 어시스턴트 머리말을 붙인다. 기대 결과: “사전학습과 미세조정” 대화는 168자, 추론용 프롬프트는 <code>&lt;|im_start|&gt;assistant\n</code>으로 끝난다.</p>
+          <pre data-run="c1" data-title="C1 ChatML 만들기"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpus.documents.filter((d) =&gt; d.course === 'studyLLM' &amp;&amp; d.type === 'theory');
+const SYSTEM = '너는 LLM 강의 조교다. 한 문장으로 답한다.';
+const firstSentence = (text) =&gt; text.split(/(?&lt;=다\.)\s/)[0];
+// 문서마다 SFT 예시 하나: 질문 = 제목, 모범 답 = 문서의 첫 문장
+const conversations = docs.map((d) =&gt; [
+  { role: 'system', content: SYSTEM },
+  { role: 'user', content: `“${d.title}”의 핵심을 한 문장으로 설명해 줘.` },
+  { role: 'assistant', content: firstSentence(d.text) },
+]);
+
+function toChatML(messages, addGenerationPrompt = false) {
+  let out = '';
+  // TODO: 메시지마다 '&lt;|im_start|&gt;' + role + '\n' + content + '&lt;|im_end|&gt;' + '\n' 을 붙인다
+  // TODO: addGenerationPrompt면 끝에 '&lt;|im_start|&gt;assistant\n'을 붙인다 (추론용)
+  return out;
+}
+
+const t = docs.findIndex((d) =&gt; d.id === 'llm-training');
+console.log(toChatML(conversations[t]));
+console.table(conversations.map((c, i) =&gt; ({ doc: docs[i].id, chars: [...toChatML(c)].length })));
+const prompt = toChatML(conversations[t].slice(0, 2), true);
+console.log(JSON.stringify(prompt.slice(-40)));
+console.log('끝이 어시스턴트 머리말인가:', prompt.endsWith('&lt;|im_start|&gt;assistant\n'));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 손실 마스크와 −100 레이블</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>두 번 주고받는 ChatML 문자열을 토큰으로 나누고(특수 토큰은 1개, 나머지는 글자 1개), 어시스턴트의 답과 그 <code>&lt;|im_end|&gt;</code>에만 1인 마스크를 만든다. 마스크가 0인 자리는 −100으로 바꾼 <code>labels</code>가 된다. 기대 결과: 123토큰 중 27토큰(22.0%)이 학습되고, 두 번째 줄에는 두 답만 남는다.</p>
+          <pre data-run="c2" data-title="C2 손실 마스크"><code class="language-javascript">const text =
+  '&lt;|im_start|&gt;system\n너는 학과 조교다. 짧게 답한다.&lt;|im_end|&gt;\n' +
+  '&lt;|im_start|&gt;user\nGPU 서버는 몇 시간까지 쓸 수 있어?&lt;|im_end|&gt;\n' +
+  '&lt;|im_start|&gt;assistant\n연속 최대 12시간이다.&lt;|im_end|&gt;\n' +
+  '&lt;|im_start|&gt;user\n고장 나면?&lt;|im_end|&gt;\n' +
+  '&lt;|im_start|&gt;assistant\n즉시 조교에게 알린다.&lt;|im_end|&gt;\n';
+
+const SPECIAL = ['&lt;|im_start|&gt;', '&lt;|im_end|&gt;'];
+
+function tokenize(text) {
+  const tokens = [];
+  // TODO: 특수 토큰은 통째로 토큰 1개, 나머지는 글자 하나가 토큰 1개
+  //       힌트: text.split(/(&lt;\|im_start\|&gt;|&lt;\|im_end\|&gt;)/) 는 특수 토큰도 결과에 남긴다
+  return tokens;
+}
+
+function lossMask(tokens) {
+  const mask = [];
+  // TODO: 토큰마다 0(손실 제외) 또는 1(학습)을 넣는다
+  //  - '&lt;|im_start|&gt;' 부터 첫 '\n'까지(역할 머리말)는 0. 그 사이 글자를 모으면 역할 이름이다
+  //  - 역할이 'assistant'인 차례의 내용과 그 차례의 '&lt;|im_end|&gt;'는 1
+  //  - 나머지(system·user 차례, 차례 사이 '\n')는 0
+  return mask;
+}
+
+const tokens = tokenize(text);
+const mask = lossMask(tokens);
+const trained = mask.filter((m) =&gt; m === 1).length;
+console.log('토큰 수:', tokens.length, '학습 토큰:', trained, `(${((trained / (tokens.length || 1)) * 100).toFixed(1)}%)`);
+console.log(tokens.map((t, i) =&gt; (mask[i] ? t : t === '\n' ? '\n' : '·')).join(''));
+// 학습 코드에서는 손실 제외 자리의 정답을 -100으로 둔다 (PyTorch의 ignore_index)
+const ids = tokens.map((t) =&gt; (SPECIAL.includes(t) ? SPECIAL.indexOf(t) : t.codePointAt(0))); // 장난감 id
+const labels = ids.map((id, i) =&gt; (mask[i] ? id : -100));
+const k = tokens.indexOf('연');
+console.log('labels 일부:', labels.slice(Math.max(0, k - 3), k + 4).join(', '));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. LoRA 파라미터 수</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>d<sub>in</sub> × d<sub>out</sub> 선형층에 rank r LoRA를 붙일 때 학습 파라미터 수를 구한다. ① 4096×4096 층에서 r별 비율 ② LoRA가 원래 층과 같은 크기가 되는 손익분기 r ③ 8B급 모델 전체(32층)의 LoRA 파라미터를 계산한다. 기대 결과: r = 16이면 131,072개(0.781%), 모든 선형층 r = 16이면 41,943,040개(0.522%).</p>
+          <pre data-run="c3" data-title="C3 LoRA 파라미터 수"><code class="language-javascript">const fullParams = (dIn, dOut) =&gt; dIn * dOut;
+function loraParams(dIn, dOut, r) {
+  // TODO: A는 r × dIn, B는 dOut × r 행렬이다. 두 행렬의 원소 수 합을 돌려준다
+  return 0;
+}
+
+// ① 4096 × 4096 층 하나에서 r을 바꿔 본다
+console.table([1, 4, 8, 16, 64, 256].map((r) =&gt; ({
+  r,
+  lora: loraParams(4096, 4096, r),
+  full: fullParams(4096, 4096),
+  ratio: +((loraParams(4096, 4096, r) / fullParams(4096, 4096)) * 100).toFixed(3),
+})));
+
+// ② 손익분기 r: LoRA가 원래 층과 같은 크기가 되는 r
+function breakEven(dIn, dOut) {
+  // TODO: r·(dIn + dOut) = dIn·dOut 을 r에 대해 푼다
+  return 0;
+}
+console.log('손익분기 r · 48×48:', breakEven(48, 48), '· 768×768:', breakEven(768, 768), '· 4096×4096:', breakEven(4096, 4096));
+
+// ③ 8B급 모델 전체 (32층, 전체 파라미터 8,030,261,248개)
+const L = 32, TOTAL = 8030261248;
+const layer = { q: [4096, 4096], k: [4096, 1024], v: [4096, 1024], o: [4096, 4096], gate: [4096, 14336], up: [4096, 14336], down: [14336, 4096] };
+function modelLora(r, targets) {
+  let sum = 0;
+  // TODO: targets의 층마다 loraParams(...layer[name], r)를 구하고 층 수 L을 곱해 더한다
+  return sum;
+}
+for (const [r, targets] of [[8, ['q', 'v']], [16, ['q', 'k', 'v', 'o']], [16, Object.keys(layer)]]) {
+  const n = modelLora(r, targets);
+  console.log(`r=${r} ${targets.join(',')}: ${n.toLocaleString()}개 = 전체의 ${((n / TOTAL) * 100).toFixed(3)}%`);
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 학습 메모리 어림셈</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>세 모델에 대해 전체 미세조정(파라미터당 16바이트), LoRA(동결 가중치 bf16 + LoRA 파라미터당 16바이트), QLoRA(선형층 4비트 + 나머지 16비트 + LoRA)의 메모리를 GB로 구하고 24GB GPU에 들어가는지 표시한다. 기대 결과: 8B급은 128.5GB ✗ / 16.7GB ✓ / 6.3GB ✓. 70B급은 QLoRA로도 24GB에 들어가지 않는다.</p>
+          <pre data-run="c4" data-title="C4 메모리 어림셈"><code class="language-javascript">// params = 전체 가중치 · linear = 트랜스포머 선형층 가중치 · lora = 모든 선형층에 r = 16 LoRA
+const models = [
+  { name: 'GPT-2 small', params: 124439808, linear: 84934656, lora: 2654208 },
+  { name: 'Llama 3 8B급', params: 8030261248, linear: 6979321856, lora: 41943040 },
+  { name: 'Llama 3 70B급', params: 70553706496, linear: 68451041280, lora: 207093760 },
+];
+const GB = 1e9;
+const GPU = 24; // GB
+
+function fullFT(m) {
+  // TODO: 파라미터 × 16바이트 (fp16 가중치 2 + 기울기 2 + fp32 원본 4 + Adam m 4 + v 4)를 GB로
+  return 0;
+}
+function lora(m, bytesPerFrozen = 2) {
+  // TODO: 동결 가중치(params × bytesPerFrozen) + LoRA 파라미터 × 16바이트, GB로
+  return 0;
+}
+function qlora(m) {
+  // TODO: 선형층은 4비트(0.5바이트), 나머지(임베딩·출력층 등)는 2바이트 + LoRA × 16바이트, GB로
+  return 0;
+}
+
+const fit = (gb) =&gt; `${gb.toFixed(1)}${gb &lt;= GPU ? ' ✓' : ' ✗'}`;
+console.table(models.map((m) =&gt; ({
+  model: m.name,
+  'full FT (GB)': fit(fullFT(m)),
+  'LoRA bf16 (GB)': fit(lora(m)),
+  'QLoRA 4bit (GB)': fit(qlora(m)),
+})));
+// TODO: 8B 전체 미세조정이 24GB GPU 몇 장 분량인지, 8B LoRA 메모리에서 동결 가중치가 몇 %인지 출력한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. LoRA를 직접 학습시키기</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>6×6 가중치 W를 동결하고, 정답 W + ΔW*(rank 2)를 흉내 내도록 A와 B만 경사하강법으로 학습한다. 순전파 h = W·x + (α/r)·B·(A·x)와 기울기 두 줄, 갱신 두 줄을 채운다. 확인할 것: ① 시작 시점 출력 차이가 0인가(B = 0) ② 첫 단계에서 A의 기울기가 0인 이유 ③ W가 끝까지 그대로인가 ④ r = 1과 r = 2의 최종 손실 차이. 기대 결과: r = 2는 손실이 0에 가까워지고, r = 1은 0.54 근처에서 멈춘다.</p>
+          <pre data-run="c5" data-title="C5 LoRA 학습"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const rand = mulberry32(10);
+const D = 6, N = 32;
+const randMat = (rows, cols, std) =&gt; Array.from({ length: rows }, () =&gt; Array.from({ length: cols }, () =&gt; gaussian(rand) * std));
+const matVec = (M, x) =&gt; M.map((row) =&gt; row.reduce((s, w, j) =&gt; s + w * x[j], 0));
+
+// 동결된 사전학습 가중치 W, 그리고 새 과제의 정답 W + ΔW* (ΔW*는 rank 2)
+const W = randMat(D, D, 0.5);
+const u = randMat(2, D, 1), v = randMat(2, D, 1);
+const dW = W.map((row, i) =&gt; row.map((_, j) =&gt; 0.6 * u[0][i] * v[0][j] + 0.3 * u[1][i] * v[1][j]));
+const X = randMat(N, D, 1);
+const Y = X.map((x) =&gt; matVec(W.map((row, i) =&gt; row.map((w, j) =&gt; w + dW[i][j])), x));
+
+function train(r, steps = 400, lr = 0.02) {
+  const alpha = r; // α = r → 배율 α/r = 1 (실전에서는 α를 고정해 두고 r을 바꾼다)
+  const s = alpha / r;
+  const A = randMat(r, D, 0.3);                                    // A: 작은 무작위 값
+  const B = Array.from({ length: D }, () =&gt; new Array(r).fill(0)); // B: 0으로 시작
+  const W0 = JSON.stringify(W);
+  const forward = (x) =&gt; {
+    const ax = matVec(A, x);
+    // TODO: bax = B·(A·x)를 계산한다 (지금은 0으로 둔 자리표시)
+    const bax = new Array(D).fill(0);
+    return { ax, y: matVec(W, x).map((wx, i) =&gt; wx + s * bax[i]) };
+  };
+  const log = [];
+  // 시작 시점: 모든 입력에서 LoRA 출력과 원래 모델 출력의 최대 차이
+  const diff0 = Math.max(...X.map((x) =&gt; Math.max(...forward(x).y.map((y, i) =&gt; Math.abs(y - matVec(W, x)[i])))));
+  for (let step = 0; step &lt;= steps; step++) {
+    const gA = randMat(r, D, 0), gB = randMat(D, r, 0); // 0으로 채운 기울기
+    let loss = 0;
+    X.forEach((x, n) =&gt; {
+      const { ax, y } = forward(x);
+      const dy = y.map((yi, i) =&gt; (2 * (yi - Y[n][i])) / N); // ∂loss/∂y
+      loss += y.reduce((acc, yi, i) =&gt; acc + (yi - Y[n][i]) ** 2, 0) / N;
+      // TODO: gB[i][k] += s · dy[i] · ax[k]
+      // TODO: gA[k][j] += s · (Bᵀ·dy)[k] · x[j]   ((Bᵀ·dy)[k] = Σᵢ B[i][k]·dy[i])
+    });
+    if (step === 0) log.push({ step, loss: loss.toPrecision(4), '|gA|': +Math.hypot(...gA.flat()).toFixed(4), '|gB|': +Math.hypot(...gB.flat()).toFixed(4) });
+    else if ([1, 10, 50, 100, 200, 400].includes(step)) log.push({ step, loss: loss.toPrecision(4) });
+    // TODO: A와 B만 경사하강법으로 갱신한다: A[k][j] -= lr · gA[k][j], B[i][k] -= lr · gB[i][k]
+  }
+  return { diff0, log, frozen: JSON.stringify(W) === W0, trainable: r * (D + D) };
+}
+
+for (const r of [1, 2]) {
+  const res = train(r);
+  console.log(`r = ${r} · 학습 파라미터 ${res.trainable}개 (W는 ${D * D}개) · 시작 출력 차이 ${res.diff0} · W 그대로: ${res.frozen}`);
+  console.table(res.log);
+}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>LLM은 사전학습 → 지시 미세조정(SFT) → 선호 학습(RLHF·DPO) 순서로 만들어진다. 구조는 같고, 데이터와 손실이 달라진다.</li>
+          <li>SFT는 대화를 채팅 템플릿으로 문자열 하나로 만들고, 어시스턴트의 답과 끝 토큰에서만 교차 엔트로피를 계산한다(나머지 정답은 −100).</li>
+          <li>템플릿이 없으면 베이스 모델처럼 이어 쓰고, 학습과 추론의 템플릿이 다르면 멈춤 토큰이 어긋나 혼자 묻고 혼자 답한다.</li>
+          <li>선호 학습은 “답 두 개 중 나은 쪽”을 데이터로 쓴다. RLHF는 보상 모델과 강화학습, DPO는 로지스틱 손실 하나로 한다.</li>
+          <li>전체 미세조정은 파라미터당 약 16바이트(8B급 128.5GB)다. LoRA는 W를 동결하고 r × (d<sub>in</sub> + d<sub>out</sub>)개만 학습하며, QLoRA는 동결 가중치까지 4비트로 줄인다.</li>
+        </ul>
+        <p><strong>다음 주(11주차 LLM API와 프롬프트)</strong>에는 직접 학습시키는 대신 이미 SFT와 선호 학습을 마친 LLM을 API로 불러 쓴다. API에 보내는 <code>messages</code> 목록이 바로 이번 주의 대화 구조이고, 채팅 템플릿은 서버가 대신 적용한다. 시스템 프롬프트, 구조화 출력, 도구 호출을 실습한다.</p>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 과정과 연결</b> — 시스템 지시문과 예시로 모델의 행동을 바꾸는 것은 “학습 없이 하는 미세조정”에 가깝다. 무엇을 프롬프트로 풀고 무엇을 학습으로 풀지는 <a href="https://samcho93.github.io/studyRAG/weeks/w02/" target="_blank" rel="noopener">RAG 2주차 프롬프트 엔지니어링</a>에서 이어서 다룬다.</p></div>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="10"> ✅ 10주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="10" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount as mountTemplate } from '../../assets/js/widgets/w10-chat-template.js';
+    import { mount as mountLora } from '../../assets/js/widgets/w10-lora.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mountTemplate(document.getElementById('w10-chat-template'));
+    mountLora(document.getElementById('w10-lora'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

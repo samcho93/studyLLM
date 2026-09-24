@@ -1,0 +1,569 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>5주차 어텐션 · 교사용 · LLM Lab</title>
+  <meta name="description" content="5주차 어텐션 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w05.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="5" data-crumb="🧑‍🏫 교사용 › <b>5주차 · 어텐션</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="5주차 · 어텐션">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 5주차</div>
+            <h1>어텐션</h1>
+            <p>어디를 볼지 스스로 정하는 층</p>
+            <div class="deco" aria-hidden="true">👀</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:15</td><td>4주차 복습: 고정 창 신경망 언어 모델의 두 벽 · “9시까지” 발문</td></tr>
+                <tr><td>0:15–0:45</td><td>쿼리·키·값 · 다섯 단계를 숫자로(C1 표) · 행렬로 쓰기</td></tr>
+                <tr><td>0:45–1:15</td><td>데모: 어텐션 계산기 · 관찰 질문 1~4</td></tr>
+                <tr><td>1:15–1:25</td><td>휴식</td></tr>
+                <tr><td>1:25–1:55</td><td>인과 마스크 · √d 스케일링 · 위치 정보 · 멀티헤드 · 관찰 질문 5~7</td></tr>
+                <tr><td>1:55–2:50</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · 6주차 트랜스포머 블록 예고</td></tr>
+              </table>
+              <p>이번 주가 과정 전체의 고비다. 수식보다 C1 표의 숫자 한 줄을 끝까지 따라가게 하는 것이 목표다. 행렬 곱이 흐린 학생이 많으면 슬라이드 7 앞에서 2×2 행렬 곱을 칠판에 한 번 한다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="지난주의 벽">
+            <h2>4주차 모델의 두 벽</h2>
+            <div class="cols">
+              <div>
+                <h3>① 창이 고정되어 있다</h3>
+                <ul>
+                  <li>마지막 토큰 몇 개의 임베딩을 이어 붙인다</li>
+                  <li>창 밖은 보이지 않는다</li>
+                  <li>창을 넓히면 첫 층 가중치도 창 크기에 비례해 늘어난다</li>
+                </ul>
+              </div>
+              <div>
+                <h3>② 가중치가 자리에 묶여 있다</h3>
+                <ul>
+                  <li>“바로 앞”용, “두 칸 앞”용 가중치가 따로</li>
+                  <li>같은 단어라도 자리가 바뀌면 다시 배워야 한다</li>
+                </ul>
+              </div>
+            </div>
+            <p>필요한 것: <strong>어디에 있든, 지금 중요한 토큰을 내용으로 찾아 가져오는 장치</strong></p>
+            <aside class="notes">
+              <p>4주차 위젯/코드에서 입력 벡터를 만들 때 임베딩을 concat했던 장면을 떠올리게 한다. “창을 10으로 넓히면 입력 차원이 몇 배가 되나?” → 창 크기 × D.</p>
+              <p>②는 합성곱 신경망을 배운 학생에게 “가중치 공유가 없는 상태”라고 설명하면 통한다.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>Q·K·V → QKᵀ → ÷√d → <strong>인과 마스크</strong> → 소프트맥스 → ·V를 <strong>단계별로 계산</strong>한다</li>
+              <li>마스크가 왜 필요한지, √d로 왜 나누는지 설명한다</li>
+              <li><strong>멀티헤드</strong> 어텐션이 무엇을 나란히 계산하는지 설명한다</li>
+            </ol>
+            <aside class="notes">
+              <p>C5의 <code>causalAttention</code>은 7주차 미니 GPT 학습기가 실제로 쓰는 함수다. “오늘 만든 것이 7주차에 그대로 돌아간다”고 동기를 준다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="발문: 어디를 보는가">
+            <h2>“실습실은 평일 오후 9시 ___”</h2>
+            <p class="big-quote">빈칸을 채울 때 여러분은 앞의 어느 단어를 봤나?</p>
+            <ul>
+              <li>“까지”를 떠올리려면 → <strong>9시</strong>, <strong>오후</strong> (시간 표현)</li>
+              <li>“개방된다”까지 가려면 → <strong>실습실은</strong> (주어)</li>
+              <li>“은”, “평일”은 덜 중요하다</li>
+            </ul>
+            <p class="muted">단어마다 “얼마나 볼지” 비율이 다르다 → 이 비율을 계산하는 것이 어텐션</p>
+            <aside class="notes">
+              <p><strong>발문:</strong> 학생에게 단어마다 0~100%로 “참고한 정도”를 매기게 하고 합이 100%가 되게 한다. 그 숫자가 곧 오늘 계산할 어텐션 가중치 한 행이다.</p>
+              <p>“자리(몇 칸 앞)가 아니라 내용(시간 표현인가)으로 골랐다”는 점을 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="쿼리 · 키 · 값">
+            <h2>쿼리 · 키 · 값 = 검색</h2>
+            <table>
+              <thead><tr><th></th><th>만드는 법</th><th>뜻</th><th>도서관 비유</th></tr></thead>
+              <tbody>
+                <tr><td><strong>쿼리 q</strong></td><td>x · W<sub>q</sub></td><td>나는 이런 정보를 찾는다</td><td>검색어</td></tr>
+                <tr><td><strong>키 k</strong></td><td>x · W<sub>k</sub></td><td>나는 이런 정보를 갖고 있다</td><td>책의 색인</td></tr>
+                <tr><td><strong>값 v</strong></td><td>x · W<sub>v</sub></td><td>실제로 건네줄 내용</td><td>책의 내용</td></tr>
+              </tbody>
+            </table>
+            <p>점수 = q · k (잘 맞을수록 큼) → 소프트맥스 → 그 비율로 v를 <strong>섞어</strong> 가져온다</p>
+            <aside class="notes">
+              <p>검색과 다른 점: 1등 한 권만 가져오지 않고 비율대로 섞는다(“소프트” 검색). 그래서 미분 가능하고 학습할 수 있다.</p>
+              <p>RAG를 먼저 들은 학생에게는 “벡터 검색의 코사인 유사도 = 쿼리와 키의 내적”이라고 연결하면 빠르다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide" data-title="다섯 단계를 숫자로">
+            <h2>쿼리 “9시” = [0.9, 1.2]의 한 행</h2>
+            <table>
+              <thead><tr><th>키</th><th>벡터</th><th>q·k</th><th>÷√2</th><th>소프트맥스</th></tr></thead>
+              <tbody>
+                <tr><td>실습실</td><td>[1.0, −0.8]</td><td>−0.06</td><td>−0.042</td><td>0.070</td></tr>
+                <tr><td>은</td><td>[−1.0, 0.0]</td><td>−0.90</td><td>−0.636</td><td>0.039</td></tr>
+                <tr><td>평일</td><td>[0.8, 0.9]</td><td>1.80</td><td>1.273</td><td>0.262</td></tr>
+                <tr><td>오후</td><td>[0.7, 1.0]</td><td>1.83</td><td>1.294</td><td>0.268</td></tr>
+                <tr><td>9시</td><td>[0.9, 1.2]</td><td>2.25</td><td>1.591</td><td><strong>0.361</strong></td></tr>
+              </tbody>
+            </table>
+            <p>출력 = Σ w·v = <strong>[0.753, 0.880]</strong> (단순 평균 [0.48, 0.46]보다 “시간” 쪽)</p>
+            <aside class="notes">
+              <p>의미 2칸 = [내용어(+)·기능어(−), 시간(+)·사물(−)]로 손으로 만든 값이다. W 없이 벡터를 그대로 q·k·v로 쓴 가장 단순한 경우다(Challenge C1과 같은 값).</p>
+              <p>한 줄(평일)을 칠판에서 끝까지 계산한다: 0.9×0.8 + 1.2×0.9 = 1.80 → ÷1.414 = 1.273 → e<sup>1.273</sup> / Σ = 0.262.</p>
+              <p><strong>발문:</strong> “은”의 가중치가 3.9%로 가장 작은 이유는? → 내용어(+)·기능어(−) 칸의 부호가 반대라 내적이 음수다(시간 칸은 0이라 도움이 안 된다).</p>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="행렬로 쓰기">
+            <h2>모든 토큰을 한 번에: 행렬 곱 두 번</h2>
+            <pre><code>Q = X·Wq   K = X·Wk   V = X·Wv          (T×D → T×d)
+S = Q·Kᵀ / √d                             (T×T, 행 = 쿼리, 열 = 키)
+A = softmax( mask(S) )  ← 행마다          (각 행의 합 = 1)
+O = A·V                                   (T×d)</code></pre>
+            <ul>
+              <li>W<sub>q</sub>·W<sub>k</sub>·W<sub>v</sub>의 크기는 <strong>문장 길이 T와 무관</strong> → 길어져도 파라미터가 늘지 않는다</li>
+              <li>대신 점수 행렬 S는 T×T → 계산량은 문맥 길이의 제곱</li>
+            </ul>
+            <aside class="notes">
+              <p>행렬 모양을 칠판에 네모로 그려 “T×d 곱하기 d×T = T×T”를 확인시킨다. 모양 맞추기가 C2에서 가장 많이 막히는 곳이다.</p>
+              <p>T² 비용은 9주차(메모리 계산기)와 “컨텍스트 창이 왜 유한한가”로 이어진다. 오늘은 한 줄만 언급한다.</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide slide--demo" data-title="데모: 어텐션 계산기">
+            <h2>데모 · 어텐션 계산기</h2>
+            <div id="deck-w05-attention"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>처음 화면: 앞 토큰 보기 헤드. ④에서 각 쿼리가 바로 앞 토큰에 평균 80%. “9시” → “오후” 78.5%</li>
+                <li>① QKᵀ → ② ÷√d → ③ 마스크 → ④ 순서로 눌러 점수가 가중치가 되는 과정을 보인다</li>
+                <li>❌ 마스크 끄기 → “실습실”이 마지막 “까지”에 78% (위치가 한 바퀴 돌아 착각). 미래로 간 가중치 평균 20%</li>
+                <li>같은 종류 보기 헤드 → “9시”: 평일 22% · 오후 23% · 자기 54%. “까지”는 조사 “은”에 32%</li>
+                <li>“9시” 칩 → 의미를 [−1.0, 0.0]으로 → “은”과 자기에게 각 48%</li>
+                <li>점수 배율 ×2 → 앞 토큰 헤드 평균 최대 가중치 97% (포화 경고)</li>
+                <li>❌ d = 64 · 스케일링 끄기 → 평균 최대 가중치 99.8%, 엔트로피 1%. 스케일링만 다시 켜면 71%</li>
+                <li>멀티헤드 켜기 → 두 지도가 다르다</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="인과 마스크">
+            <h2>인과 마스크: 미래 엿보기 = 반칙</h2>
+            <ul>
+              <li>학습: 문장 전체를 한 번에 넣고 <strong>모든 위치의 다음 토큰</strong>을 동시에 맞힌다</li>
+              <li>가리지 않으면 “9시” 자리가 바로 뒤 “까지”(= 정답)를 본다</li>
+              <li>생성할 때는 그 미래가 없다 → 학습과 생성이 어긋난다</li>
+            </ul>
+            <pre><code>S[t][s] = −∞  (s &gt; t)   →   e^−∞ = 0   →   미래 가중치 = 0</code></pre>
+            <p>검사: 마지막 토큰을 바꿨을 때 앞 5개 출력의 변화 — 마스크 켬 <strong>0</strong> · 끔 <strong>1.881</strong></p>
+            <aside class="notes">
+              <p>숫자는 Challenge C3 정답의 실행 결과다.</p>
+              <p><strong>발문:</strong> “−∞ 대신 −1000을 넣어도 되나?” → 실제로 e<sup>−1000</sup>은 0으로 계산되므로 동작한다. 단, 행 전체가 −∞이면 max를 빼도 −∞ − (−∞) = NaN이 된다. 인과 마스크는 대각선(자기 자신)을 항상 남기므로 그런 행이 생기지 않는다.</p>
+              <p>RAG의 문장 임베딩 모델·리랭커는 생성하지 않으므로 마스크 없이 양방향으로 본다. “마스크 끄기 = 항상 틀림”은 아니다.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="√d 스케일링">
+            <h2>√d로 나누지 않으면: 소프트맥스 포화</h2>
+            <table>
+              <thead><tr><th>d</th><th>점수 표준편차</th><th>엔트로피 (안 나눔)</th><th>최대 가중치 (안 나눔)</th><th>엔트로피 (÷√d)</th><th>최대 가중치 (÷√d)</th></tr></thead>
+              <tbody>
+                <tr><td>4</td><td>2.08</td><td>1.83비트</td><td>0.53</td><td>2.50비트</td><td>0.35</td></tr>
+                <tr><td>16</td><td>4.08</td><td>0.95비트</td><td>0.76</td><td>2.48비트</td><td>0.36</td></tr>
+                <tr><td>64</td><td>7.99</td><td>0.47비트</td><td>0.87</td><td>2.49비트</td><td>0.36</td></tr>
+                <tr><td>256</td><td>16.05</td><td>0.21비트</td><td><strong>0.94</strong></td><td>2.48비트</td><td>0.36</td></tr>
+              </tbody>
+            </table>
+            <p>내적 = d개 항의 합 → 표준편차 ∝ √d · 포화하면 <strong>정보도 기울기도 사라진다</strong></p>
+            <aside class="notes">
+              <p>무작위 쿼리 500개 × 키 8개, 성분은 표준정규분포(Challenge C4 정답의 실행 결과). 골고루 = 3비트, 원-핫 = 0비트.</p>
+              <p>포화의 기울기 문제: 소프트맥스 출력 p에 대한 미분은 p(1−p) 꼴이다. p가 0이나 1에 붙으면 0에 가깝다 → 4주차 역전파와 연결.</p>
+              <p>점수 배율 m = 1/온도. 8주차 디코딩의 온도 손잡이와 같은 수학이라고 예고한다.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="위치와 멀티헤드">
+            <h2>위치 정보와 멀티헤드</h2>
+            <div class="cols">
+              <div>
+                <h3>어텐션은 순서를 모른다</h3>
+                <ul>
+                  <li>점수 = 내적뿐 → 순서를 섞어도 같은 쌍은 같은 점수</li>
+                  <li>계산기: 임베딩 뒤 2칸 = 위치 [cos 60°t, sin 60°t]</li>
+                  <li>“앞 토큰 보기” W<sub>q</sub> = 위치를 60° 뒤로 돌리기</li>
+                </ul>
+              </div>
+              <div>
+                <h3>멀티헤드</h3>
+                <ul>
+                  <li>W<sub>q</sub>·W<sub>k</sub>·W<sub>v</sub>를 H벌, 각 폭 D/H</li>
+                  <li>결과를 이어 붙여 W<sub>O</sub>로 섞는다</li>
+                  <li>미니 GPT(7주차): D = 48, H = 4 → 헤드 폭 12</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>위치를 더하는 표준 방법(학습되는 위치 임베딩)은 6주차 내용이다. 여기서는 “위치가 임베딩에 있어야 앞 토큰 헤드가 가능하다”까지만.</p>
+              <p>C2의 함정: 마스크 없이 “실습실”은 “까지”를 본다. 위치 원이 6칸마다 한 바퀴 돌아 −1번 위치 = 5번 위치이기 때문이다. 주기가 있는 위치 표현의 한계를 보여 주는 좋은 예다.</p>
+              <p>실제 모델의 헤드는 학습으로 생긴다. “앞 토큰 보기”처럼 해석되는 헤드가 저절로 생기기도 한다 → 7주차 어텐션 지도.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>어텐션 한 층, 코드 15줄</h2>
+            <pre data-run="demo-attn" data-title="어텐션 15줄"><code class="language-javascript">const tokens = ['실습실', '은', '평일', '오후', '9시', '까지'];
+const X = [[1.0, -0.8], [-1.0, 0.0], [0.8, 0.9], [0.7, 1.0], [0.9, 1.2], [-0.9, 0.6]];
+const Wq = [[2, 0], [0, 2]], Wk = Wq, Wv = [[1, 0], [0, 1]];   // '같은 종류 보기' head
+const mm = (A, B) =&gt; A.map((r) =&gt; B[0].map((_, j) =&gt; r.reduce((s, x, p) =&gt; s + x * B[p][j], 0)));
+const Q = mm(X, Wq), K = mm(X, Wk), V = mm(X, Wv), d = Q[0].length;
+const A = Q.map((q, t) =&gt; {
+  const s = K.map((k, j) =&gt; (j &gt; t ? -Infinity : q.reduce((a, x, i) =&gt; a + x * k[i], 0) / Math.sqrt(d)));
+  const m = Math.max(...s), e = s.map((x) =&gt; Math.exp(x - m)), z = e.reduce((a, b) =&gt; a + b);
+  return e.map((x) =&gt; x / z);                                  // causal mask + softmax
+});
+const O = mm(A, V);                                            // weighted average of values
+console.table(Object.fromEntries(A.map((r, t) =&gt; [tokens[t], Object.fromEntries(r.map((w, j) =&gt; [tokens[j], +w.toFixed(2)]))])));
+console.log('9시의 출력:', O[4].map((x) =&gt; +x.toFixed(2)));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> “9시” 행 = 평일 0.18 · 오후 0.19 · 9시 0.63, “까지” 행 = 은 0.30 · 까지 0.64, 9시의 출력 [0.84, 1.11].</p>
+              <p>계산기의 같은 헤드는 “9시”에 54%를 주는데 여기는 63%다. 계산기는 Q가 4칸(위치 2칸은 0)이라 √4 = 2로 나누고, 이 코드는 d = 2라 √2로 나누기 때문이다. 같은 점수라도 나누는 값이 작으면 더 뾰족해진다 — √d의 효과를 즉석에서 보여 주는 예로 쓴다.</p>
+              <p>Math.exp(−Infinity) = 0이라 마스크가 별도 처리 없이 동작한다는 점을 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 13 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>어텐션 출력 = 값의 <strong>가중 평균</strong>, 가중치 = softmax(q·k / √d) → <strong>내용으로</strong> 정한다</li>
+              <li><strong>인과 마스크</strong>: 미래 칸을 −∞로 → 학습과 생성이 일치한다</li>
+              <li><strong>÷√d</strong>: 차원이 커도 소프트맥스가 포화하지 않는다</li>
+              <li>순서는 위치 정보로, 여러 관점은 <strong>멀티헤드</strong>로</li>
+            </ul>
+            <h3>다음 주 · 트랜스포머 블록</h3>
+            <p class="muted">어텐션 + 피드포워드 + 잔차 연결 + 층 정규화 + 위치 임베딩 → 블록 하나를 조립하고 파라미터를 센다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분에 “최대 차이가 0이 아닌 이유”(Float32)를 확인한다.</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>15분</td><td>4주차 복습 · 고정 창의 두 벽 · “9시까지” 발문</td><td>학생이 매긴 참고 비율 한 행</td></tr>
+                <tr><td>30분</td><td>Q·K·V · 한 행을 칠판에서 계산 · 행렬로 쓰기</td><td>행렬 모양 그림</td></tr>
+                <tr><td>30분</td><td>데모 · 관찰 1~4</td><td>짝 활동 메모</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>30분</td><td>마스크 · √d · 위치 · 멀티헤드 · 관찰 5~7</td><td>d별 기록표</td></tr>
+                <tr><td>55분</td><td>Challenge C1~C4</td><td>C2 matmul(6주차 재사용)</td></tr>
+                <tr><td>10분</td><td>정리 · 6주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">const tokens = ['실습실', '은', '평일', '오후', '9시'];
+const E = [[1.0, -0.8], [-1.0, 0.0], [0.8, 0.9], [0.7, 1.0], [0.9, 1.2]];
+const d = 2;
+const dot = (a, b) =&gt; a.reduce((s, x, i) =&gt; s + x * b[i], 0);
+function softmax(xs) {
+  const m = Math.max(...xs);
+  const ex = xs.map((x) =&gt; Math.exp(x - m));
+  const sum = ex.reduce((a, b) =&gt; a + b, 0);
+  return ex.map((e) =&gt; e / sum);
+}
+const q = E[4];
+const scores = E.map((k) =&gt; dot(q, k));
+const scaled = scores.map((x) =&gt; x / Math.sqrt(d));
+const weights = softmax(scaled);
+console.table(tokens.map((t, i) =&gt; ({ key: t, 'q·k': +scores[i].toFixed(3), '÷√d': +scaled[i].toFixed(3), weight: +weights[i].toFixed(3) })));
+console.log('가중치 합:', weights.reduce((a, b) =&gt; a + b, 0).toFixed(3));
+const output = [0, 1].map((j) =&gt; weights.reduce((s, w, i) =&gt; s + w * E[i][j], 0));
+console.log('출력 벡터:', output.map((x) =&gt; +x.toFixed(3)));
+// Compare: the plain average treats every token the same
+const mean = [0, 1].map((j) =&gt; E.reduce((s, e) =&gt; s + e[j], 0) / E.length);
+console.log('단순 평균:', mean.map((x) =&gt; +x.toFixed(3)));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> q·k = −0.06 / −0.9 / 1.8 / 1.83 / 2.25 · ÷√d = −0.042 / −0.636 / 1.273 / 1.294 / 1.591 · weight = 0.07 / 0.039 / 0.262 / 0.268 / 0.361 · 합 1.000 · 출력 [0.753, 0.88] · 단순 평균 [0.48, 0.46].</p>
+              <p><strong>자주 틀리는 곳:</strong> 소프트맥스에서 max를 빼지 않아도 여기서는 결과가 같다. 하지만 C4에서 d = 256, 스케일링 없이 점수가 수십이 되면 <code>Math.exp</code>가 커져 정밀도가 떨어지고, 수백이면 Infinity/Infinity = NaN이 된다. 처음부터 max 빼기를 습관으로 만든다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2 정답" data-appendix>
+            <h2>부록 B · C2 정답 (바꾼 부분)</h2>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">const tokens = ['실습실', '은', '평일', '오후', '9시', '까지'];
+const meaning = [[1.0, -0.8], [-1.0, 0.0], [0.8, 0.9], [0.7, 1.0], [0.9, 1.2], [-0.9, 0.6]];
+const th = Math.PI / 3;
+const X = meaning.map((m, t) =&gt; [...m, Math.cos(t * th), Math.sin(t * th)]);
+const g = Math.sqrt(8), c = Math.cos(th), s = Math.sin(th);
+const Wq = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, g * c, -g * s], [0, 0, g * s, g * c]];
+const Wk = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, g, 0], [0, 0, 0, g]];
+const Wv = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+const zeros = (r, c) =&gt; Array.from({ length: r }, () =&gt; new Array(c).fill(0));
+function matmul(A, B) {
+  const C = zeros(A.length, B[0].length);
+  for (let i = 0; i &lt; A.length; i++)
+    for (let j = 0; j &lt; B[0].length; j++)
+      for (let p = 0; p &lt; B.length; p++) C[i][j] += A[i][p] * B[p][j];
+  return C;
+}
+const transpose = (A) =&gt; A[0].map((_, j) =&gt; A.map((row) =&gt; row[j]));
+function softmaxRows(S) {
+  return S.map((row) =&gt; {
+    const m = Math.max(...row);
+    const ex = row.map((x) =&gt; Math.exp(x - m));
+    const sum = ex.reduce((a, b) =&gt; a + b, 0);
+    return ex.map((e) =&gt; e / sum);
+  });
+}
+const Q = matmul(X, Wq), K = matmul(X, Wk), V = matmul(X, Wv);
+const S = matmul(Q, transpose(K)).map((row) =&gt; row.map((x) =&gt; x / Math.sqrt(Q[0].length)));
+const A = softmaxRows(S);
+const show = (M) =&gt; Object.fromEntries(M.map((row, i) =&gt; [tokens[i], Object.fromEntries(row.map((x, j) =&gt; [tokens[j], +x.toFixed(2)]))]));
+console.table(show(A));
+console.log(A.map((row, t) =&gt; {
+  const j = row.indexOf(Math.max(...row));
+  return `${tokens[t]} → ${tokens[j]} (${(row[j] * 100).toFixed(0)}%)`;
+}).join(' · '));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 점수 QKᵀ/√d는 한 칸 앞이 4, 자기와 두 칸 앞이 2, 그 밖은 −2 또는 −4. 가중치: 각 행이 한 칸 앞에 0.78, 양옆에 0.11. “실습실 → 까지 (78%) · 은 → 실습실 (78%) · 평일 → 은 (78%) · 오후 → 평일 (78%) · 9시 → 오후 (78%) · 까지 → 9시 (78%)”.</p>
+              <p><strong>핵심:</strong> “실습실”의 앞 토큰은 없는데 “까지”를 본다. 위치가 60°씩 돌아 6칸이면 한 바퀴라 −1번 위치와 5번 위치가 같은 점이다. 그리고 마스크가 없으니 미래인 “까지”를 볼 수 있었다. 이 두 문제를 C3의 마스크가 한꺼번에 해결한다.</p>
+              <p>학생 스켈레톤은 점수·가중치·출력 O 표를 모두 출력한다. 출력 O의 “9시” 행은 [0.73, 1.01, −0.89, 0] — 오후의 벡터에 가깝다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답 (바꾼 부분)</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">const meaning = [[1.0, -0.8], [-1.0, 0.0], [0.8, 0.9], [0.7, 1.0], [0.9, 1.2], [-0.9, 0.6]];
+const th = Math.PI / 3;
+const embed = (m) =&gt; m.map((e, t) =&gt; [...e, Math.cos(t * th), Math.sin(t * th)]);
+const g = Math.sqrt(8), c = Math.cos(th), s = Math.sin(th);
+const Wq = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, g * c, -g * s], [0, 0, g * s, g * c]];
+const Wk = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, g, 0], [0, 0, 0, g]];
+const Wv = [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]];
+const matmul = (A, B) =&gt; A.map((r) =&gt; B[0].map((_, j) =&gt; r.reduce((acc, x, p) =&gt; acc + x * B[p][j], 0)));
+const transpose = (A) =&gt; A[0].map((_, j) =&gt; A.map((row) =&gt; row[j]));
+const softmaxRows = (S) =&gt; S.map((row) =&gt; {
+  const m = Math.max(...row);
+  const ex = row.map((x) =&gt; (x === -Infinity ? 0 : Math.exp(x - m)));
+  const sum = ex.reduce((a, b) =&gt; a + b, 0);
+  return ex.map((e) =&gt; e / sum);
+});
+const causalMask = (S) =&gt; S.map((row, i) =&gt; row.map((x, j) =&gt; (j &gt; i ? -Infinity : x)));
+function attend(X, useMask) {
+  const Q = matmul(X, Wq), K = matmul(X, Wk), V = matmul(X, Wv);
+  let S = matmul(Q, transpose(K)).map((row) =&gt; row.map((x) =&gt; x / Math.sqrt(Q[0].length)));
+  if (useMask) S = causalMask(S);
+  const A = softmaxRows(S);
+  return { A, O: matmul(A, V) };
+}
+const X = embed(meaning);
+const on = attend(X, true), off = attend(X, false);
+console.table(on.A.map((row) =&gt; row.map((x) =&gt; +x.toFixed(2))));
+const rowSums = on.A.map((row) =&gt; +row.reduce((a, b) =&gt; a + b, 0).toFixed(6));
+const upperMax = Math.max(...on.A.flatMap((row, i) =&gt; row.filter((_, j) =&gt; j &gt; i)));
+console.log('행 합:', rowSums, '· 대각선 위 최대 가중치:', upperMax);
+const future = off.A.map((row, t) =&gt; +row.slice(t + 1).reduce((a, b) =&gt; a + b, 0).toFixed(3));
+console.log('마스크 없이 미래로 간 가중치:', future);
+const meaning2 = meaning.map((m) =&gt; m.slice());
+meaning2[5] = [1.5, -1.5];
+const X2 = embed(meaning2);
+const change = (a, b) =&gt; Math.max(...a.O.slice(0, 5).flatMap((row, i) =&gt; row.map((x, j) =&gt; Math.abs(x - b.O[i][j]))));
+console.log('앞 5개 토큰의 출력 변화 (마스크 켬):', change(on, attend(X2, true)), '/ (마스크 끔):', +change(off, attend(X2, false)).toFixed(3));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 마스크 후 가중치 첫 행 [1, 0, …], 둘째 행 [0.88, 0.12, 0, …], 이후 각 행 한 칸 앞 0.78~0.79. 행 합 [1, 1, 1, 1, 1, 1] · 대각선 위 최대 0 · 미래로 간 가중치 [0.894, 0.11, 0.004, 0.002, 0.002, 0] · 출력 변화 켬 0 / 끔 1.881.</p>
+              <p><strong>해석:</strong> 첫 토큰은 마스크 없이는 89.4%를 미래로 보냈다. 출력 변화가 정확히 0이라는 것은 “앞 토큰의 출력은 뒤 토큰과 무관하다”는 인과성의 수학적 정의다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답 (바꾼 부분)</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const T = 8, TRIALS = 500;
+const rand = mulberry32(7);
+const randVec = (d) =&gt; Array.from({ length: d }, () =&gt; gaussian(rand));
+const dot = (a, b) =&gt; a.reduce((s, x, i) =&gt; s + x * b[i], 0);
+function softmax(xs) {
+  const m = Math.max(...xs);
+  const ex = xs.map((x) =&gt; Math.exp(x - m));
+  const sum = ex.reduce((a, b) =&gt; a + b, 0);
+  return ex.map((e) =&gt; e / sum);
+}
+const entropyBits = (p) =&gt; p.reduce((h, x) =&gt; (x &gt; 0 ? h - x * Math.log2(x) : h), 0);
+const rows = [];
+for (const d of [4, 16, 64, 256]) {
+  let scoreSq = 0, hRaw = 0, hScaled = 0, maxRaw = 0, maxScaled = 0;
+  for (let n = 0; n &lt; TRIALS; n++) {
+    const q = randVec(d);
+    const scores = Array.from({ length: T }, () =&gt; dot(q, randVec(d)));
+    for (const x of scores) scoreSq += x * x;
+    const pr = softmax(scores);
+    const ps = softmax(scores.map((x) =&gt; x / Math.sqrt(d)));
+    hRaw += entropyBits(pr);
+    hScaled += entropyBits(ps);
+    maxRaw += Math.max(...pr);
+    maxScaled += Math.max(...ps);
+  }
+  const N = TRIALS * T;
+  rows.push({
+    d,
+    'score std': +Math.sqrt(scoreSq / N).toFixed(2),
+    'H (÷√d 없음)': +(hRaw / TRIALS).toFixed(3),
+    'max w (÷√d 없음)': +(maxRaw / TRIALS).toFixed(3),
+    'H (÷√d)': +(hScaled / TRIALS).toFixed(3),
+    'max w (÷√d)': +(maxScaled / TRIALS).toFixed(3),
+  });
+}
+console.table(rows);
+console.log('score std / √d:', rows.map((r) =&gt; +(r['score std'] / Math.sqrt(r.d)).toFixed(2)));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> d = 4: std 2.08 · H 1.834 · max 0.534 · H(÷√d) 2.5 · max 0.35 / d = 16: 4.08 · 0.945 · 0.758 · 2.479 · 0.362 / d = 64: 7.99 · 0.474 · 0.87 · 2.493 · 0.357 / d = 256: 16.05 · 0.206 · 0.942 · 2.479 · 0.364. std/√d = [1.04, 1.02, 1, 1].</p>
+              <p><strong>해석:</strong> 평균 0 분산 1인 두 성분의 곱은 분산 1, d개를 더하면 분산 d, 표준편차 √d. √d로 나누면 분산이 1로 돌아간다. 이것이 “스케일드” 닷-프로덕트의 이유 전부다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답 (바꾼 부분)</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { Tensor, causalAttention } from '/assets/js/core/tensor.js';
+import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const B = 1, T = 5, D = 8, H = 2, hs = D / H;
+const rand = mulberry32(5);
+const qkv = Array.from({ length: T * 3 * D }, () =&gt; gaussian(rand));
+const at = (t, col) =&gt; qkv[t * 3 * D + col];
+function myAttention() {
+  const out = new Array(T * D).fill(0);
+  const att = Array.from({ length: H }, () =&gt; Array.from({ length: T }, () =&gt; new Array(T).fill(0)));
+  for (let h = 0; h &lt; H; h++) {
+    for (let t = 0; t &lt; T; t++) {
+      const scores = [];
+      for (let s = 0; s &lt;= t; s++) {
+        let dot = 0;
+        for (let j = 0; j &lt; hs; j++) dot += at(t, h * hs + j) * at(s, D + h * hs + j);
+        scores.push(dot / Math.sqrt(hs));
+      }
+      const m = Math.max(...scores);
+      const ex = scores.map((x) =&gt; Math.exp(x - m));
+      const sum = ex.reduce((a, b) =&gt; a + b, 0);
+      ex.forEach((e, s) =&gt; (att[h][t][s] = e / sum));
+      for (let s = 0; s &lt;= t; s++)
+        for (let j = 0; j &lt; hs; j++) out[t * D + h * hs + j] += att[h][t][s] * at(s, 2 * D + h * hs + j);
+    }
+  }
+  return { out, att };
+}
+const mine = myAttention();
+const keep = {};
+const ref = causalAttention(new Tensor(qkv, [B * T, 3 * D]), B, T, H, keep);
+let maxDiff = 0;
+for (let i = 0; i &lt; ref.data.length; i++) maxDiff = Math.max(maxDiff, Math.abs(ref.data[i] - mine.out[i]));
+console.log('출력 최대 차이:', maxDiff.toExponential(2), maxDiff &lt; 1e-5 ? '✓ 일치' : '✗ 다르다');
+const row = (h, t) =&gt; (h * T + t) * T; // [B=1, H, T, T] → start of head h, query t
+for (const h of [0, 1]) {
+  console.log(`tensor.js 헤드 ${h} (마지막 토큰):`, Array.from(keep.att.slice(row(h, T - 1), row(h, T - 1) + T), (x) =&gt; +x.toFixed(3)));
+  console.log(`내 코드   헤드 ${h} (마지막 토큰):`, mine.att[h][T - 1].map((x) =&gt; +x.toFixed(3)));
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 최대 차이 8.84e-8 ✓ 일치 · 헤드 0 [0.135, 0.061, 0.304, 0.056, 0.444] · 헤드 1 [0.074, 0.404, 0.048, 0.149, 0.325] (두 구현이 같다).</p>
+              <p><strong>차이가 0이 아닌 이유:</strong> <code>Tensor</code>는 Float32Array에 저장하므로 입력이 32비트로 반올림된다. 내 코드는 64비트 Number다. 10<sup>−7</sup> 수준이면 같은 계산이다.</p>
+              <p><strong>자주 틀리는 곳:</strong> 키 열 오프셋(D + h·hs)과 값 열 오프셋(2D + h·hs)을 빠뜨려 쿼리끼리 내적하는 실수, 나누는 값을 √D로 쓰는 실수(헤드 폭 hs여야 한다).</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>C2 결과가 <code>undefined</code>·<code>NaN</code></td><td>행렬 모양 불일치 (Q·K를 전치 없이 곱함)</td><td>T×d · d×T = T×T를 먼저 종이에 쓰게 한다</td></tr>
+                <tr><td>가중치 행 합이 1이 아니다</td><td>열 방향으로 소프트맥스</td><td>“행 = 쿼리 하나의 분포”를 반복</td></tr>
+                <tr><td>마스크 후 행이 전부 NaN</td><td>−∞만 있는 행, 또는 max를 빼지 않음</td><td>대각선은 가리지 않는다(<code>j &gt; i</code>, <code>≥</code> 아님)</td></tr>
+                <tr><td>“쿼리와 키는 같은 것 아닌가?”</td><td>둘 다 x에서 나옴</td><td>W<sub>q</sub> ≠ W<sub>k</sub>라 “찾는 것”과 “가진 것”이 다르다. 앞 토큰 헤드가 예</td></tr>
+                <tr><td>“마스크를 끄면 더 좋은 거 아닌가?”</td><td>학습 손실만 봄</td><td>생성할 때는 미래가 없다는 점, C3 ③의 검사</td></tr>
+                <tr><td>C5에서 헤드 1이 틀린다</td><td>열 오프셋 누락</td><td>q/k/v 각각 h·hs, D + h·hs, 2D + h·hs</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>어텐션의 계산량은 문맥 길이의 제곱이다. 10만 토큰 문맥을 지원하는 모델은 이 비용을 어떻게 감당할까?</li>
+              <li>사람이 설계한 “앞 토큰 보기 헤드”와 학습으로 생긴 헤드는 어떻게 다를까? 어텐션 가중치를 “모델이 무엇을 근거로 판단했는가”의 설명으로 써도 될까?</li>
+              <li>문장 임베딩 모델(RAG)은 마스크를 쓰지 않는다. 생성 모델과 임베딩 모델은 왜 서로 다른 어텐션을 쓰는가?</li>
+              <li>포화된 어텐션(원-핫)은 항상 나쁜가? “바로 앞 토큰만 보기”가 정답인 경우도 있지 않을까?</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>계산 (C1·C2)</td><td>한 행을 손으로 검산 + 행렬 코드 동작</td><td>코드만 동작</td><td>동작하지 않음</td></tr>
+                <tr><td>마스크 (C3)</td><td>세 검사 통과 + “실습실 → 까지”의 원인 설명</td><td>마스크만 구현</td><td>미완성</td></tr>
+                <tr><td>스케일링 (C4)</td><td>표 + std ∝ √d와 포화의 관계 설명</td><td>표만 제시</td><td>미제출</td></tr>
+                <tr><td>멀티헤드 (C5)</td><td>tensor.js와 일치 + 오차의 원인(Float32) 설명</td><td>한 헤드만 일치</td><td>미제출</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w05-attention.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w05-attention'), { outputTitle: '어텐션 계산기 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

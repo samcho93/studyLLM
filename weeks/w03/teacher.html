@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3주차 임베딩: 단어를 벡터로 · 교사용 · LLM Lab</title>
+  <meta name="description" content="3주차 임베딩 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w03.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="3" data-crumb="🧑‍🏫 교사용 › <b>3주차 · 임베딩: 단어를 벡터로</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="3주차 · 임베딩: 단어를 벡터로">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 3주차</div>
+            <h1>임베딩: 단어를 벡터로</h1>
+            <p>비슷한 단어는 가까이 둔다</p>
+            <div class="deco" aria-hidden="true">🧭</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:10</td><td>2주차 복습 · 1주차 “확률 0” 문제 다시 보기</td></tr>
+                <tr><td>0:10–0:35</td><td>토큰 번호와 원-핫의 한계 · 코사인 유사도 · 분포 가설 빈칸 게임</td></tr>
+                <tr><td>0:35–1:05</td><td>창 세기 · PPMI · 데모(원-핫 → 횟수 → PPMI) · 관찰 질문 1~3</td></tr>
+                <tr><td>1:05–1:15</td><td>휴식</td></tr>
+                <tr><td>1:15–1:40</td><td>SVD와 k · 데모(k 바꾸기) · 관찰 질문 4~5 · 임베딩 표 코드</td></tr>
+                <tr><td>1:40–2:45</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:45–3:00</td><td>작은 코퍼스의 한계 · RAG 5주차 연결 · 4주차 예고</td></tr>
+              </table>
+              <p>오늘 숫자는 모두 이 과정 코퍼스(17문서)를 이번 주 <code>cooc.js</code>로 실제 계산한 값이다. 단어 1,626개 · 종류 902 · 두 번 이상 나온 어휘 279개.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="지난 두 주의 숙제">
+            <h2>번호는 이름표일 뿐이다</h2>
+            <ul>
+              <li>1주차: “실습실은 <strong>토요일</strong> 오전에도 개방된다” → 본 적 없는 쌍 → 확률 <strong>0</strong></li>
+              <li>2주차: BPE가 문장을 <strong>토큰 번호</strong>의 열로 바꾼다</li>
+              <li>그런데 17번과 18번 토큰은 번호만 가깝다. 뜻은 모른다</li>
+            </ul>
+            <p class="big-quote">“평일”로 배운 것을 “토요일”에 나눠 주려면?</p>
+            <aside class="notes">
+              <p>1주차 C4의 “토요 · 요일 · 전에” 결과를 다시 띄운다. n-gram은 토큰을 서로 무관한 기호로 다뤘다는 것을 짚는다.</p>
+              <p><strong>발문:</strong> “토요일이 평일과 비슷하다는 것을 컴퓨터에 어떻게 알려 줄까?” → 사전을 만든다? 규칙? → 오늘은 “문서만 보고 스스로 알아내는” 방법.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>원-핫 벡터의 코사인이 <strong>모두 0</strong>인 이유와 <strong>분포 가설</strong>을 설명한다</li>
+              <li>창 세기 → <strong>PPMI</strong> → <strong>SVD</strong>로 단어 벡터를 만들고 코사인으로 이웃을 찾는다</li>
+              <li>LLM의 첫 층이 <strong>어휘 × d 임베딩 표</strong>이고 역전파로 학습된다는 것을 설명한다</li>
+            </ol>
+            <aside class="notes">
+              <p>오늘의 <code>nearest()</code>(코사인 최근접)는 RAG 과정 검색기의 핵심 연산이고, 임베딩 표는 4주차 신경망 언어 모델과 7주차 미니 GPT의 첫 층이 된다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="원-핫과 코사인">
+            <h2>원-핫: 공평하지만 아무것도 모른다</h2>
+            <pre><code>확률  = [0 0 1 0 0 … 0]      cos(a, b) = a · b / (|a| |b|)
+온도  = [0 0 0 0 1 … 0]
+실습실 = [0 1 0 0 0 … 0]      → 어떤 두 단어든 a · b = 0 → cos = 0, 거리 = √2</code></pre>
+            <ul>
+              <li>번호의 크기 차이는 사라졌다 (공평)</li>
+              <li>대신 <strong>모든 단어가 서로 직각</strong> — “확률 ≈ 온도”를 표현할 방법이 없다</li>
+            </ul>
+            <aside class="notes">
+              <p>MLBasic의 BoW는 원-핫을 더한 것이다. 그래서 BoW도 “재미없다”와 “지루하다”가 비슷하다는 것을 모른다고 연결한다.</p>
+              <p>C1 기대 결과: 유사도 표의 대각선만 1, 거리는 모두 1.414.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="분포 가설">
+            <h2>단어는 어울리는 단어를 보면 안다</h2>
+            <p class="big-quote">“온도를 낮추면 ___가 뾰족해진다”</p>
+            <ul>
+              <li>빈칸에 “확률”도 “분포”도 들어간다 → 둘은 <strong>비슷한 자리</strong>에 나온다</li>
+              <li><strong>분포 가설</strong>: 비슷한 문맥에 나오는 단어는 뜻도 비슷하다 (Firth, 1957)</li>
+              <li>뜻을 정의하지 않고 <strong>주변 단어</strong>로 대신한다</li>
+            </ul>
+            <aside class="notes">
+              <p><strong>빈칸 게임:</strong> 모르는 단어로 해 본다. “나는 어제 ○○○를 한 그릇 먹었다. ○○○는 매콤하고 국물이 진했다.” → 학생들은 ○○○가 음식이라는 것을 안다. 단어를 몰라도 주변 단어로 뜻을 짐작했다.</p>
+              <p>이 코퍼스에도 분포 가설 문장이 있다(<code>llm-embedding</code> 문서). 오늘 그 문서를 포함한 17문서로 직접 확인한다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide" data-title="창 세기">
+            <h2>창 안의 이웃을 센다</h2>
+            <pre><code>온도는 확률 분포의 모양을 바꾼다   →   온도 | 확률 | 분포 | 모양 | 바꾼다
+창 ±2, 가운데 “확률”                  →   확률 행 += { 온도 +1, 분포 +1, 모양 +1 }</code></pre>
+            <table>
+              <thead><tr><th>“확률” 행 (코퍼스 전체, 창 ±3)</th><th>토큰</th><th>높은</th><th>바꾼다</th><th>샘플링</th><th>모델</th></tr></thead>
+              <tbody><tr><td>횟수</td><td><strong>8</strong></td><td>3</td><td>3</td><td>3</td><td>2</td></tr>
+              <tr><td>그 단어의 코퍼스 빈도</td><td><strong>36</strong></td><td>5</td><td>3</td><td>3</td><td>25</td></tr></tbody>
+            </table>
+            <p>어휘 × 어휘 행렬의 <strong>한 행 = 단어 벡터</strong> (279차원, 0 아닌 칸 3.9%)</p>
+            <aside class="notes">
+              <p>단어는 공백·부호로 자르고 흔한 조사·어미 하나를 뗀다(<code>cooc.js</code>의 <code>PARTICLES</code>). 형태소 분석기가 아니라서 “계산하”, “고르” 같은 조각이 남는다. 학생이 물으면 “일부러 단순하게 했다, 결과가 완벽하지 않은 이유 중 하나”라고 답한다.</p>
+              <p>1주차 빈도표와 비교: 그때는 “바로 다음 글자”만, 지금은 “앞뒤 이웃 전부”. 방향을 버리고 이웃 관계만 본다.</p>
+              <p><strong>발문:</strong> “토큰이 1등인 것은 확률과 토큰이 특별한 사이라서인가?” → 토큰은 가장 흔한 단어(36번)다. 다음 슬라이드로.</p>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="PPMI">
+            <h2>PPMI: “우연보다 몇 배 더 만났나”</h2>
+            <pre><code>PMI(w, c) = log( P(w, c) / (P(w) · P(c)) )      PPMI = max(PMI, 0)</code></pre>
+            <table>
+              <thead><tr><th>“확률”의 이웃</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr></thead>
+              <tbody>
+                <tr><td>횟수</td><td>뽑는다 .64</td><td>다음 .64</td><td>보고 .63</td><td>1보다 .62</td><td>top .60</td></tr>
+                <tr><td>PPMI</td><td>샘플링 .57</td><td>높은 .51</td><td>1보다 .44</td><td>토큰 .44</td><td>온도 .41</td></tr>
+              </tbody>
+            </table>
+            <p>허브(이웃 목록 단골, 이웃 8개 기준): 횟수 <strong>바이그램 38 · 다음 32 · 확률 31</strong> → PPMI 청크 18 · 확률 16 · 어텐션 16</p>
+            <aside class="notes">
+              <p>PMI 직관: 두 단어가 독립이라면 P(w)·P(c)만큼 만날 것이다. 실제로 그보다 많이 만났으면 양수, 적으면 음수. 음수는 “데이터가 적어 우연히 못 만났을” 가능성이 커서 0으로 자른다.</p>
+              <p>약점도 바로 말한다: 두 번만 나온 단어가 한 번 겹치면 PMI가 커진다. “확률” PPMI 벡터의 큰 칸은 바꾼다 · 샘플링 · 고르 · 나누어 · top — 빈도 2~3짜리들이다(C4).</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide slide--demo" data-title="데모: 임베딩 공간 탐색기">
+            <h2>데모 · 임베딩 공간 탐색기</h2>
+            <div id="deck-w03-embedding"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>① 원-핫 · “확률”: 이웃 8개가 모두 0.00, 순서는 빈도순(토큰 · 모델 · 벡터…). 유사도 표는 대각선만 1. 지도는 원 위에 균등 배치</li>
+                <li>② 횟수: 결과 상자 “가장 큰 칸 = 토큰(8회, 빈도 36)”. 허브 바이그램 38회. 평균 코사인 0.058</li>
+                <li>③ PPMI: 이웃에 샘플링 · 온도가 올라온다. 평균 코사인 0.036으로 내려간다. ⚠ 드묾 표시를 짚는다</li>
+                <li>④ SVD k = 30: “확률” 이웃 샘플링 .88 · 뽑는다 .85 · top .85. 유사도 표에 디코딩(토큰 · 확률 · 온도 .62~.77)과 벡터(벡터 · 코사인 .58) 블록</li>
+                <li>k = 2 → “모두가 이웃이다”(1등 이웃 1.00). k = 100 → PPMI에 가까워짐</li>
+                <li>“임베딩”을 눌러 엉뚱한 이웃(비용 · 못)을 보여 준다. “데이터가 1,626단어뿐이라서”</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="SVD와 차원 k">
+            <h2>SVD: 279차원 → k차원 밀집 벡터</h2>
+            <table>
+              <thead><tr><th>k</th><th>2</th><th>5</th><th>10</th><th>30</th><th>100</th></tr></thead>
+              <tbody>
+                <tr><td>1등 이웃 평균 코사인</td><td><strong>1.000</strong></td><td>0.984</td><td>0.924</td><td>0.790</td><td>0.477</td></tr>
+                <tr><td>PPMI 이웃 8개와 겹침</td><td>0.9</td><td>2.58</td><td>3.8</td><td>5.08</td><td>6.14</td></tr>
+                <tr><td>“확률”의 이웃 3개</td><td>k개 고르 분포</td><td>고르 1보다 온도</td><td>높은 1보다 top</td><td>샘플링 뽑는다 top</td><td>샘플링 1보다 높은</td></tr>
+              </tbody>
+            </table>
+            <ul>
+              <li>함께 움직이는 차원을 합친다 → 직접 안 만났어도 이웃이 비슷하면 가까워진다</li>
+              <li>k가 너무 작으면 <strong>모두가 한 방향</strong>, 너무 크면 희소한 원본과 같아진다</li>
+            </ul>
+            <aside class="notes">
+              <p>흔한 단어 50개의 평균이다(C5 정답 표). SVD는 거듭제곱 반복으로 구한다: 무작위 벡터 k개에 MᵀM을 곱하고 그람-슈미트로 직교화하기를 40번.</p>
+              <p>MLBasic 8강 PCA와 같은 계산이라고 연결한다. 위젯 2D 지도도 PCA인데, 2D에 담긴 분산은 SVD 30차원에서 9.4%뿐 → “지도는 참고, 판단은 이웃 표로”.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="임베딩 표 = LLM 첫 층">
+            <h2>원-핫 × 표 = 표의 한 행</h2>
+            <pre data-run="demo-lookup" data-title="임베딩 표 조회"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, ppmi, truncatedSVD, row } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const E = truncatedSVD(ppmi(cooccurrence(docs, vocab, 3)), 8).vectors; // 임베딩 표: 279 × 8
+const i = vocab.index.get('확률');
+const onehot = new Float64Array(vocab.size);
+onehot[i] = 1;
+const viaMatmul = [];                                   // 원-핫 (1 × 279) · 표 (279 × 8)
+for (let d = 0; d &lt; E.cols; d++) {
+  let s = 0;
+  for (let r = 0; r &lt; E.rows; r++) s += onehot[r] * E.data[r * E.cols + d];
+  viaMatmul.push(s);
+}
+console.log('원-핫 × 표 :', viaMatmul.map((x) =&gt; x.toFixed(3)).join(' '));
+console.log(`표의 ${i}번 행:`, Array.from(row(E, i), (x) =&gt; x.toFixed(3)).join(' '));
+console.log('이 표의 파라미터:', E.rows * E.cols, '개 · GPT-2 small의 표: 50257 × 768 =', (50257 * 768).toLocaleString(), '개');</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 두 줄이 똑같다(−0.554 −0.322 −0.105 1.065 −1.060 −0.498 −0.403 −0.011). 표는 279 × 8 = 2,232개, GPT-2 small은 38,597,376개.</p>
+              <p><strong>핵심:</strong> 그래서 실제 구현은 곱셈 없이 행을 꺼낸다(<code>nn.Embedding</code>). 차이는 채우는 방법: 오늘은 세서, LLM은 무작위에서 시작해 역전파로. 4주차에 직접 학습한다.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="작은 코퍼스의 정직한 한계">
+            <h2>작은 코퍼스의 정직한 한계</h2>
+            <ul>
+              <li>“임베딩”의 이웃(SVD 30): 공간 .66 · <strong>비용 .65</strong> · 실수 .65 · 벡터 .65 · <strong>못 .63</strong></li>
+              <li>유추 “청킹 : 청크 = 임베딩 : ?” → 임베딩해 · 벡터스토어 · 저장</li>
+              <li>유추 “확률 : 온도 = 검색 : ?” → 리랭킹 · 순위 · 정확도 ≈ <strong>“검색”의 이웃 그대로</strong></li>
+            </ul>
+            <p class="muted">1,626단어로는 방향이 안정되지 않는다. 대규모 모델은 수십억 단어로 같은 일을 한다</p>
+            <aside class="notes">
+              <p>“왕 − 남자 + 여자 ≈ 여왕”은 수십억 단어로 학습한 word2vec에서 나온 결과다. 여기서는 b − a가 의미 있는 방향이 되지 못하고, 답이 c(검색)의 이웃으로 끌려간다. 벡터 산술이 아니라 “c 근처 찾기”가 된 것.</p>
+              <p>이것을 실패가 아니라 “데이터 양이 왜 중요한가”의 증거로 쓴다 → 9주차 스케일링 예고.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>원-핫: 모든 코사인 0 → 비슷함을 모른다</li>
+              <li>분포 가설: 창 안의 이웃을 센 행 = 단어 벡터</li>
+              <li>PPMI로 흔한 단어의 힘을 빼고, SVD로 k차원 밀집 벡터로 압축</li>
+              <li>“어휘 × d” 표 = LLM 첫 층. LLM은 역전파로 채운다</li>
+              <li>RAG 5주차: 같은 코사인 검색을 <strong>문장 임베딩</strong>(multilingual-e5)으로</li>
+            </ul>
+            <h3>다음 주 · 신경망 언어 모델과 학습</h3>
+            <p class="muted">표를 세지 않고 학습한다: 임베딩 → 소프트맥스 → 교차 엔트로피 → 자동 미분</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분 동안 “k = 2에서 왜 모든 이웃의 코사인이 1인가?” 답을 확인한다(기대: 2차원에서는 방향이 원 위의 각도 하나뿐이라 279단어가 몇 방향에 몰린다).</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>10분</td><td>1·2주차 복습 · “확률 0” 문제</td><td>—</td></tr>
+                <tr><td>25분</td><td>원-핫 · 코사인 · 분포 가설 빈칸 게임</td><td>칠판의 빈칸 후보</td></tr>
+                <tr><td>30분</td><td>창 세기 · PPMI · 데모 · 관찰 1~3</td><td>표현 방식별 이웃 기록</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>25분</td><td>SVD와 k · 관찰 4~5 · 임베딩 표 코드</td><td>k별 기록표</td></tr>
+                <tr><td>65분</td><td>Challenge C1~C4</td><td>C3 <code>nearest</code>(RAG에서 재사용)</td></tr>
+                <tr><td>15분</td><td>한계 · RAG 연결 · 4주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">import { tokenizeWords } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const words = corpus.documents.flatMap((d) =&gt; tokenizeWords(d.text));
+const vocab = [...new Set(words)].sort();
+console.log('단어 수:', words.length, '어휘 크기 V:', vocab.length);
+console.log('첫 문장의 단어:', words.slice(0, 8).join(' | '));
+function oneHot(word) {
+  const v = new Array(vocab.length).fill(0);
+  v[vocab.indexOf(word)] = 1;
+  return v;
+}
+function cosine(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i &lt; a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na === 0 || nb === 0 ? 0 : dot / Math.sqrt(na * nb);
+}
+function distance(a, b) {
+  let s = 0;
+  for (let i = 0; i &lt; a.length; i++) s += (a[i] - b[i]) ** 2;
+  return Math.sqrt(s);
+}
+const probe = ['확률', '온도', '토큰', '실습실'];
+console.table(probe.map((a) =&gt; Object.fromEntries([['단어', a], ...probe.map((b) =&gt; [b, +cosine(oneHot(a), oneHot(b)).toFixed(3)])])));
+console.log('거리(확률, 온도) =', distance(oneHot('확률'), oneHot('온도')).toFixed(3));
+console.log('거리(확률, 실습실) =', distance(oneHot('확률'), oneHot('실습실')).toFixed(3));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 단어 수 1626 · 어휘 크기 V 902 · 첫 문장의 단어 “ai응용소프트웨어과 | 한국폴리텍대학 | 분당융합기술교육원 | 개설된 | 1년 | 과정 | 전문기술 | 과정”. 유사도 표는 대각선만 1, 나머지 0. 거리(확률, 온도) = 1.414, 거리(확률, 실습실) = 1.414.</p>
+              <p><strong>답:</strong> 원-핫으로는 “확률”이 어느 쪽에 더 가까운지 판단할 수 없다. 모든 쌍이 같은 거리다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2 정답" data-appendix>
+            <h2>부록 B · C2 정답</h2>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">import { corpusWords } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+console.log('첫 문서 앞부분:', docs[0].slice(0, 10).join(' '));
+function countWindow(docs, window) {
+  const table = new Map();
+  for (const doc of docs) {
+    for (let i = 0; i &lt; doc.length; i++) {
+      const row = table.get(doc[i]) ?? new Map();
+      table.set(doc[i], row);
+      for (let j = Math.max(0, i - window); j &lt;= Math.min(doc.length - 1, i + window); j++) {
+        if (j === i) continue;
+        row.set(doc[j], (row.get(doc[j]) ?? 0) + 1);
+      }
+    }
+  }
+  return table;
+}
+function topContexts(table, word, k = 8) {
+  return [...(table.get(word) ?? [])]
+    .map(([ctx, count]) =&gt; ({ ctx, count }))
+    .sort((a, b) =&gt; b.count - a.count)
+    .slice(0, k);
+}
+for (const w of [1, 3]) {
+  const table = countWindow(docs, w);
+  console.log(`창 ±${w}: “확률” 행의 0 아닌 칸 수 =`, table.get('확률')?.size ?? 0);
+  console.table(topContexts(table, '확률'));
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 창 ±1: 0 아닌 칸 15 · 토큰 3 · 높은 3 · 샘플링 3 · 바꾼다 2 · 계산하 · 나누어 · 따라 · 계산 1. 창 ±3: 0 아닌 칸 43 · 토큰 8 · 바꾼다 3 · 높은 3 · 샘플링 3 · 다음 · 모델 · 가장 · 나누어 2.</p>
+              <p><strong>자주 틀리는 곳:</strong> <code>j === i</code>를 빼지 않아 자기 자신을 센다. 문서를 이어 붙여 창이 문서 경계를 넘는다. 창이 넓을수록 칸이 늘고 흔한 단어(토큰 · 모델)가 끼어든다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, row } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const C = cooccurrence(docs, vocab, 3);
+console.log('어휘:', vocab.size, '벡터 차원:', C.cols);
+function cosine(a, b) {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i &lt; a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return na === 0 || nb === 0 ? 0 : dot / Math.sqrt(na * nb);
+}
+function nearest(word, k = 8) {
+  const i = vocab.index.get(word);
+  const out = [];
+  for (let j = 0; j &lt; vocab.size; j++) {
+    if (j !== i) out.push({ word: vocab.words[j], sim: cosine(row(C, i), row(C, j)) });
+  }
+  return out.sort((a, b) =&gt; b.sim - a.sim).slice(0, k);
+}
+const sim = (a, b) =&gt; cosine(row(C, vocab.index.get(a)), row(C, vocab.index.get(b)));
+console.log('cos(확률, 온도) =', sim('확률', '온도').toFixed(3), ' cos(확률, 실습실) =', sim('확률', '실습실').toFixed(3));
+for (const w of ['확률', '임베딩', '실습실']) {
+  console.log(w, '→', nearest(w).map((r) =&gt; `${r.word} ${r.sim.toFixed(2)}`).join(', '));
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 어휘 279 · 차원 279 · cos(확률, 온도) = 0.527 · cos(확률, 실습실) = 0.000.<br>확률 → 뽑는다 0.64, 다음 0.64, 보고 0.63, 1보다 0.62, top 0.60, 일을 0.60, 안에서만 0.59, 다른 0.57<br>임베딩 → 두 0.54, 실수 0.51, 벡터 0.50, 청킹 0.48, 문장 0.46, 크기 0.43, 못 0.43, 번호 0.43<br>실습실 → 평일 0.55, 개설되 0.27, 구성된다 0.26, 3학점 0.26, 참여 0.26, 3시간씩 0.25, 한 0.25, 10 0.24</p>
+              <p><strong>해석:</strong> 원-핫과 달리 이웃이 생겼다. 그러나 “다음”, “보고”, “두”처럼 어디에나 나오는 단어가 끼어 있다 → C4 PPMI.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, matrix, row, nearest } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const C = cooccurrence(docs, vocab, 3);
+const n = vocab.size;
+function ppmi(C) {
+  const M = matrix(n, n);
+  const rowSum = new Float64Array(n);
+  let total = 0;
+  for (let i = 0; i &lt; n; i++) {
+    for (let j = 0; j &lt; n; j++) rowSum[i] += C.data[i * n + j];
+    total += rowSum[i];
+  }
+  for (let i = 0; i &lt; n; i++) {
+    for (let j = 0; j &lt; n; j++) {
+      const c = C.data[i * n + j];
+      if (c === 0) continue;
+      const pmi = Math.log((c * total) / (rowSum[i] * rowSum[j]));
+      if (pmi &gt; 0) M.data[i * n + j] = pmi;
+    }
+  }
+  return M;
+}
+const P = ppmi(C);
+const top = (M, w, k = 5) =&gt; nearest(M, vocab.index.get(w), k, vocab.words).map((r) =&gt; `${r.word} ${r.sim.toFixed(2)}`).join(', ');
+for (const w of ['확률', '임베딩', '검색']) {
+  console.log(`${w}\n  횟수 → ${top(C, w)}\n  PPMI → ${top(P, w)}`);
+}
+const biggest = (M, w) =&gt; [...row(M, vocab.index.get(w))].map((x, j) =&gt; ({ ctx: vocab.words[j], value: +x.toFixed(2), 빈도: vocab.counts[j] }))
+  .sort((a, b) =&gt; b.value - a.value).slice(0, 5);
+console.table(biggest(C, '확률'));
+console.table(biggest(P, '확률'));
+function hubs(M, k = 5) {
+  const seen = new Map();
+  for (let i = 0; i &lt; n; i++) {
+    for (const r of nearest(M, i, k, vocab.words)) seen.set(r.word, (seen.get(r.word) ?? 0) + 1);
+  }
+  return [...seen].sort((a, b) =&gt; b[1] - a[1]).slice(0, 5).map(([w, c]) =&gt; `${w}(${c})`).join(', ');
+}
+console.log('허브 · 횟수:', hubs(C));
+console.log('허브 · PPMI:', hubs(P));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 확률 — 횟수: 뽑는다 .64, 다음 .64, 보고 .63, 1보다 .62, top .60 / PPMI: 샘플링 .57, 높은 .51, 1보다 .44, 토큰 .44, 온도 .41. 임베딩 — 횟수: 두 .54, 실수 .51, 벡터 .50, 청킹 .48, 문장 .46 / PPMI: 벡터 .44, 실수 .35, 공간 .32, 고정 .29, 긴 .28. 검색 — 횟수: 하이브리드 .47, 의미 .39, 결과 .38, 임베딩 .37, 방식 .36 / PPMI: 하이브리드 .40, 섞여 .30, recall .28, 길이 .27, 리랭킹 .26.</p>
+              <p>“확률”의 가장 큰 칸 — 횟수: 토큰 8(빈도 36), 높은 3, 바꾼다 3, 샘플링 3, 모델 2 / PPMI: 바꾼다 2.99, 샘플링 2.99, 고르 2.99, 나누어 2.87, top 2.77. 허브(이웃 5개) — 횟수: 바이그램 25, 다음 23, 언어 23, 확률 21, 일을 20 / PPMI: 확률 14, 어텐션 12, 청크 11, 코사인 10, 유사도 10.</p>
+              <p><strong>핵심:</strong> PPMI로 흔한 단어가 내려가고 허브가 덜 몰린다. 대신 PPMI의 큰 칸은 빈도 2~3짜리 단어다(드문 단어 편향). 실무에서는 문맥 분포를 0.75제곱해 완화한다(<code>ppmi(C, { alpha: 0.75 })</code>).</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { corpusWords, buildVocab, cooccurrence, ppmi, truncatedSVD, nearest, row } from '/assets/js/core/cooc.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const docs = corpusWords(corpus);
+const vocab = buildVocab(docs, 2);
+const P = ppmi(cooccurrence(docs, vocab, 3));
+const id = (w) =&gt; vocab.index.get(w);
+const probe = vocab.words.slice(0, 50).map(id);
+const rows = [];
+for (const k of [2, 5, 10, 30, 100]) {
+  const S = truncatedSVD(P, k).vectors;
+  let overlap = 0, top1 = 0;
+  for (const i of probe) {
+    const a = nearest(S, i, 8);
+    const b = new Set(nearest(P, i, 8).map((r) =&gt; r.id));
+    overlap += a.filter((r) =&gt; b.has(r.id)).length;
+    top1 += a[0].sim;
+  }
+  rows.push({
+    k,
+    '겹친 이웃 (8개 중)': +(overlap / probe.length).toFixed(2),
+    '1등 이웃 코사인': +(top1 / probe.length).toFixed(3),
+    '확률의 이웃': nearest(S, id('확률'), 3, vocab.words).map((r) =&gt; r.word).join(' '),
+  });
+}
+console.table(rows);
+function unit(v) {
+  const n = Math.hypot(...v);
+  return n === 0 ? v : v.map((x) =&gt; x / n);
+}
+function analogy(M, a, b, c, k = 5) {
+  const [va, vb, vc] = [a, b, c].map((w) =&gt; unit(row(M, id(w))));
+  const q = new Float64Array(M.cols);
+  for (let j = 0; j &lt; M.cols; j++) q[j] = vb[j] - va[j] + vc[j];
+  const qn = unit(q);
+  const skip = new Set([a, b, c].map(id));
+  const scored = [];
+  for (let i = 0; i &lt; M.rows; i++) {
+    if (skip.has(i)) continue;
+    const v = unit(row(M, i));
+    let dot = 0;
+    for (let j = 0; j &lt; M.cols; j++) dot += v[j] * qn[j];
+    scored.push({ word: vocab.words[i], sim: dot });
+  }
+  return scored.sort((x, y) =&gt; y.sim - x.sim).slice(0, k).map((r) =&gt; `${r.word} ${r.sim.toFixed(2)}`);
+}
+const S30 = truncatedSVD(P, 30).vectors;
+for (const [a, b, c] of [['청킹', '청크', '임베딩'], ['확률', '온도', '검색']]) {
+  console.log(`${a} : ${b} = ${c} : ?  →`, analogy(S30, a, b, c).join(', '));
+  console.log(`   (참고) ${c}의 이웃 →`, nearest(S30, id(c), 5, vocab.words).map((r) =&gt; r.word).join(', '));
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> k = 2: 겹침 0.9 · 1등 코사인 1.000 · 확률 → k개 고르 분포 / k = 5: 2.58 · 0.984 · 고르 1보다 온도 / k = 10: 3.8 · 0.924 · 높은 1보다 top / k = 30: 5.08 · 0.790 · 샘플링 뽑는다 top / k = 100: 6.14 · 0.477 · 샘플링 1보다 높은.</p>
+              <p>청킹 : 청크 = 임베딩 : ? → 임베딩해 0.59, 벡터스토어 0.56, 저장 0.56, 검색된 0.54, 가까운 0.53 (임베딩의 이웃: 공간, 비용, 실수, 벡터, 못). 확률 : 온도 = 검색 : ? → 리랭킹 0.60, 순위 0.58, 정확도 0.56, 하이브리드 0.53, 상위 0.51 (검색의 이웃: 하이브리드, 리랭킹, k는, 상위, 결과).</p>
+              <p><strong>해석:</strong> 두 번째 유추의 답은 “검색”의 이웃과 거의 같다. b − a가 일관된 “관계 방향”이 되려면 같은 관계의 예가 많이 필요한데, 1,626단어로는 부족하다. 첫 번째 답(임베딩해 · 벡터스토어)은 그럴듯해 보이지만 청크 문서의 문맥을 끌어온 것에 가깝다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>코사인이 NaN</td><td>0벡터로 나눔 (원-핫에 없는 단어, 빈 행)</td><td>길이 0이면 0을 돌려주게 한다</td></tr>
+                <tr><td>C1 원-핫이 모두 0벡터</td><td><code>indexOf</code>가 −1 (조사 붙은 형태로 찾음)</td><td>“모델은”이 아니라 “모델”로 찾는다</td></tr>
+                <tr><td>이웃 1등이 자기 자신</td><td>i = j를 빼지 않음</td><td><code>if (j !== i)</code></td></tr>
+                <tr><td>PPMI가 전부 0 또는 Infinity</td><td>분모에 행 합 대신 전체 합, 또는 0칸에 log</td><td>0칸은 건너뛰고 식을 한 줄씩 출력</td></tr>
+                <tr><td>“SVD 결과가 실행마다 다르다”</td><td>직접 만든 반복의 시작값이 무작위</td><td><code>truncatedSVD</code>는 seed 고정. 부호가 뒤집혀도 코사인 이웃은 같다</td></tr>
+                <tr><td>“2D 지도에서 먼데 이웃이다”</td><td>지도는 분산의 10% 미만만 담는다</td><td>판단은 이웃 표 · 코사인으로</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>“뜨겁다”와 “차갑다”는 같은 자리에 자주 나온다. 분포 가설로 만든 벡터에서 반대말은 가까울까 멀까? 검색에서 어떤 문제가 될까?</li>
+              <li>코퍼스에 편향된 문장이 많으면 임베딩에도 편향이 들어간다. 어떤 예를 떠올릴 수 있는가?</li>
+              <li>작은 코퍼스의 엉뚱한 이웃(“임베딩” ≈ “비용”)은 모델의 잘못인가, 데이터의 잘못인가?</li>
+              <li>RAG는 왜 단어 벡터가 아니라 문장 벡터를 쓸까? (RAG 5주차 예고)</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>원-핫 · 코사인 (C1)</td><td>구현 + 모든 코사인이 0인 이유 설명</td><td>구현만</td><td>동작하지 않음</td></tr>
+                <tr><td>동시 출현 · 이웃 (C2·C3)</td><td>창 크기 효과와 이상한 이웃을 해석</td><td>결과만 제시</td><td>미완성</td></tr>
+                <tr><td>PPMI · SVD (C4·C5)</td><td>허브 · k 표를 근거로 장단점 설명</td><td>표만 제시</td><td>미제출</td></tr>
+                <tr><td>관찰 · 토론</td><td>작은 코퍼스의 한계와 LLM 임베딩 표를 연결</td><td>현상만 서술</td><td>참여 없음</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w03-embedding.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w03-embedding'), { outputTitle: '임베딩 공간 탐색기 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

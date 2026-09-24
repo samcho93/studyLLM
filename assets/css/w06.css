@@ -1,0 +1,377 @@
+/* Week 6: transformer anatomy + position widgets. Tokens from tokens.css only. */
+
+.w06-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w06-note {
+  margin: 6px 0 10px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.w06-presets {
+  margin-bottom: var(--space-3);
+}
+
+.w06-presets .btn[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.w06-check span {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  font-weight: var(--weight-medium);
+}
+
+.w06-check input {
+  margin-top: 3px;
+  accent-color: var(--color-accent);
+}
+
+/* ---------------------------------------------------------------- anatomy diagram */
+.w06-diagram {
+  display: grid;
+  justify-items: stretch;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.w06-node {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  font-size: 13px;
+}
+
+.w06-node .nm {
+  font-weight: var(--weight-bold);
+}
+
+.w06-node .op {
+  grid-column: 1;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.w06-node .pc {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+  color: var(--color-accent);
+  font: 600 12px var(--font-mono);
+}
+
+.w06-node.hot {
+  border-color: var(--color-accent2);
+  background: var(--color-accent2-soft);
+}
+
+.w06-node.bad {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.w06-node.add {
+  border-style: dashed;
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.w06-edge {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  align-items: center;
+  min-height: 26px;
+  margin-left: 18px;
+  padding: 2px 0 2px 14px;
+  border-left: 2px solid var(--color-border-strong);
+  font-size: 11.5px;
+}
+
+.w06-edge code {
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font: 600 11.5px var(--font-mono);
+}
+
+.w06-edge span {
+  color: var(--color-text-muted);
+}
+
+.w06-block {
+  position: relative;
+  padding: 26px 10px 10px;
+  border: 2px solid var(--color-accent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--color-accent-soft) 45%, var(--color-surface));
+}
+
+.w06-block__tag {
+  position: absolute;
+  top: 4px;
+  left: 10px;
+  color: var(--color-accent);
+  font-size: 12.5px;
+  font-weight: var(--weight-heavy);
+}
+
+.w06-block__tag small {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w06-sub {
+  position: relative;
+  padding: 18px 8px 4px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+
+.w06-sub__tag {
+  position: absolute;
+  top: 2px;
+  right: 8px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+}
+
+.w06-sub .w06-edge:last-child {
+  border-left-style: dotted;
+}
+
+/* ---------------------------------------------------------------- anatomy output */
+.w06-an-out h4,
+.w06-pos-out h4,
+.w06-h4 {
+  margin: 12px 0 6px;
+  font-size: var(--text-sm);
+}
+
+.w06-an-out .callout,
+.w06-pos-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.w06-stack {
+  display: flex;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: var(--color-surface-2);
+}
+
+.w06-stack i {
+  display: block;
+  min-width: 2px;
+  flex-basis: 0;
+}
+
+.w06-table-wrap {
+  overflow-x: auto;
+}
+
+.w06-table,
+.w06-wt {
+  width: 100%;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.w06-table td,
+.w06-table th,
+.w06-wt td,
+.w06-wt th {
+  padding: 3px 6px;
+}
+
+.w06-table .m,
+.w06-wt .m {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+.w06-table .sum td {
+  font-weight: var(--weight-bold);
+}
+
+.w06-sw {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 5px;
+  border-radius: 2px;
+  vertical-align: -1px;
+}
+
+.w06-modern {
+  font-size: 13px;
+}
+
+.w06-modern ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+/* ---------------------------------------------------------------- position widget */
+.w06-seed {
+  align-self: center;
+  font: 12px var(--font-mono);
+}
+
+.w06-seqs {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.w06-seq,
+.w06-vec {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  align-items: center;
+}
+
+.w06-seq .lab,
+.w06-vec .lab {
+  width: 5.2em;
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+.w06-tok {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 5px;
+  background: var(--color-surface-2);
+  font-size: 13px;
+}
+
+.w06-tok.moved {
+  border-color: var(--color-accent2);
+  background: var(--color-accent2-soft);
+}
+
+.w06-tok.last {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-weight: var(--weight-bold);
+}
+
+.w06-panels {
+  display: grid;
+  gap: 10px;
+}
+
+.w06-panel {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.w06-panel h4 {
+  margin: 0;
+}
+
+.w06-psub {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+
+.w06-vec {
+  margin: 3px 0;
+}
+
+.w06-strip {
+  display: grid;
+  flex: 1;
+  grid-template-columns: repeat(16, 1fr);
+  gap: 1px;
+  min-width: 160px;
+}
+
+.w06-strip i {
+  display: block;
+  height: 16px;
+  border-radius: 2px;
+}
+
+.w06-diff {
+  margin: 6px 0 2px;
+  font-size: 12.5px;
+}
+
+.w06-diff.same b {
+  color: var(--color-danger);
+}
+
+.w06-diff.diff b {
+  color: var(--color-success);
+}
+
+.w06-wt .t {
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.w06-wbar {
+  display: inline-block;
+  width: 48px;
+  height: 8px;
+  margin-right: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+  vertical-align: 0;
+}
+
+.w06-wbar i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.w06-wbar.b i {
+  background: var(--color-accent2);
+}
+
+/* sinusoidal heatmap */
+.w06-heat {
+  max-width: 480px;
+  overflow-x: auto;
+}
+
+.w06-heat__grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(4px, 1fr));
+  gap: 0;
+  min-width: 240px;
+  border: 1px solid var(--color-border);
+}
+
+.w06-heat__grid i {
+  display: block;
+  aspect-ratio: 1;
+}
