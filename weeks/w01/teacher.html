@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1주차 언어 모델: 다음 토큰 예측 · 교사용 · LLM Lab</title>
+  <meta name="description" content="1주차 언어 모델 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w01.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="1" data-crumb="🧑‍🏫 교사용 › <b>1주차 · 언어 모델: 다음 토큰 예측</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="1주차 · 언어 모델: 다음 토큰 예측">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 1주차</div>
+            <h1>언어 모델: 다음 토큰 예측</h1>
+            <p>다음 글자를 맞히는 기계</p>
+            <div class="deco" aria-hidden="true">🎲</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:15</td><td>과목 소개 · 학습 경로(MLBasic → ML Studio → LLM → RAG) · 사이트 사용법</td></tr>
+                <tr><td>0:15–0:45</td><td>자동완성으로 시작 · 조건부 확률 · 연쇄 법칙 · BoW와의 차이</td></tr>
+                <tr><td>0:45–1:15</td><td>바이그램: 세기 → 나누기 → 뽑기 · 데모 · 관찰 질문 1~2</td></tr>
+                <tr><td>1:15–1:25</td><td>휴식</td></tr>
+                <tr><td>1:25–1:55</td><td>n을 키우면: 외우기와 빈칸 · 관찰 질문 3~5 · 로그 확률</td></tr>
+                <tr><td>1:55–2:50</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · 2주차 예고</td></tr>
+              </table>
+              <p>첫 시간이므로 오른쪽 실행 결과 창과 코드 상자의 ▶ 실행을 먼저 보여 준다. T 키로 타이머를 시작한다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="학습 경로">
+            <h2>이 과정의 자리</h2>
+            <div class="pathway">
+              <div class="card"><span class="cn">①</span><span class="ct">머신러닝 기초</span><span class="cs">신경망 · 소프트맥스 · 역전파</span></div>
+              <div class="card"><span class="cn">②</span><span class="ct">ML Node Studio</span><span class="cs">노드로 조립하는 ML</span></div>
+              <div class="card is-here"><span class="cn">③ 지금</span><span class="ct">LLM 원리와 활용</span><span class="cs">미니 GPT를 직접 만든다</span></div>
+              <div class="card"><span class="cn">④</span><span class="ct">RAG 시스템 구축</span><span class="cs">모르는 것을 찾아 넣는다</span></div>
+            </div>
+            <p>12주 뒤: <strong>브라우저에서 직접 학습시킨 GPT</strong>가 글을 쓰고, 그 모델의 환각이 RAG의 출발점이 된다</p>
+            <aside class="notes">
+              <p>선수 과정에서 배운 소프트맥스와 역전파가 4주차부터 다시 나온다고 예고한다. 기억이 흐린 학생은 MLBasic 신경망 단원을 다시 보게 한다.</p>
+              <p>RAG 과정과 같은 학과 문서를 학습 데이터로 쓴다는 점을 짚는다: “정답을 아는 문서로 실험한다.”</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>언어 모델 = 앞 토큰이 주어졌을 때 <strong>다음 토큰의 조건부 확률</strong></li>
+              <li>빈도표로 바이그램 모델을 만들고 <strong>글을 생성</strong>하는 코드를 쓴다</li>
+              <li>n을 키우면 <strong>외우기</strong>와 <strong>처음 보는 문맥</strong>이 함께 커지는 이유를 설명한다</li>
+            </ol>
+            <aside class="notes">
+              <p>오늘 코드 C3의 샘플링은 8주차 디코딩에서, C4의 로그 확률은 4주차 교차 엔트로피와 9주차 퍼플렉서티에서 다시 쓴다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="자동완성으로 시작">
+            <h2>“실습실은 ___”</h2>
+            <p class="big-quote">스마트폰 자판은 다음 단어를 어떻게 고를까?</p>
+            <ul>
+              <li>지금까지 친 글을 본다</li>
+              <li>다음에 올 후보마다 <strong>확률</strong>을 매긴다</li>
+              <li>가장 그럴듯한 것을 보여 준다</li>
+            </ul>
+            <p class="muted">ChatGPT도 같은 일을 한다. 규모와 확률을 계산하는 방법만 다르다</p>
+            <aside class="notes">
+              <p><strong>발문:</strong> 학생들에게 “실습실은” 다음 단어를 말하게 하고 칠판에 적는다(개방, 본관, 평일…). 각자 머릿속에서 확률을 매긴 것이다.</p>
+              <p>“어떻게 그 단어를 떠올렸나?” → 비슷한 문장을 많이 봤기 때문 → 오늘은 그 “많이 봤다”를 직접 센다.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="조건부 확률과 연쇄 법칙">
+            <h2>언어 모델 = 다음 토큰의 조건부 확률</h2>
+            <pre><code>P(다음 토큰 | 앞 토큰들)
+
+P(실 습 실 은) = P(실) × P(습 | 실) × P(실 | 실 습) × P(은 | 실 습 실)</code></pre>
+            <ul>
+              <li>문장의 확률 = 조건부 확률을 <strong>차례로 곱한 것</strong> (연쇄 법칙)</li>
+              <li>이번 주 토큰 = <strong>글자 하나</strong> (다음 주에 더 나은 단위)</li>
+            </ul>
+            <aside class="notes">
+              <p>연쇄 법칙은 근사가 아니라 항등식이다. 근사는 다음 슬라이드의 “앞 n−1개만 본다”에서 들어온다고 구분해 준다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide" data-title="BoW와의 차이">
+            <h2>텍스트 분류 vs 언어 모델</h2>
+            <div class="cols">
+              <div>
+                <h3>MLBasic 텍스트 분류 (BoW)</h3>
+                <ul>
+                  <li>“영화가 재미없다” ≈ “재미가 없는 영화다”</li>
+                  <li>순서를 버려도 된다</li>
+                  <li>출력: 긍정/부정</li>
+                </ul>
+              </div>
+              <div>
+                <h3>언어 모델</h3>
+                <ul>
+                  <li>글자를 섞으면 뜻이 사라진다</li>
+                  <li><strong>순서가 전부</strong></li>
+                  <li>출력: 다음 토큰의 분포</li>
+                </ul>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>선수 과정 복습 슬라이드다. BoW를 기억 못 하는 학생이 있으면 “단어 개수 벡터”라고만 짚고 넘어간다.</p>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="바이그램: 세기 → 나누기 → 뽑기">
+            <h2>바이그램: 바로 앞 글자 하나만 본다</h2>
+            <table>
+              <thead><tr><th>① 세기 (“실” 다음)</th><th>② 나누기</th><th>③ 뽑기</th></tr></thead>
+              <tbody>
+                <tr><td>습 7</td><td>7/21 = <strong>33%</strong></td><td rowspan="4">확률만큼 무작위로 하나<br>→ 문맥에 붙이고 반복</td></tr>
+                <tr><td>수 3</td><td>3/21 = 14%</td></tr>
+                <tr><td>제 2 · 은 2 · 에 2</td><td>각 10%</td></tr>
+                <tr><td>공백 1</td><td>5%</td></tr>
+              </tbody>
+            </table>
+            <p>학습 = <strong>세기</strong> · 예측 = <strong>나누기</strong> · 생성 = <strong>뽑기</strong>의 반복 (자기회귀)</p>
+            <aside class="notes">
+              <p>숫자는 이 과정 코퍼스(17문서, 6,828자)를 실제로 센 값이다. Challenge C2의 기대 결과와 같다.</p>
+              <p><strong>발문:</strong> “왜 항상 1등(습)을 고르지 않고 무작위로 뽑나?” → 항상 1등이면 같은 글만 나온다. 8주차 디코딩 전략의 예고.</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide slide--demo" data-title="데모: n-gram 언어 모델">
+            <h2>데모 · n-gram 언어 모델</h2>
+            <div id="deck-w01-bigram"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>처음 화면: n = 2. “모델”, “실습”은 맞고 문장은 엉뚱하다</li>
+                <li>빨간 글자 하나를 눌러 후보 막대를 보여 준다. “확률 낮은 것도 가끔 뽑힌다”</li>
+                <li>🎲 몇 번 → 매번 다른 글. seed가 같으면 같은 글</li>
+                <li>n = 1 → 글자 수프. n = 3 → 단어가 자연스러워짐</li>
+                <li>“n = 5 (외우기 재현)” → 복사율 84%, 평균 후보 1.3개. “이 모델은 언어를 배웠나, 문서를 외웠나?”</li>
+                <li>n = 6 → 시작하자마자 막다른 길</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="n을 키우면">
+            <h2>n을 키우면 좋아지는가?</h2>
+            <table>
+              <thead><tr><th>n</th><th>본 문맥(학습용)</th><th>평균 후보</th><th>새 문서에서 확률 0</th><th>새 문서 NLL</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>1</td><td>495</td><td>16 / 356</td><td>5.08</td></tr>
+                <tr><td>2</td><td>484</td><td>72.8</td><td>104 / 356</td><td><strong>4.16</strong></td></tr>
+                <tr><td>3</td><td>2,047</td><td>8.4</td><td>215 / 356</td><td>5.00</td></tr>
+                <tr><td>5</td><td>4,874</td><td>1.3</td><td>331 / 356</td><td>6.00</td></tr>
+              </tbody>
+            </table>
+            <p>가능한 문맥 = 495<sup>n−1</sup> → 문서 6,828자로는 <strong>대부분이 빈칸</strong></p>
+            <aside class="notes">
+              <p>“새 문서”는 학습에서 뺀 “벡터 데이터베이스와 인덱스” 문서(356자)다. NLL은 add-k(k = 0.1) 스무딩을 쓴 값이다. Challenge C5의 정답 표와 같다.</p>
+              <p><strong>핵심:</strong> n을 키우면 학습 문서는 더 잘 맞히지만(외우기) 새 문서는 더 못 맞힌다(빈칸). 과대적합이다. “비슷한 문맥”을 알아보는 능력(일반화)이 없기 때문 → 3·4주차.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="로그 확률과 NLL">
+            <h2>문장의 확률은 로그로 더한다</h2>
+            <pre><code>log P(문장) = Σ log P(xᵢ | xᵢ₋₁)
+글자당 NLL = −log P(문장) / 글자 수</code></pre>
+            <table>
+              <thead><tr><th>문장</th><th>k = 0</th><th>k = 0.1</th><th>글자당 NLL</th></tr></thead>
+              <tbody>
+                <tr><td>실습실은 평일 오후 9시까지 개방된다.</td><td>−43.0</td><td>−64.6</td><td>3.23</td></tr>
+                <tr><td>다개은 실9습 후평까오 …(섞음)</td><td>−∞</td><td>−110.5</td><td>5.52</td></tr>
+                <tr><td>실습실은 토요일 오전에도 개방된다.</td><td>−∞</td><td>−67.0</td><td>3.72</td></tr>
+              </tbody>
+            </table>
+            <aside class="notes">
+              <p>확률을 그대로 곱하면 10<sup>−19</sup>처럼 작아져 컴퓨터에서 0이 된다(언더플로). 그래서 로그를 더한다.</p>
+              <p>세 번째 문장은 말이 되는데도 k = 0이면 −∞다. “토요”, “요일”, “전에” 쌍이 코퍼스에 없기 때문. 스무딩은 “본 적 없다 ≠ 불가능하다”를 반영하는 응급 처치다.</p>
+              <p>글자당 NLL은 4주차 교차 엔트로피 손실과 같은 식이다. 미리 연결해 둔다.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>바이그램 언어 모델, 코드 12줄</h2>
+            <pre data-run="demo-bigram" data-title="바이그램 12줄"><code class="language-javascript">import { mulberry32 } from '/assets/js/core/rng.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const chars = [...corpus.documents.map((d) =&gt; d.text).join('\n\n')];
+const table = new Map();                                  // ① 세기
+for (let i = 0; i &lt; chars.length - 1; i++) {
+  const row = table.get(chars[i]) ?? new Map();
+  row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+  table.set(chars[i], row);
+}
+const rand = mulberry32(7), out = [...'모델은'];
+for (let i = 0; i &lt; 50; i++) {                           // ②③ 나누고 뽑기
+  const row = [...table.get(out.at(-1))];
+  let r = rand() * row.reduce((s, [, c]) =&gt; s + c, 0);
+  out.push(row.find(([, c]) =&gt; (r -= c) &lt; 0)[0]);
+}
+console.log(out.join(''));</code></pre>
+            <aside class="notes">
+              <p>▶ 실행 후 seed(7)를 바꿔 다시 실행한다. 확률로 나누지 않고 “횟수 합 × rand”로 바로 뽑는 방법도 같은 결과라는 점을 짚는다(C3의 다른 풀이).</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>언어 모델 = 다음 토큰의 <strong>조건부 확률 분포</strong>, 생성 = 한 토큰씩 뽑아 붙이기</li>
+              <li>n-gram: 학습 = 세기, 예측 = 나누기</li>
+              <li>n이 크면 <strong>외우고</strong>, 새 문맥에서는 <strong>확률 0</strong> → 일반화가 필요하다</li>
+              <li>문장의 확률은 로그의 합 · 글자당 NLL은 곧 교차 엔트로피</li>
+            </ul>
+            <h3>다음 주 · 토큰화와 BPE</h3>
+            <p class="muted">“글자 하나 = 토큰 하나”를 버리고, 자주 붙어 나오는 조각을 합쳐 어휘를 직접 만든다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분 동안 “가장 좋은 n은?” 답을 확인한다(기대: n = 2).</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>15분</td><td>과목 소개 · 학습 경로 · 사이트 사용법</td><td>—</td></tr>
+                <tr><td>30분</td><td>자동완성 발문 · 조건부 확률 · BoW와 비교</td><td>칠판의 후보 목록</td></tr>
+                <tr><td>30분</td><td>바이그램 · 데모 · 관찰 1~2</td><td>짝 활동 메모</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>30분</td><td>n을 키우면 · 관찰 3~5 · 로그 확률</td><td>n별 기록표</td></tr>
+                <tr><td>55분</td><td>Challenge C1~C4</td><td>C3 코드(8주차 재사용)</td></tr>
+                <tr><td>10분</td><td>정리 · 2주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1·C2 정답" data-appendix>
+            <h2>부록 B · C1 · C2 정답</h2>
+            <pre data-run="ans-c1c2" data-title="C1 · C2 정답"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+// C1
+const doc = corpus.documents.find((d) =&gt; d.id === 'facility-rules').text;
+const counts = new Map();
+for (const ch of doc) counts.set(ch, (counts.get(ch) ?? 0) + 1);
+const show = (c) =&gt; (c === ' ' ? '␣' : c === '\n' ? '↵' : c);
+console.table([...counts].sort((a, b) =&gt; b[1] - a[1]).slice(0, 10)
+  .map(([ch, count]) =&gt; ({ ch: show(ch), count, p: +(count / doc.length).toFixed(3) })));
+console.log('글자 종류:', counts.size, '전체 글자 수:', doc.length);
+// C2
+const text = corpus.documents.map((d) =&gt; d.text).join('\n\n');
+function buildBigram(text) {
+  const table = new Map(), chars = [...text];
+  for (let i = 0; i &lt; chars.length - 1; i++) {
+    const row = table.get(chars[i]) ?? new Map();
+    row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+    table.set(chars[i], row);
+  }
+  return table;
+}
+function nextProbs(table, prev) {
+  const row = table.get(prev);
+  if (!row) return [];
+  let total = 0;
+  row.forEach((c) =&gt; (total += c));
+  return [...row].map(([next, count]) =&gt; ({ next, count, p: +(count / total).toFixed(3) }))
+    .sort((a, b) =&gt; b.count - a.count);
+}
+const table = buildBigram(text);
+console.log('앞 글자 종류(행 수):', table.size);
+console.table(nextProbs(table, '실').slice(0, 6));
+console.table(nextProbs(table, '모').slice(0, 6));</code></pre>
+            <aside class="notes">
+              <p><strong>C1 결과:</strong> ␣ 66(23.2%), 에 8, 시 7, 실·다·.·는·한·용 6, 간 5 · 글자 종류 112, 전체 284자. 공백이 1등인 이유: 한국어는 어절마다 띄운다. 2주차 BPE에서 공백을 단어 경계(▁)로 쓰는 이유가 된다.</p>
+              <p><strong>C2 결과:</strong> 행 수 495. “실” → 습 7(33.3%) · 수 3 · 제·은·에 2 · 공백 1. “모” → 델 26(59.1%) · 든 6 · 공백·두 3. “모델”이 교안에 자주 나오기 때문이다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">import { mulberry32 } from '/assets/js/core/rng.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const chars = [...corpus.documents.map((d) =&gt; d.text).join('\n\n')];
+const table = new Map();
+for (let i = 0; i &lt; chars.length - 1; i++) {
+  const row = table.get(chars[i]) ?? new Map();
+  row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+  table.set(chars[i], row);
+}
+function sampleIndex(probs, rand) {
+  const r = rand();
+  let cum = 0;
+  for (let i = 0; i &lt; probs.length; i++) {
+    cum += probs[i];
+    if (r &lt; cum) return i;
+  }
+  return probs.length - 1; // 부동소수점 오차 대비
+}
+const rand = mulberry32(42);
+const hits = [0, 0, 0];
+for (let i = 0; i &lt; 10000; i++) hits[sampleIndex([0.5, 0.3, 0.2], rand)]++;
+console.log('뽑힌 비율:', hits.map((h) =&gt; h / 10000));
+function generate(start, length, seed) {
+  const r = mulberry32(seed);
+  const out = [...start];
+  for (let i = 0; i &lt; length; i++) {
+    const row = table.get(out[out.length - 1]);
+    if (!row) break; // 막다른 길
+    const nexts = [...row.keys()];
+    let total = 0;
+    row.forEach((c) =&gt; (total += c));
+    out.push(nexts[sampleIndex(nexts.map((n) =&gt; row.get(n) / total), r)]);
+  }
+  return out.join('');
+}
+console.log(generate('실습실은', 60, 1));
+console.log(generate('실습실은', 60, 1));
+console.log(generate('실습실은', 60, 2));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 비율 [0.5022, 0.2988, 0.199]. seed 1: “실습실은 한다룰 각 너무리다. 토큰 문서 붙어 과 음 장 가 방법이…”, 두 번째 줄은 첫 줄과 같다.</p>
+              <p><strong>자주 틀리는 곳:</strong> <code>r &lt;= cum</code>과 <code>r &lt; cum</code>은 결과가 거의 같지만 확률 0인 항목이 뽑힐 수 있는지가 다르다. 마지막 <code>return</code>은 누적합이 0.9999999처럼 1에 못 미칠 때를 대비한다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const chars = [...corpus.documents.map((d) =&gt; d.text).join('\n\n')];
+const V = new Set(chars).size;
+const table = new Map();
+for (let i = 0; i &lt; chars.length - 1; i++) {
+  const row = table.get(chars[i]) ?? new Map();
+  row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+  table.set(chars[i], row);
+}
+function prob(prev, next, k) {
+  const row = table.get(prev) ?? new Map();
+  let total = 0;
+  row.forEach((c) =&gt; (total += c));
+  const denom = total + k * V;
+  return denom === 0 ? 0 : ((row.get(next) ?? 0) + k) / denom;
+}
+function logProb(sentence, k) {
+  const cs = [...sentence];
+  let lp = 0;
+  for (let i = 1; i &lt; cs.length; i++) lp += Math.log(prob(cs[i - 1], cs[i], k));
+  return lp;
+}
+const original = '실습실은 평일 오후 9시까지 개방된다.';
+const shuffled = '다개은 실9습 후평까오 지된실일시 방.';
+const unseen = '실습실은 토요일 오전에도 개방된다.';
+console.table([original, shuffled, unseen].map((s) =&gt; ({
+  s,
+  'k=0': logProb(s, 0).toFixed(2),
+  'k=0.1': logProb(s, 0.1).toFixed(2),
+  '글자당 NLL(k=0.1)': (-logProb(s, 0.1) / ([...s].length - 1)).toFixed(3),
+})));
+const cs = [...unseen];
+console.log('확률 0인 쌍:', cs.slice(1).map((c, i) =&gt; cs[i] + c).filter((p) =&gt; prob(p[0], p[1], 0) === 0));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 원문 −43.03 / −64.57 / 3.228 · 섞음 −Infinity / −110.48 / 5.524 · 새 문장 −Infinity / −66.97 / 3.720 · 확률 0인 쌍: 토요, 요일, 전에.</p>
+              <p><strong>해석:</strong> 스무딩을 넣으면 원문의 로그 확률도 낮아진다(−43 → −65). 본 적 있는 쌍의 확률을 떼어 본 적 없는 쌍에 나눠 주기 때문이다. 새 문장이 섞은 문장보다 훨씬 그럴듯하다고 판정하는 것은 스무딩 덕분이다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">import { countNgrams, nll } from '/assets/js/core/ngram.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const join = (docs) =&gt; docs.map((d) =&gt; d.text).join('\n\n');
+const trainText = join(corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb'));
+const valText = [...join(corpus.documents.filter((d) =&gt; d.id === 'rag-vectordb'))];
+const rows = [];
+for (let n = 1; n &lt;= 5; n++) {
+  const model = countNgrams([...trainText], n);
+  rows.push({
+    n,
+    contexts: model.counts.size,
+    zeros: nll(model, valText).zeros,
+    nll: +nll(model, valText, { k: 0.1 }).nll.toFixed(3),
+  });
+}
+console.table(rows);
+const best = rows.reduce((a, b) =&gt; (b.nll &lt; a.nll ? b : a));
+console.log(`가장 좋은 n = ${best.n}. n이 커지면 가능한 문맥이 495^(n-1)로 늘어 새 문서의 문맥 대부분이 학습에 없다.`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> n = 1: 문맥 1 · 0확률 16 · NLL 5.077 / n = 2: 484 · 104 · <strong>4.163</strong> / n = 3: 2,047 · 215 · 5.000 / n = 4: 3,821 · 288 · 5.645 / n = 5: 4,874 · 331 · 5.998.</p>
+              <p><strong>핵심:</strong> 가장 좋은 n은 2다. 데이터가 적을수록 짧은 문맥이 이긴다. 대규모 데이터에서도 n-gram은 결국 같은 벽에 부딪힌다 → “비슷한 문맥”을 벡터로 표현하는 3주차 임베딩과 4주차 신경망 언어 모델.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>위젯·코드가 동작하지 않는다</td><td><code>file://</code>로 열었다</td><td><code>python -m http.server</code> 안내</td></tr>
+                <tr><td>한글이 두 글자로 세어진다</td><td><code>text.split('')</code>이나 인덱스 대신 <code>[...text]</code>를 써야 하는 문자(이모지 등)</td><td>한글은 문제없지만 습관적으로 <code>[...text]</code>를 쓰게 한다</td></tr>
+                <tr><td>C3 생성이 매번 다르다</td><td>함수 안에서 <code>Math.random</code> 사용</td><td>seed가 있는 <code>mulberry32</code> 사용</td></tr>
+                <tr><td>C4 결과가 <code>NaN</code></td><td><code>Math.log(0)</code> 뒤 연산, 분모 0</td><td>k = 0일 때 −Infinity가 정상임을 확인</td></tr>
+                <tr><td>“n이 크면 무조건 좋다”</td><td>학습 문서로만 평가</td><td>C5처럼 뺀 문서로 평가하게 한다</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>n = 5 모델이 문서를 그대로 베낀 글은 “잘 쓴 글”인가? 표절과 암기는 LLM에서 어떤 문제가 되는가?</li>
+              <li>스마트폰 자판의 자동완성은 n-gram으로 충분할까? 무엇이 부족할까?</li>
+              <li>“본 적 없다”와 “불가능하다”는 어떻게 다른가? 스무딩은 이 차이를 제대로 반영하는가?</li>
+              <li>항상 가장 확률 높은 글자만 고르면 어떤 글이 나올까? (8주차 예고)</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>빈도표 (C1·C2)</td><td>정렬·확률 표 + 결과 해석</td><td>결과만 제시</td><td>동작하지 않음</td></tr>
+                <tr><td>생성 (C3)</td><td>비율 검사 통과 + seed 재현 + 막다른 길 처리</td><td>생성은 되나 재현 불가</td><td>미완성</td></tr>
+                <tr><td>확률 (C4·C5)</td><td>스무딩 효과와 최적 n을 근거로 설명</td><td>표만 제시</td><td>미제출</td></tr>
+                <tr><td>관찰·토론</td><td>외우기와 일반화를 구분해 설명</td><td>현상만 서술</td><td>참여 없음</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w01-bigram.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w01-bigram'), { outputTitle: 'n-gram 언어 모델 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

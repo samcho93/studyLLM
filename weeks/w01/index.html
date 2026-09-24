@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>1주차 언어 모델: 다음 토큰 예측 · LLM Lab</title>
+  <meta name="description" content="언어 모델의 출발점: 글자 빈도표로 바이그램 언어 모델을 만들고, 확률로 글을 생성하며, n을 키울 때 생기는 외우기와 빈칸 문제를 확인한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w01.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="1" data-crumb="PART 1 · 언어를 숫자로 › <b>1주차 · 언어 모델: 다음 토큰 예측</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🎲 1주차 · 언어 모델: 다음 토큰 예측</span>
+      <h1>다음 글자를 맞히는 기계</h1>
+      <p class="lead">ChatGPT가 하는 일은 한 문장으로 요약된다. “지금까지 나온 글을 보고, 다음에 올 토큰의 확률을 계산해서 하나 고른다.” 이번 주는 이 기계의 가장 단순한 버전인 n-gram 언어 모델을 빈도표 하나로 만들고, 왜 그것만으로는 부족한지 직접 확인한다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: n-gram 언어 모델</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 글을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div>임베딩</div><div>어텐션</div><div>트랜스포머</div><div><b>다음 토큰 확률</b></div><div><b>뽑기</b></div><div>학습·평가</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>언어 모델이 “앞 토큰들이 주어졌을 때 다음 토큰의 조건부 확률”을 계산한다는 것을 설명할 수 있다.</li>
+          <li>문서에서 바이그램 빈도표를 만들고, 확률로 바꾸고, 그 확률로 글을 생성하는 코드를 작성할 수 있다.</li>
+          <li>n을 키우면 왜 “외우기”와 “처음 보는 문맥” 문제가 함께 커지는지 설명할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>머신러닝 기초 과정의 텍스트 분류에서는 문장을 단어 주머니(BoW, Bag of Words)로 바꿨다. “영화가 재미없다”와 “재미가 없는 영화다”는 같은 단어를 가지므로 거의 같은 벡터가 된다. 감성 분류에는 이것으로 충분했다. 순서를 버려도 “재미없다”라는 단어가 있다는 사실이 중요했기 때문이다.</p>
+        <p>그런데 글을 <em>만들려면</em> 순서가 전부다. “실습실은 평일 오후 9시까지 개방된다”의 글자를 무작위로 섞으면 같은 글자 주머니지만 아무 뜻도 없다. 글을 만드는 모델은 “이 다음에는 무엇이 오는가”를 알아야 한다.</p>
+        <div class="callout">
+          <span class="callout__title">이 과정 전체를 관통하는 질문</span>
+          <p>앞에 나온 글이 주어졌을 때, 다음 토큰은 무엇일 확률이 얼마인가? — 1주차의 빈도표도, 12주차의 GPT도 이 질문에 답하는 방법만 다를 뿐이다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>언어 모델 = 다음 토큰의 조건부 확률</h3>
+        <p>언어 모델(language model)은 토큰 열 x₁, x₂, …, x<sub>t</sub>를 보고 다음 토큰 x<sub>t+1</sub>의 확률 분포 P(x<sub>t+1</sub> | x₁ … x<sub>t</sub>)를 내놓는다. 이번 주는 토큰을 <strong>글자 하나</strong>로 둔다. 다음 주에 더 나은 토큰 단위를 만든다.</p>
+        <p>문장 전체의 확률은 이 조건부 확률을 차례로 곱한 것이다(연쇄 법칙).</p>
+        <pre><code class="language-text">P(실 습 실 은) = P(실) × P(습 | 실) × P(실 | 실 습) × P(은 | 실 습 실)</code></pre>
+
+        <h3>n-gram: 앞의 n−1개만 본다</h3>
+        <p>앞의 모든 글자를 조건으로 쓰면 같은 문맥이 두 번 나오는 일이 거의 없어 셀 수가 없다. 그래서 n-gram 모델은 <strong>바로 앞 n−1개 토큰만</strong> 본다고 가정한다. n = 2인 바이그램(bigram)은 바로 앞 글자 하나만 본다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 210" role="img" aria-labelledby="w01-fig1-t" style="width: 100%">
+            <title id="w01-fig1-t">문서에서 두 글자 쌍을 세어 빈도표를 만들고, 행을 합으로 나누어 확률로 바꾼 뒤, 확률에 따라 다음 글자를 뽑는 세 단계</title>
+            <style>
+              .w01f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w01f-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w01f-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w01f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w01f-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w01f-bar { fill: var(--color-accent); }
+              .w01f-bar2 { fill: var(--color-accent2); }
+              .w01f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w01-a); }
+            </style>
+            <defs><marker id="w01-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w01f-l" x="0" y="18">① 세기</text>
+            <rect class="w01f-box" x="0" y="30" width="170" height="120" rx="10"/>
+            <text class="w01f-m" x="12" y="54">실습 ×7</text>
+            <text class="w01f-m" x="12" y="76">실수 ×3</text>
+            <text class="w01f-m" x="12" y="98">실제 ×2</text>
+            <text class="w01f-m" x="12" y="120">실은 ×2 …</text>
+            <text class="w01f-n" x="96" y="140">합 21</text>
+            <path class="w01f-arr" d="M178 90 H218"/>
+            <text class="w01f-l" x="226" y="18">② 나누기</text>
+            <rect class="w01f-hi" x="226" y="30" width="190" height="120" rx="10"/>
+            <text class="w01f-m" x="238" y="54">P(습|실) = 7/21 = 33%</text>
+            <text class="w01f-m" x="238" y="76">P(수|실) = 3/21 = 14%</text>
+            <text class="w01f-m" x="238" y="98">P(제|실) = 2/21 = 10%</text>
+            <text class="w01f-m" x="238" y="120">… 합 = 100%</text>
+            <path class="w01f-arr" d="M424 90 H464"/>
+            <text class="w01f-l" x="472" y="18">③ 뽑기</text>
+            <text class="w01f-m" x="472" y="54">습</text><rect class="w01f-bar2" x="494" y="43" width="110" height="14" rx="3"/>
+            <text class="w01f-m" x="472" y="78">수</text><rect class="w01f-bar" x="494" y="67" width="46" height="14" rx="3"/>
+            <text class="w01f-m" x="472" y="102">제</text><rect class="w01f-bar" x="494" y="91" width="33" height="14" rx="3"/>
+            <text class="w01f-n" x="472" y="130">확률만큼 무작위로</text>
+            <text class="w01f-n" x="472" y="146">→ “습” 선택</text>
+            <text class="w01f-n" x="0" y="182">실제 코퍼스(17문서, 6,828자)에서 “실” 다음에 온 글자를 센 값이다.</text>
+            <text class="w01f-n" x="0" y="200">뽑은 글자를 문맥에 붙이고 ①~③을 반복하면 글이 한 글자씩 자란다.</text>
+          </svg>
+          <figcaption>바이그램 언어 모델의 전부. 학습 = 세기, 예측 = 나누기, 생성 = 뽑기의 반복.</figcaption>
+        </figure>
+        <p>이렇게 한 글자씩 뽑아 붙이는 방식을 <strong>자기회귀(autoregressive)</strong> 생성이라 한다. GPT도 정확히 같은 방식으로 글을 쓴다. 다른 점은 ②의 확률을 빈도표가 아니라 신경망이 계산한다는 것뿐이다.</p>
+
+        <h3>n을 키우면 생기는 두 문제</h3>
+        <p>n을 키우면 더 긴 문맥을 보므로 글이 자연스러워진다. 그러나 대가가 있다. 글자 종류가 V개면 가능한 문맥은 V<sup>n−1</sup>개다. 우리 코퍼스의 글자는 495종이므로 n = 3이면 약 24만 개, n = 5면 약 600억 개의 문맥이 가능하다. 6,828자짜리 문서에는 그중 극히 일부만 나온다.</p>
+        <table>
+          <thead><tr><th>n</th><th>코퍼스에 나온 문맥</th><th>생성 시 평균 후보 수</th><th>처음 보는 문서에서 확률 0인 글자</th></tr></thead>
+          <tbody>
+            <tr><td>1 (유니그램)</td><td>1</td><td>495</td><td>16 / 356</td></tr>
+            <tr><td>2 (바이그램)</td><td>496</td><td>72.8</td><td>104 / 356</td></tr>
+            <tr><td>3</td><td>2,142</td><td>8.4</td><td>215 / 356</td></tr>
+            <tr><td>5</td><td>5,147</td><td>1.3</td><td>331 / 356</td></tr>
+          </tbody>
+        </table>
+        <ol>
+          <li><strong>외우기</strong>: n = 5에서는 한 문맥 뒤에 올 수 있는 글자가 평균 1.3개뿐이다. 모델은 문서를 그대로 베낀다. 그럴듯하지만 새로운 문장은 하나도 없다.</li>
+          <li><strong>처음 보는 문맥</strong>: 학습에 쓰지 않은 문서(“벡터 데이터베이스와 인덱스”)를 n = 5 모델에 넣으면 356자 중 331자의 확률이 0이다. 본 적 없는 조합에 대해서는 아무것도 모른다.</li>
+        </ol>
+        <p>“비슷한 문맥이면 비슷한 다음 글자가 온다”는 것을 모델이 스스로 알아내게 하려면 셈이 아니라 <strong>일반화</strong>가 필요하다. 3주차 임베딩과 4주차 신경망 언어 모델이 그 답이다.</p>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — “학습 데이터 성능은 좋은데 새 데이터에서 나쁘다”는 과대적합이다. n이 큰 n-gram은 학습 문서를 외운 극단적인 과대적합 모델이다. <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 “모델 평가와 과대적합” 단원을 떠올린다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>학습 문서를 고르면 그 자리에서 n-gram 빈도표를 세고, “시작 글자” 뒤로 글을 생성한다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). 생성된 글자를 누르면 그 글자를 고를 때의 후보와 확률이 막대로 나온다. seed가 같으면 같은 글이 나온다.</p>
+        <div id="w01-bigram"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>n = 2로 두고 🎲를 몇 번 누른다. 두세 글자짜리 조각(“모델”, “실습”)은 자연스러운가? 문장 전체는 어떤가? 그 이유를 “바로 앞 글자 하나만 본다”로 설명한다.</li>
+          <li>생성된 글자 중 빨간(확률 &lt; 10%) 글자를 하나 눌러 본다. 그 순간 후보는 몇 개였고, 1등 후보의 확률은 얼마였나?</li>
+          <li>n을 1 → 2 → 3 → 5로 올리며 “평균 후보 수”와 “원문 복사율”을 표로 기록한다. 복사율이 50%를 넘는 n은 몇부터인가?</li>
+          <li>n = 6으로 두고 시작 글자 “실습실은”을 그대로 둔다. 왜 한 글자도 생성하지 못하는가? 시작 글자를 “실습실은 본관”으로 바꾸면 어떻게 되는가?</li>
+          <li>학습 문서를 “실습실 이용 규정 한 편”으로 바꾸고 n = 3을 본다. 문서가 짧으면 같은 n에서도 복사율이 어떻게 달라지는가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 페이지와 분리된 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. <code>/assets/…</code> 경로는 사이트 루트 기준이다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 글자 빈도 세기 (유니그램)</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>“실습실 이용 규정” 문서에서 글자마다 몇 번 나오는지 세고, 많이 나온 순서로 10개를 표로 출력한다. 공백이 1등이라면 왜 그런지도 생각한다. 이 빈도를 전체 글자 수로 나눈 것이 유니그램 모델이다.</p>
+          <pre data-run="c1" data-title="C1 글자 빈도"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const text = corpus.documents.find((d) =&gt; d.id === 'facility-rules').text;
+
+const counts = new Map();
+// TODO: text의 글자를 하나씩 돌며 counts에 개수를 더한다 (힌트: for (const ch of text))
+
+// TODO: 개수가 많은 순서로 정렬해 상위 10개를 { ch, count, p } 객체로 만든다
+//       ch는 공백을 '␣', 줄바꿈을 '↵'로 보이게 바꾼다. p = count / 전체 글자 수
+const top = [];
+console.table(top);
+console.log('글자 종류:', counts.size, '전체 글자 수:', text.length);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 바이그램 빈도표와 조건부 확률</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>코퍼스 전체로 바이그램 빈도표 <code>table</code>(앞 글자 → (다음 글자 → 횟수))를 만든다. 그리고 “실” 다음에 올 글자의 확률을 표로 출력한다. 기대 결과: 1등은 “습”이고 7/21 ≈ 33%다.</p>
+          <pre data-run="c2" data-title="C2 바이그램 빈도표"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const text = corpus.documents.map((d) =&gt; d.text).join('\n\n');
+
+/** table: Map&lt;prev, Map&lt;next, count&gt;&gt; */
+function buildBigram(text) {
+  const table = new Map();
+  const chars = [...text];
+  // TODO: i = 0 … chars.length − 2 에 대해 (chars[i], chars[i+1]) 쌍의 횟수를 더한다
+  return table;
+}
+
+function nextProbs(table, prev) {
+  // TODO: prev 행의 횟수를 합으로 나누어 [{ next, count, p }]를 확률 내림차순으로 돌려준다
+  return [];
+}
+
+const table = buildBigram(text);
+console.log('앞 글자 종류(행 수):', table.size);
+console.table(nextProbs(table, '실').slice(0, 6));
+console.table(nextProbs(table, '모').slice(0, 6)); // “모” 다음은?</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 확률로 뽑아 글 만들기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>확률 배열을 받아 그 비율대로 번호 하나를 뽑는 <code>sampleIndex</code>를 구현한다. 먼저 [0.5, 0.3, 0.2]로 1만 번 뽑아 비율이 맞는지 검사한 뒤, 바이그램으로 “실습실은” 뒤에 60글자를 생성한다. 같은 seed면 항상 같은 글이 나와야 한다.</p>
+          <pre data-run="c3" data-title="C3 샘플링과 생성"><code class="language-javascript">import { mulberry32 } from '/assets/js/core/rng.js'; // seed가 있는 난수 (0 이상 1 미만)
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const chars = [...corpus.documents.map((d) =&gt; d.text).join('\n\n')];
+const table = new Map();
+for (let i = 0; i &lt; chars.length - 1; i++) {
+  const row = table.get(chars[i]) ?? new Map();
+  row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+  table.set(chars[i], row);
+}
+
+function sampleIndex(probs, rand) {
+  // TODO: r = rand() 를 하나 뽑고, 누적 확률이 처음으로 r을 넘는 번호를 돌려준다
+  return 0;
+}
+
+// 검사: 1만 번 뽑은 비율이 0.5 / 0.3 / 0.2에 가까워야 한다
+const rand = mulberry32(42);
+const hits = [0, 0, 0];
+for (let i = 0; i &lt; 10000; i++) hits[sampleIndex([0.5, 0.3, 0.2], rand)]++;
+console.log('뽑힌 비율:', hits.map((h) =&gt; h / 10000));
+
+function generate(start, length, seed) {
+  const r = mulberry32(seed);
+  const out = [...start];
+  // TODO: 마지막 글자의 행을 꺼내 확률 배열을 만들고, sampleIndex로 다음 글자를 골라 out에 붙인다
+  //       행이 없으면(막다른 길) 멈춘다
+  return out.join('');
+}
+console.log(generate('실습실은', 60, 1));
+console.log(generate('실습실은', 60, 1)); // 위와 같아야 한다
+console.log(generate('실습실은', 60, 2));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 문장의 확률과 스무딩</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>바이그램 모델로 문장의 로그 확률 log P(문장)을 계산한다. 확률을 그대로 곱하면 너무 작아 0이 되므로 로그를 더한다. 원래 문장과 글자를 뒤섞은 문장을 비교하면 모델이 “순서”를 안다는 것을 확인할 수 있다. 그런데 한 번도 본 적 없는 글자 쌍이 하나라도 있으면 확률이 0(로그는 −∞)이 된다. 모든 횟수에 k를 더하는 <strong>add-k 스무딩</strong>으로 이를 해결한다.</p>
+          <pre data-run="c4" data-title="C4 문장의 확률"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const chars = [...corpus.documents.map((d) =&gt; d.text).join('\n\n')];
+const V = new Set(chars).size; // 글자 종류 495
+const table = new Map();
+for (let i = 0; i &lt; chars.length - 1; i++) {
+  const row = table.get(chars[i]) ?? new Map();
+  row.set(chars[i + 1], (row.get(chars[i + 1]) ?? 0) + 1);
+  table.set(chars[i], row);
+}
+
+function prob(prev, next, k) {
+  // TODO: (count(prev,next) + k) / (count(prev,·) 합 + k × V)
+  //       k = 0이고 본 적 없는 쌍이면 0이 나와야 한다
+  return 0;
+}
+
+function logProb(sentence, k) {
+  // TODO: 인접한 글자 쌍마다 Math.log(prob(...))를 더한다 (첫 글자는 건너뛴다)
+  return 0;
+}
+
+const original = '실습실은 평일 오후 9시까지 개방된다.';
+const shuffled = '다개은 실9습 후평까오 지된실일시 방.';
+const unseen = '실습실은 토요일 오전에도 개방된다.';
+console.table([original, shuffled, unseen].map((s) =&gt; ({
+  s,
+  'k=0': logProb(s, 0).toFixed(2),
+  'k=0.1': logProb(s, 0.1).toFixed(2),
+  '글자당 NLL(k=0.1)': (-logProb(s, 0.1) / ([...s].length - 1)).toFixed(3),
+})));
+// TODO: unseen 문장에서 확률이 0인 글자 쌍을 모두 찾아 출력한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. n을 키우면 정말 좋아지는가</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>“벡터 데이터베이스와 인덱스” 문서(<code>rag-vectordb</code>)를 빼고 n-gram을 학습한 뒤, 빠진 문서로 평가한다. n = 1~5에 대해 ① 본 문맥 수 ② 확률 0인 글자 수(k = 0) ③ 글자당 평균 음의 로그 가능도(NLL, k = 0.1)를 표로 만든다. 어떤 n이 가장 좋은가? 이 결과가 4주차에 신경망 언어 모델이 필요한 이유다. 이번에는 사이트의 <code>ngram.js</code>를 가져다 쓴다.</p>
+          <pre data-run="c5" data-title="C5 n과 일반화"><code class="language-javascript">import { countNgrams, nll } from '/assets/js/core/ngram.js';
+// countNgrams(tokens, n) → 모델 · nll(model, tokens, { k }) → { nll, zeros, n }
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const join = (docs) =&gt; docs.map((d) =&gt; d.text).join('\n\n');
+const trainText = join(corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb'));
+const valText = join(corpus.documents.filter((d) =&gt; d.id === 'rag-vectordb'));
+
+const rows = [];
+for (let n = 1; n &lt;= 5; n++) {
+  // TODO: trainText로 n-gram 모델을 만든다
+  // TODO: valText로 zeros(k=0)와 NLL(k=0.1)을 구해 rows에 넣는다
+  //       문맥 수는 model.counts.size
+}
+console.table(rows);
+// TODO: 가장 NLL이 낮은 n과, n이 커질수록 zeros가 늘어나는 이유를 console.log로 적는다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>언어 모델은 앞 토큰들이 주어졌을 때 다음 토큰의 확률 분포를 계산한다. 글은 그 분포에서 한 토큰씩 뽑아 붙여 만든다(자기회귀 생성).</li>
+          <li>n-gram 모델은 이 확률을 빈도표로 계산한다. 학습 = 세기, 예측 = 나누기다.</li>
+          <li>n이 작으면 문맥을 못 보고, n이 크면 문서를 외우며 처음 보는 문맥에서 확률이 0이 된다. 셈으로는 일반화할 수 없다.</li>
+          <li>문장의 확률은 조건부 확률의 곱이고, 계산은 로그의 합으로 한다. 글자당 평균 음의 로그 가능도(NLL)는 4주차 교차 엔트로피 손실과 같은 값이다.</li>
+        </ul>
+        <p><strong>다음 주(2주차 토큰화와 BPE)</strong>에는 “글자 하나 = 토큰 하나”라는 가정을 버린다. 자주 붙어 나오는 글자를 합쳐 “모델”, “실습” 같은 조각을 토큰으로 만드는 BPE를 직접 구현하고, 어휘 크기와 토큰 수가 어떻게 맞바뀌는지 본다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="1"> ✅ 1주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="1" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w01-bigram.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w01-bigram'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>
