@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>16주차 응용 ④ 브라우저 로컬 LLM · 교사용 · LLM Lab</title>
+  <meta name="description" content="16주차 브라우저 로컬 LLM 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w16.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="16" data-crumb="🧑‍🏫 교사용 › <b>16주차 · 응용 ④ 브라우저 로컬 LLM</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="16주차 · 응용 ④ 브라우저 로컬 LLM">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 16주차 · 응용 실습</div>
+            <h1>브라우저 로컬 LLM</h1>
+            <p>내 컴퓨터 안의 LLM</p>
+            <div class="deco" aria-hidden="true">💻</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:15</td><td>발문: “이 질문을 외부 서버로 보내도 되나?” · 로컬 LLM의 이유</td></tr>
+                <tr><td>0:15–0:45</td><td>구조(허브 → 캐시 → 워커) · 파라미터 해부 · 양자화 표</td></tr>
+                <tr><td>0:45–1:20</td><td>데모 · 학생 실습 (SmolLM2) · 관찰 질문 1~4</td></tr>
+                <tr><td>1:20–1:30</td><td>휴식</td></tr>
+                <tr><td>1:30–1:50</td><td>속도(TTFT · tok/s) · 로컬 vs API 판단표 · 관찰 5</td></tr>
+                <tr><td>1:50–2:45</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:45–3:00</td><td>과정 정리 · studyRAG 안내</td></tr>
+              </table>
+              <p><strong>수업 전 필수:</strong> 교탁 PC에서 두 모델을 모두 한 번 불러와 캐시한다(Qwen 512MB는 학교망에서 수 분). 학생 30명이 동시에 Qwen을 받으면 약 15GB가 학교망을 지나간다 → 학생은 SmolLM2(137MB)만 받게 한다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>브라우저에서 LLM을 돌리고 <strong>불러오기 · 첫 토큰 · tok/s</strong>를 잰다</li>
+              <li>모델 크기 = <strong>파라미터 × 바이트</strong>, 8비트 양자화를 직접 구현한다</li>
+              <li>개인정보 · 비용 · 품질 · 속도로 <strong>로컬 vs API</strong>를 판단한다</li>
+            </ol>
+            <aside class="notes"><p>응용 실습의 마지막 주다. 7주차(직접 학습) → 11주차(API) → 오늘(남이 학습한 모델을 내 기기에서)로 “LLM을 쓰는 세 가지 방법”을 정리한다는 틀을 먼저 준다.</p></aside>
+          </section>
+
+          <section class="slide" data-title="보내도 되는가">
+            <h2>이 질문, 밖으로 보내도 되나?</h2>
+            <ul>
+              <li>학생 상담 기록을 요약해 줘</li>
+              <li>환자 차트에서 투약 정보를 뽑아 줘</li>
+              <li>회사 미공개 설계서를 번역해 줘</li>
+            </ul>
+            <p class="big-quote">API = 내 글이 남의 서버로 간다</p>
+            <aside class="notes"><p><strong>발문:</strong> “11주차 플레이그라운드에서 보내기를 누르면 무엇이 어디로 가나?” → 프롬프트 전체가 공급자 서버로. 학교·병원·기업에서 외부 LLM 사용을 막는 이유를 짚는다. 대안이 오늘의 주제.</p></aside>
+          </section>
+
+          <section class="slide" data-title="구조">
+            <h2>브라우저 안에서 LLM이 도는 구조</h2>
+            <pre><code>허깅페이스 허브 ──(최초 1회)──▶ 캐시 저장소 ──▶ 웹 워커 (ONNX Runtime · WASM) ──▶ 토큰 스트림
+                                   └──────── 여기부터 네트워크 없음 ────────┘</code></pre>
+            <ul>
+              <li>Transformers.js 3.8.1 — studyRAG 5주차 임베딩과 같은 라이브러리</li>
+              <li>7주차 미니 GPT 학습기와 같은 <strong>워커 구조</strong></li>
+              <li>WebGPU 대신 <strong>WASM 고정</strong>: 모든 PC에서 동작</li>
+            </ul>
+            <aside class="notes"><p>studyRAG 제작 중 실측에서 WebGPU + 8비트 조합이 잘못된 벡터를 낸 사례가 있었다. 수업에서는 느려도 확실한 WASM을 쓴다고 설명한다.</p></aside>
+          </section>
+
+          <section class="slide" data-title="파라미터 해부">
+            <h2>두 모델 해부</h2>
+            <table>
+              <thead><tr><th>모델</th><th>D</th><th>층</th><th>어휘</th><th>임베딩</th><th>합계</th></tr></thead>
+              <tbody>
+                <tr><td>SmolLM2-135M</td><td>576</td><td>30</td><td>49,152</td><td>28.3M (21%)</td><td><strong>134.5M</strong></td></tr>
+                <tr><td>Qwen2.5-0.5B</td><td>896</td><td>24</td><td>151,936</td><td>136.1M (28%)</td><td><strong>494.0M</strong></td></tr>
+                <tr><td>우리 미니 GPT</td><td>48</td><td>2</td><td>495</td><td>—</td><td>0.1M</td></tr>
+              </tbody>
+            </table>
+            <p>층 하나 = 어텐션(q·k·v·o) + MLP 3행렬 + 정규화 · k·v는 헤드 공유(GQA)</p>
+            <aside class="notes"><p>층당 파라미터: SmolLM2 3,540,096 · Qwen 14,912,384 (C1 정답). 6주차 “블록당 약 12D²”와 비교하면 SmolLM2는 12 × 576² = 398만 → 실제 354만. MLP가 4D가 아니라 1536(2.67D)이고 k·v가 작기 때문이다.</p></aside>
+          </section>
+
+          <section class="slide" data-title="양자화 표">
+            <h2>같은 모델, 다른 크기</h2>
+            <table>
+              <thead><tr><th>형식</th><th>가중치당</th><th>SmolLM2</th><th>Qwen2.5</th></tr></thead>
+              <tbody>
+                <tr><td>fp32</td><td>4B</td><td>540MB</td><td>1,994MB</td></tr>
+                <tr><td>fp16</td><td>2B</td><td>270MB</td><td>997MB</td></tr>
+                <tr><td><strong>int8</strong></td><td>1B</td><td><strong>137MB</strong></td><td><strong>512MB</strong></td></tr>
+                <tr><td>q4 (임베딩 fp32)</td><td>0.5B+</td><td>182MB</td><td>786MB</td></tr>
+                <tr><td>q4f16</td><td>0.5B+</td><td>118MB</td><td>483MB</td></tr>
+              </tbody>
+            </table>
+            <p>❓ 4비트가 8비트보다 <strong>큰</strong> 이유는?</p>
+            <aside class="notes">
+              <p>허브의 실제 파일 크기다. <strong>답:</strong> q4는 행렬곱 가중치만 4비트, 임베딩 표(Gather)는 fp32로 둔다. SmolLM2 임베딩 28.3M × 4B = 113MB, 나머지 106M × 0.5B ≈ 53MB + 묶음 scale ≈ 182MB. Qwen은 임베딩만 545MB.</p>
+              <p>2주차 “어휘 크기 ↔ 토큰 수” 맞바꿈의 또 다른 비용: 어휘가 크면 임베딩 표가 커진다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="int8 양자화">
+            <h2>8비트 대칭 양자화</h2>
+            <pre><code>scale = max(|w|) / 127
+q     = round(w / scale)      # −127…127, 1바이트
+ŵ     = q × scale             # 오차 ≤ scale / 2</code></pre>
+            <table>
+              <thead><tr><th>가중치 4,096개</th><th>scale</th><th>RMSE</th><th>0이 된 비율</th></tr></thead>
+              <tbody>
+                <tr><td>정상 (σ = 0.02)</td><td>0.00057</td><td>0.00017</td><td>1.1%</td></tr>
+                <tr><td>이상치 8.0 하나</td><td>0.063</td><td>0.0169 (<strong>100배</strong>)</td><td><strong>87.9%</strong></td></tr>
+              </tbody>
+            </table>
+            <aside class="notes"><p>C2 실행 결과다. 이상치 하나가 scale을 키워 나머지 값의 88%가 0으로 뭉개진다. 실제 LLM에도 이런 이상치 채널이 있어서, 묶음(group) 양자화나 이상치를 따로 두는 기법(LLM.int8 등)이 나왔다고 짚는다.</p></aside>
+          </section>
+
+          <section class="slide slide--demo" data-title="데모: 온디바이스 LLM">
+            <h2>데모 · 온디바이스 LLM 실행기</h2>
+            <div id="deck-w16-local-llm"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong></p>
+              <ol>
+                <li>녹화된 결과부터 보여 준다(아직 아무것도 받지 않았다)</li>
+                <li>SmolLM2 불러오기 → 캐시되어 있으면 수 초</li>
+                <li>영어 질문 → 그럴듯한 한 문장. 한국어 질문 → 질문을 되풀이하는 엉뚱한 답</li>
+                <li>“우리 학과 사실” → GPU 수 때문이라며 지어낸다(환각). “문서를 넣어 주면” → “문서에 없다”면서 동시에 “최대 12시간”이라고 말하는 모순 → 근거 + 모델 크기 둘 다 필요</li>
+                <li>개발자 도구 네트워크 탭 → 생성 중 요청 0개. 와이파이를 끄고 한 번 더</li>
+                <li>(캐시해 두었다면) Qwen2.5-0.5B로 한국어 질문</li>
+              </ol>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="속도">
+            <h2>속도를 재는 두 숫자</h2>
+            <ul>
+              <li><strong>첫 토큰 지연 (TTFT)</strong>: 프롬프트 전체 처리(prefill) → 프롬프트가 길수록 길다</li>
+              <li><strong>초당 토큰 (tok/s)</strong>: 한 토큰마다 가중치 전체를 한 번 읽는다 → <em>대역폭 ÷ 모델 바이트</em></li>
+              <li>한국어는 영어 중심 어휘에서 토큰이 몇 배 → 같은 답도 몇 배 느리다</li>
+            </ul>
+            <aside class="notes"><p>관찰 5: Qwen은 SmolLM2보다 약 3.7배 크다. tok/s 비가 비슷한지 표로 확인시킨다. 다른 탭·백그라운드 작업이 많으면 숫자가 크게 흔들린다는 점도 경험하게 한다(측정 조건 통제).</p></aside>
+          </section>
+
+          <section class="slide" data-title="로컬 vs API">
+            <h2>로컬이냐 API냐</h2>
+            <table>
+              <thead><tr><th>기준</th><th>브라우저 로컬 (0.1~0.5B)</th><th>API (대형)</th></tr></thead>
+              <tbody>
+                <tr><td>개인정보</td><td>기기 밖으로 안 나감</td><td>서버로 전송</td></tr>
+                <tr><td>비용</td><td>내려받기 1회</td><td>토큰마다</td></tr>
+                <tr><td>품질</td><td>짧은 영어 · 간단한 분류</td><td>추론 · 한국어 · 긴 글</td></tr>
+                <tr><td>오프라인</td><td>된다</td><td>안 된다</td></tr>
+              </tbody>
+            </table>
+            <p>C4: 30명 × 주 20문항 × 16주 = 9,600문항 → 가상 단가로 <strong>약 13달러</strong> vs 내려받기 4.1GB(SmolLM2)</p>
+            <aside class="notes"><p>숫자보다 판단 기준이 중요하다. “개인정보가 있으면 비용과 무관하게 로컬 또는 사내 서버”라는 규칙을 학생이 스스로 말하게 한다.</p></aside>
+          </section>
+
+          <section class="slide" data-title="코드로 보면">
+            <h2>로컬 LLM, 코드 여섯 줄</h2>
+            <pre data-run="demo-pipeline" data-title="파이프라인 여섯 줄"><code class="language-javascript">const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+env.allowLocalModels = false;
+const gen = await pipeline('text-generation', 'HuggingFaceTB/SmolLM2-135M-Instruct', { dtype: 'q8', device: 'wasm' });
+const out = await gen([{ role: 'user', content: 'Name three uses of a language model.' }], { max_new_tokens: 40, do_sample: false });
+console.log(out[0].generated_text.at(-1).content);</code></pre>
+            <aside class="notes"><p>캐시되어 있어야 10초 안에 끝난다(워커 제한). 캐시가 없으면 시간 초과가 나는 것 자체가 “첫 사용 비용”의 시연이 된다. 두 번째 실행에서 성공한다.</p></aside>
+          </section>
+
+          <section class="slide" data-title="과정 정리">
+            <h2>16주를 돌아보며</h2>
+            <ol>
+              <li>빈도표 → BPE → 임베딩 → 신경망 LM → 어텐션 → 트랜스포머</li>
+              <li>미니 GPT 학습 · 디코딩 · 평가 · 스케일링</li>
+              <li>챗봇 만들기 · API · 한계와 RAG</li>
+              <li>응용: 텍스트 처리 · 챗봇 · 에이전트 · <strong>로컬 LLM</strong></li>
+            </ol>
+            <h3>다음 과정 · studyRAG</h3>
+            <p class="muted">135M 모델도 근거를 주면 12시간을 찾았다 → 그 근거를 자동으로 찾는 법</p>
+            <aside class="notes"><p>C5를 과제로 낸다. studyRAG 1주차가 이 과정 12주차와 같은 질문(“GPU 서버 최대 몇 시간?”)으로 시작한다는 점을 알려 준다.</p></aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>15분</td><td>발문 · 로컬 LLM이 필요한 상황</td><td>—</td></tr>
+                <tr><td>30분</td><td>구조 · 파라미터 해부 · 양자화 표</td><td>q4 &gt; int8 설명</td></tr>
+                <tr><td>35분</td><td>데모 · 실습 · 관찰 1~4</td><td>측정 기록표</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>20분</td><td>속도 · 로컬 vs API · 관찰 5</td><td>판단표</td></tr>
+                <tr><td>55분</td><td>Challenge C1~C4</td><td>C2·C3 오차 표</td></tr>
+                <tr><td>15분</td><td>과정 정리 · studyRAG 안내</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">const models = {
+  'SmolLM2-135M': { D: 576, layers: 30, vocab: 49152, ffn: 1536, heads: 9, kvHeads: 3, qkvBias: false },
+  'Qwen2.5-0.5B': { D: 896, layers: 24, vocab: 151936, ffn: 4864, heads: 14, kvHeads: 2, qkvBias: true },
+};
+function countParams(c) {
+  const headDim = c.D / c.heads;
+  const kvDim = c.kvHeads * headDim;
+  const embedding = c.vocab * c.D;
+  let perLayer = c.D * c.D + 2 * c.D * kvDim + c.D * c.D;
+  if (c.qkvBias) perLayer += c.D + 2 * kvDim;
+  perLayer += 3 * c.D * c.ffn + 2 * c.D;
+  return { embedding, perLayer, total: embedding + perLayer * c.layers + c.D };
+}
+const BYTES = { fp32: 4, fp16: 2, int8: 1, int4: 0.5 };
+console.table(Object.entries(models).map(([name, c]) =&gt; {
+  const p = countParams(c);
+  const row = { name, totalM: +(p.total / 1e6).toFixed(1), embShare: +(p.embedding / p.total).toFixed(3) };
+  for (const [k, b] of Object.entries(BYTES)) row[k + 'MB'] = Math.round((p.total * b) / 1e6);
+  return row;
+}));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> SmolLM2 134.5M · 임베딩 21% · fp32 538 / fp16 269 / int8 135 / int4 67MB. Qwen 494.0M · 27.6% · 1,976 / 988 / 494 / 247MB.</p>
+              <p>허브 파일과 비교: int8은 거의 같고(137 · 512), int4 계산값(67 · 247)과 실제 q4(182 · 786)는 크게 다르다 → 임베딩 fp32와 묶음 scale 때문. 이 차이를 설명하는 것이 C1의 진짜 목표다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2·C3 정답" data-appendix>
+            <h2>부록 B · C2 · C3 정답</h2>
+            <pre data-run="ans-c2c3" data-title="C2 · C3 정답"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const rand = mulberry32(16);
+const w = Float32Array.from({ length: 4096 }, () =&gt; gaussian(rand) * 0.02);
+// C2
+function quantizeInt8(w) {
+  let m = 0;
+  for (const x of w) m = Math.max(m, Math.abs(x));
+  const scale = m / 127;
+  return { q: Int8Array.from(w, (x) =&gt; Math.round(x / scale)), scale };
+}
+const dequantize = ({ q, scale }) =&gt; Float32Array.from(q, (v) =&gt; v * scale);
+function report(name, w) {
+  const qw = quantizeInt8(w), back = dequantize(qw);
+  let maxErr = 0, sq = 0;
+  for (let i = 0; i &lt; w.length; i++) { const e = Math.abs(w[i] - back[i]); maxErr = Math.max(maxErr, e); sq += e * e; }
+  return { name, scale: qw.scale, maxErr, rmse: Math.sqrt(sq / w.length), distinct: new Set(qw.q).size, zeroFrac: qw.q.filter((v) =&gt; v === 0).length / w.length };
+}
+const wo = Float32Array.from(w); wo[7] = 8.0;
+console.table([report('정상', w), report('이상치 1개', wo)]);
+// C3
+function groupQuantRmse(w, groupSize, bits) {
+  const qmax = 2 ** (bits - 1) - 1;
+  let sq = 0;
+  for (let g = 0; g &lt; w.length; g += groupSize) {
+    const group = w.subarray(g, g + groupSize);
+    let m = 0;
+    for (const x of group) m = Math.max(m, Math.abs(x));
+    const scale = m / qmax || 1;
+    for (const x of group) { const e = x - Math.round(x / scale) * scale; sq += e * e; }
+  }
+  return Math.sqrt(sq / w.length);
+}
+const rows = [];
+for (const bits of [8, 4]) for (const groupSize of [32, 128, 1024, 4096])
+  rows.push({ bits, groupSize, rmse: groupQuantRmse(wo, groupSize, bits), bitsPerWeight: +(bits + 32 / groupSize).toFixed(3) });
+console.table(rows);</code></pre>
+            <aside class="notes">
+              <p><strong>C2:</strong> 정상 scale 0.000574 · RMSE 0.000167 · 서로 다른 값 205개 · 0 비율 1.1% / 이상치 scale 0.0630 · RMSE 0.0169 · <strong>서로 다른 값 4개</strong> · 0 비율 87.9%.</p>
+              <p><strong>C3 (이상치 포함):</strong> 8비트 묶음 32 → RMSE 1.50e-3 (9비트/가중치), 128 → 3.00e-3, 1024 → 8.37e-3, 4096 → 1.69e-2. 4비트 묶음 32 → 2.48e-3 (5비트), 4096 → 2.03e-2. <strong>4비트 + 작은 묶음(2.48e-3)이 8비트 + 큰 묶음(1.69e-2)보다 7배 정확하다.</strong> 실제 q4 형식이 묶음 32를 쓰는 이유.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">const PRICE = { inPer1M: 1.0, outPer1M: 5.0 };
+const scenario = { students: 30, questionsPerWeek: 20, weeks: 16, inTokens: 600, outTokens: 150 };
+const LOCAL_MB = { 'SmolLM2-135M': 137, 'Qwen2.5-0.5B': 512 };
+function apiCost(s) {
+  const n = s.students * s.questionsPerWeek * s.weeks;
+  return (n * (s.inTokens * PRICE.inPer1M + s.outTokens * PRICE.outPer1M)) / 1e6;
+}
+const localDownloadGB = (s, model) =&gt; (s.students * LOCAL_MB[model]) / 1000;
+function choose({ hasPersonalData, needsKorean, offline }) {
+  if (hasPersonalData || offline) return needsKorean ? '로컬 Qwen2.5-0.5B (또는 사내 서버의 더 큰 모델)' : '로컬 SmolLM2-135M';
+  return needsKorean ? 'API (한국어 품질)' : 'API 또는 로컬 — 비용 비교로 결정';
+}
+console.table([{ api달러: apiCost(scenario), smolGB: localDownloadGB(scenario, 'SmolLM2-135M'), qwenGB: localDownloadGB(scenario, 'Qwen2.5-0.5B') }]);
+console.log(choose({ hasPersonalData: true, needsKorean: true, offline: false }));
+console.log(choose({ hasPersonalData: false, needsKorean: true, offline: false }));</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 9,600문항 → 12.96달러 · SmolLM2 4.11GB · Qwen 15.36GB. 판단: 개인정보+한국어 → 로컬 Qwen(또는 사내 서버), 그 외 한국어 → API.</p>
+              <p>정답이 하나가 아니다. 규칙의 근거(개인정보 우선, 품질 요구)를 설명하면 인정한다. “0.5B로는 한국어 상담 품질이 부족하다 → 사내 GPU 서버에 더 큰 모델”이라는 답은 우수로 본다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">const { AutoTokenizer, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+env.allowLocalModels = false;
+const tok = await AutoTokenizer.from_pretrained('HuggingFaceTB/SmolLM2-135M-Instruct');
+const pairs = [
+  ['What is a language model?', '언어 모델이란 무엇인가?'],
+  ['One person may use the GPU server for up to 12 hours.', '한 사람이 GPU 서버를 최대 12시간 쓸 수 있다.'],
+];
+const rows = [];
+for (const [en, ko] of pairs) {
+  for (const [lang, s] of [['en', en], ['ko', ko]]) {
+    const ids = tok.encode(s, { add_special_tokens: false });
+    rows.push({ lang, chars: [...s].length, tokens: ids.length, perChar: +(ids.length / [...s].length).toFixed(2) });
+  }
+}
+console.table(rows);
+const koIds = tok.encode(pairs[0][1], { add_special_tokens: false });
+const pieces = koIds.map((id) =&gt; tok.decode([id]));
+console.log(pieces.join(' | '));
+console.log('깨진 조각:', pieces.filter((p) =&gt; p.includes('�')).length, '/', pieces.length);
+const prompt = tok.apply_chat_template([{ role: 'user', content: '언어 모델이란 무엇인가? 한 문장으로 답하라.' }], { tokenize: false, add_generation_prompt: true });
+console.log(prompt);
+const all = tok.encode(prompt, { add_special_tokens: false });
+const special = all.filter((id) =&gt; tok.decode([id]).startsWith('&lt;|')).length;
+console.log('프롬프트 토큰:', all.length, '특수 토큰:', special);</code></pre>
+            <aside class="notes" data-c5-notes>
+              <p><strong>핵심:</strong> 영어는 토큰/문자가 약 0.2~0.3인데 한국어는 1을 넘는다. 한글 한 글자가 바이트 조각 2~3개로 쪼개지고, 조각 하나만 decode하면 �가 나온다. 모델은 한국어를 “의미 단위”가 아니라 바이트 부스러기로 보았으니 한국어 답이 엉망인 것이 당연하다(2주차 바이트 BPE).</p>
+              <p>채팅 템플릿은 ChatML 형식(<code>&lt;|im_start|&gt;system … &lt;|im_end|&gt;</code>)이며 SmolLM2는 기본 시스템 프롬프트를 자동으로 넣는다 — 10주차 채팅 템플릿과 연결한다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>내려받기가 0%에서 멈춤</td><td>huggingface.co · cdn.jsdelivr.net 차단</td><td>학교망 방화벽 확인, 교탁 PC 캐시로 시연</td></tr>
+                <tr><td>탭이 죽는다(메모리 부족)</td><td>Qwen + 다른 무거운 탭</td><td>탭 정리, SmolLM2만 사용</td></tr>
+                <tr><td>tok/s가 매번 다르다</td><td>다른 프로그램·탭이 CPU 사용</td><td>같은 조건에서 3회 재고 중앙값</td></tr>
+                <tr><td>C5 “10초 초과”</td><td>첫 실행 내려받기</td><td>한 번 더 실행(캐시됨)</td></tr>
+                <tr><td>“4비트가 무조건 작다”</td><td>임베딩 저장 형식 간과</td><td>C1 계산값과 허브 크기 비교</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>휴대폰에 LLM이 들어가면 API 공급자는 무엇으로 경쟁해야 하는가?</li>
+              <li>작은 로컬 모델 + RAG와 큰 API 모델 단독, 학과 안내 챗봇에는 무엇이 나은가?</li>
+              <li>모델 파일을 누구나 내려받을 수 있다면 안전장치(거절 학습)는 의미가 있는가?</li>
+              <li>한국어 서비스라면 어휘 크기가 큰 모델의 “임베딩 비용”을 감수할 가치가 있는가?</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>측정 (실습)</td><td>두 조건 이상 3회 측정 + 해석</td><td>한 번 측정</td><td>기록 없음</td></tr>
+                <tr><td>크기 계산 (C1)</td><td>계산값과 실제 크기 차이 설명</td><td>계산만</td><td>오답</td></tr>
+                <tr><td>양자화 (C2·C3)</td><td>이상치·묶음 효과를 표로 설명</td><td>코드만 동작</td><td>미완성</td></tr>
+                <tr><td>판단 (C4·C5)</td><td>개인정보·품질 근거로 선택 + 토크나이저 근거</td><td>비용만 비교</td><td>미제출</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w16-local-llm.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w16-local-llm'), { outputTitle: '온디바이스 LLM (데모 슬라이드)' });
+  </script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>16주차 응용 ④ 브라우저 로컬 LLM · LLM Lab</title>
+  <meta name="description" content="서버도 API 키도 없이 브라우저 안에서 작은 LLM을 실행한다. 모델 크기와 양자화, 첫 토큰 지연과 초당 토큰 수를 재고, 로컬과 API 중 무엇을 쓸지 판단한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w16.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="16" data-crumb="PART 5 · LLM 응용 실습 › <b>16주차 · 응용 ④ 브라우저 로컬 LLM</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">💻 16주차 · 응용 ④ 브라우저 로컬 LLM</span>
+      <h1>내 컴퓨터 안의 LLM</h1>
+      <p class="lead">지금까지 실제 LLM은 API 너머 남의 서버에서 돌았다. 질문은 인터넷을 건너가고, 토큰마다 돈을 냈다. 이번 주는 진짜 사전학습·지시 미세조정된 LLM을 <strong>이 브라우저 탭 안에서</strong> 돌린다. 서버도 키도 없다. 대신 무엇을 포기하는지 숫자로 잰다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 온디바이스 LLM 실행기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+        <span class="chip">🧩 응용 실습</span>
+      </div>
+      <div class="flow" aria-label="LLM을 쓰는 방법에서 이번 주의 위치">
+        <div>미니 GPT 직접 학습 <b>7</b></div><div>API 호출 <b>11</b></div><div>챗봇 <b>14</b></div><div>에이전트 <b>15</b></div><div><b>로컬 실행</b></div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>브라우저에서 작은 LLM을 실행하고, 불러오기 시간 · 첫 토큰 지연 · 초당 토큰 수를 측정해 비교할 수 있다.</li>
+          <li>파라미터 수와 가중치 한 개의 바이트 수(양자화)로 모델 파일 크기를 계산하고, 8비트 양자화를 직접 구현할 수 있다.</li>
+          <li>개인정보 · 비용 · 품질 · 속도를 기준으로 로컬 모델과 API 중 무엇을 쓸지 판단할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>11주차 API 플레이그라운드에서 “보내기”를 누르면 질문 전체가 공급자의 서버로 간다. 학생 상담 기록, 환자 정보, 회사 설계 문서처럼 <strong>밖으로 나가면 안 되는 글</strong>이라면 이것 자체가 문제다. 게다가 요청마다 토큰 요금이 붙고, 네트워크가 끊기거나 학교 방화벽이 API 주소를 막으면 아무것도 할 수 없다.</p>
+        <p>그렇다면 모델을 내 기기에서 돌리면 된다. 7주차에 미니 GPT를 브라우저에서 학습시켰듯, 이미 학습된 LLM도 브라우저에서 추론할 수 있다. 문제는 크기다. 우리 미니 GPT는 파라미터 약 10만 개였고, 쓸 만한 챗봇은 수억~수천억 개다. 이번 주의 질문은 이것이다. <strong>얼마나 작아야 내려받을 수 있고, 그만큼 작으면 얼마나 멍청해지는가?</strong></p>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>브라우저에서 LLM이 도는 구조</h3>
+        <figure class="figure">
+          <svg viewBox="0 0 640 170" role="img" aria-labelledby="w16-fig1-t" style="width: 100%">
+            <title id="w16-fig1-t">허깅페이스 허브에서 ONNX 모델 파일을 한 번 내려받아 브라우저 캐시에 저장하고, 웹 워커 안의 ONNX Runtime Web이 WASM으로 추론해 토큰을 스트리밍하는 구조</title>
+            <style>
+              .w16f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w16f-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w16f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w16f-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w16f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w16-a); }
+              .w16f-dash { stroke: var(--color-accent); stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+            </style>
+            <defs><marker id="w16-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <rect class="w16f-box" x="0" y="40" width="130" height="56" rx="10"/>
+            <text class="w16f-l" x="14" y="64">허깅페이스 허브</text>
+            <text class="w16f-n" x="14" y="84">model_quantized.onnx</text>
+            <path class="w16f-arr" d="M134 68 H176"/>
+            <text class="w16f-n" x="136" y="58">최초 1회</text>
+            <rect class="w16f-dash" x="182" y="10" width="456" height="150" rx="14"/>
+            <text class="w16f-n" x="194" y="28">브라우저 탭 안 (서버로 나가는 데이터 없음)</text>
+            <rect class="w16f-box" x="196" y="40" width="110" height="56" rx="10"/>
+            <text class="w16f-l" x="210" y="64">캐시 저장소</text>
+            <text class="w16f-n" x="210" y="84">다음부터 즉시</text>
+            <path class="w16f-arr" d="M310 68 H346"/>
+            <rect class="w16f-hi" x="350" y="40" width="150" height="56" rx="10"/>
+            <text class="w16f-l" x="362" y="62">웹 워커</text>
+            <text class="w16f-n" x="362" y="82">ONNX Runtime · WASM</text>
+            <path class="w16f-arr" d="M504 68 H540"/>
+            <rect class="w16f-box" x="544" y="40" width="86" height="56" rx="10"/>
+            <text class="w16f-l" x="556" y="64">화면</text>
+            <text class="w16f-n" x="556" y="84">토큰 스트림</text>
+            <text class="w16f-n" x="196" y="126">7주차 미니 GPT 학습기와 같은 구조다. 계산은 워커에서, 화면은 멈추지 않는다.</text>
+            <text class="w16f-n" x="196" y="146">다른 점: 가중치를 내가 학습하지 않고, 이미 학습된 파일을 내려받는다.</text>
+          </svg>
+          <figcaption>Transformers.js는 파이썬 Transformers의 JavaScript판이다. studyRAG 5주차에서 임베딩 모델을 돌린 라이브러리와 같은 버전(3.8.1)을 쓴다.</figcaption>
+        </figure>
+        <p>모델은 ONNX라는 공통 형식으로 저장되어 있고, ONNX Runtime Web이 이를 WebAssembly(WASM)로 계산한다. 그래픽카드를 쓰는 WebGPU도 있지만 지원 여부가 기기마다 달라서 이번 주는 모든 PC에서 동작하는 WASM으로 고정한다.</p>
+
+        <h3>모델 크기 = 파라미터 수 × 가중치 한 개의 바이트</h3>
+        <p>이번 주에 쓰는 두 모델을 해부하면 다음과 같다. 두 모델 모두 Llama 계열 구조이고 입력 임베딩 표를 출력층과 공유한다(6주차 해부도의 GPT-2처럼).</p>
+        <table>
+          <thead><tr><th>모델</th><th>D</th><th>층</th><th>어휘</th><th>임베딩 표</th><th>나머지(블록)</th><th>합계</th></tr></thead>
+          <tbody>
+            <tr><td>SmolLM2-135M-Instruct</td><td>576</td><td>30</td><td>49,152</td><td>28.3M (21%)</td><td>106.2M</td><td><strong>134.5M</strong></td></tr>
+            <tr><td>Qwen2.5-0.5B-Instruct</td><td>896</td><td>24</td><td>151,936</td><td>136.1M (28%)</td><td>357.9M</td><td><strong>494.0M</strong></td></tr>
+          </tbody>
+        </table>
+        <p>같은 파라미터를 몇 비트로 저장하느냐가 양자화(quantization)다. 허브에 실제로 올라와 있는 ONNX 파일 크기는 이렇다.</p>
+        <table>
+          <thead><tr><th>저장 형식</th><th>가중치당</th><th>SmolLM2-135M</th><th>Qwen2.5-0.5B</th></tr></thead>
+          <tbody>
+            <tr><td>fp32 (원본 학습 정밀도)</td><td>4바이트</td><td>540MB</td><td>1,994MB</td></tr>
+            <tr><td>fp16</td><td>2바이트</td><td>270MB</td><td>997MB</td></tr>
+            <tr><td><strong>int8 (이번 주 사용)</strong></td><td>1바이트</td><td><strong>137MB</strong></td><td><strong>512MB</strong></td></tr>
+            <tr><td>q4 (4비트, 임베딩은 fp32)</td><td>0.5바이트 + α</td><td>182MB</td><td>786MB</td></tr>
+            <tr><td>q4f16 (4비트, 나머지 fp16)</td><td>0.5바이트 + α</td><td>118MB</td><td>483MB</td></tr>
+          </tbody>
+        </table>
+        <p>이상한 줄이 하나 있다. 4비트(q4)가 8비트(int8)보다 <strong>크다</strong>. q4 파일은 행렬곱 가중치만 4비트로 줄이고 임베딩 표는 fp32(4바이트)로 둔다. SmolLM2의 임베딩 표 2,830만 개 × 4바이트 = 113MB가 파일의 절반 이상을 차지한다. Qwen은 어휘가 15만 개라 임베딩만 545MB다. 어휘가 큰 다국어 모델일수록 “임베딩 표를 어떻게 저장하느냐”가 크기를 좌우한다. 2주차의 어휘 크기 대 토큰 수 맞바꿈이 여기서 다시 나온다.</p>
+
+        <h3>양자화는 어떻게 하나: 8비트 대칭 양자화</h3>
+        <pre><code class="language-text">scale = max(|w|) / 127          # 한 묶음(행 또는 32개)마다 하나
+q     = round(w / scale)        # −127 … 127 정수, 1바이트
+ŵ     = q × scale               # 계산할 때 되돌린다 → 오차 |w − ŵ| ≤ scale / 2</code></pre>
+        <p>값의 범위를 256칸으로 나누어 가장 가까운 칸 번호만 저장한다. 묶음 안에 튀는 값(이상치) 하나가 있으면 scale이 커져 나머지 값들이 모두 거칠게 표현된다. 그래서 묶음을 작게(예: 32개) 나눌수록 정확하지만 scale을 저장할 공간이 는다. Challenge C2~C3에서 직접 확인한다.</p>
+
+        <h3>속도: 첫 토큰 지연과 초당 토큰 수</h3>
+        <ul>
+          <li><strong>첫 토큰 지연</strong>(TTFT): 프롬프트 전체를 한 번에 처리(prefill)하고 첫 토큰이 나오기까지. 프롬프트가 길수록 길어진다.</li>
+          <li><strong>초당 토큰 수</strong>(tok/s): 그 뒤로 토큰을 하나씩 만드는 속도(decode). 토큰 하나를 만들 때마다 가중치 전체를 메모리에서 한 번 읽어야 하므로, 대략 <em>메모리 대역폭 ÷ 모델 바이트</em>에 묶인다. 모델이 4배 크면 대략 4배 느리다.</li>
+        </ul>
+        <p>한국어는 여기서 한 번 더 손해를 본다. 영어 중심 어휘(SmolLM2)는 한국어를 바이트 조각으로 잘게 쪼개므로 같은 뜻의 답에 토큰이 몇 배 더 든다. 2주차와 studyRAG 1주차 토큰 카운터에서 본 현상이 이제 속도로 나타난다.</p>
+
+        <h3>로컬이냐 API냐</h3>
+        <table>
+          <thead><tr><th>기준</th><th>브라우저 로컬 (0.1~0.5B)</th><th>API (대형 모델)</th></tr></thead>
+          <tbody>
+            <tr><td>개인정보</td><td>기기 밖으로 나가지 않는다</td><td>공급자 서버로 전송된다</td></tr>
+            <tr><td>비용</td><td>내려받기 한 번, 이후 0원</td><td>토큰마다 과금</td></tr>
+            <tr><td>품질</td><td>짧은 영어 문장 · 간단한 분류 정도</td><td>복잡한 추론 · 한국어 · 긴 글</td></tr>
+            <tr><td>첫 사용</td><td>수백 MB 내려받기</td><td>즉시</td></tr>
+            <tr><td>오프라인</td><td>동작한다</td><td>동작하지 않는다</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>처음에는 수업 PC에서 녹화한 결과가 나온다. <b>⬇ 모델 불러오기</b>를 누르면 모델을 내려받아(최초 1회, 이후 캐시) 이 PC에서 직접 실행한다. 반드시 <strong>SmolLM2-135M부터</strong> 불러온다. Qwen2.5-0.5B는 512MB라 학교 네트워크에서 수 분이 걸릴 수 있으니 수업 전에 미리 한 번 불러 둔다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다.</p>
+        <div class="callout">
+          <span class="callout__title">메모리 주의</span>
+          <p>Qwen2.5-0.5B는 브라우저 메모리를 1GB 넘게 쓴다. 다른 무거운 탭을 닫는다. 휴대폰에서는 SmolLM2만 권장한다.</p>
+        </div>
+        <div id="w16-local-llm"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>SmolLM2로 “영어 질문”과 “한국어 질문”을 차례로 실행한다. 답의 품질은? 생성 토큰 수와 tok/s는 어떻게 다른가? 한국어 답이 짧은데도 토큰이 많은 이유를 2주차와 연결해 설명한다.</li>
+          <li>“우리 학과 사실 (환각)”을 실행한다. 모델은 12시간이라는 답을 아는가? 모르는데 어떻게 답했는가? 12주차에서 본 환각과 같은 현상인가?</li>
+          <li>“문서를 넣어 주면”을 실행한다. 같은 모델이 이번에는 12시간을 말하는가? 답 전체를 끝까지 읽는다. 앞뒤가 맞는가? 근거를 주는 것(RAG)만으로 충분한가, 모델 크기도 필요한가?</li>
+          <li>모델을 불러온 뒤 개발자 도구의 네트워크 탭을 열고 “생성”을 다시 누른다. 요청이 하나라도 나가는가? 와이파이를 끄고 다시 생성해 본다.</li>
+          <li>(시간이 있으면) Qwen2.5-0.5B로 같은 질문을 실행해 한국어 품질과 tok/s를 SmolLM2와 표로 비교한다. 모델 크기 비(약 3.7배)와 속도 비가 비슷한가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 10초가 넘으면 자동으로 멈춘다. C5만 인터넷에서 토크나이저(약 2MB)를 내려받는다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 모델 크기 어림하기</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>Llama 계열 모델의 설정값으로 파라미터 수를 세는 함수를 완성한다. 층 하나에는 어텐션(q · k · v · o)과 MLP(gate · up · down 세 행렬), 정규화 두 개가 있다. k와 v는 헤드를 공유(GQA)하므로 크기가 <code>D × (kvHeads × headDim)</code>이다. 두 모델 모두 134.5M과 494.0M에 가깝게 나와야 한다(Qwen은 q · k · v에 편향이 있다). 그다음 저장 형식별 크기(MB)를 표로 만든다.</p>
+          <pre data-run="c1" data-title="C1 모델 크기"><code class="language-javascript">const models = {
+  'SmolLM2-135M': { D: 576, layers: 30, vocab: 49152, ffn: 1536, heads: 9, kvHeads: 3, qkvBias: false },
+  'Qwen2.5-0.5B': { D: 896, layers: 24, vocab: 151936, ffn: 4864, heads: 14, kvHeads: 2, qkvBias: true },
+};
+
+function countParams(c) {
+  const headDim = c.D / c.heads;
+  const kvDim = c.kvHeads * headDim;
+  const embedding = 0; // TODO: vocab × D (출력층과 공유하므로 한 번만)
+  let perLayer = 0;
+  // TODO: q(D×D) + k(D×kvDim) + v(D×kvDim) + o(D×D)
+  // TODO: qkvBias면 D + kvDim + kvDim 을 더한다
+  // TODO: MLP 3개 행렬 3 × D × ffn, 정규화 2 × D
+  const total = embedding + perLayer * c.layers + c.D; // 마지막 정규화
+  return { embedding, perLayer, total };
+}
+
+const BYTES = { fp32: 4, fp16: 2, int8: 1, int4: 0.5 };
+const rows = Object.entries(models).map(([name, c]) =&gt; {
+  const p = countParams(c);
+  const row = { name, totalM: +(p.total / 1e6).toFixed(1), embShare: +(p.embedding / Math.max(1, p.total)).toFixed(3) };
+  // TODO: BYTES의 각 형식마다 크기(MB) = total × 바이트 / 1e6 을 row에 넣는다
+  return row;
+});
+console.table(rows);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 8비트 양자화 직접 하기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>가중치 배열을 int8로 양자화하고 되돌렸을 때의 오차를 잰다. 정규분포 가중치 4,096개로 시작한 뒤, 값 하나를 이상치(8.0)로 바꿔 오차가 어떻게 변하는지 본다.</p>
+          <pre data-run="c2" data-title="C2 int8 양자화"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const rand = mulberry32(16);
+const w = Float32Array.from({ length: 4096 }, () =&gt; gaussian(rand) * 0.02);
+
+function quantizeInt8(w) {
+  // TODO: scale = max(|w|) / 127, q = round(w / scale) 를 Int8Array로
+  return { q: new Int8Array(w.length), scale: 1 };
+}
+function dequantize({ q, scale }) {
+  // TODO: q × scale 을 Float32Array로
+  return new Float32Array(q.length);
+}
+function report(name, w) {
+  const qw = quantizeInt8(w);
+  const back = dequantize(qw);
+  let maxErr = 0, sq = 0;
+  for (let i = 0; i &lt; w.length; i++) {
+    const e = Math.abs(w[i] - back[i]);
+    maxErr = Math.max(maxErr, e);
+    sq += e * e;
+  }
+  return { name, scale: qw.scale, maxErr, rmse: Math.sqrt(sq / w.length), bytes: qw.q.byteLength + 4 };
+}
+const withOutlier = Float32Array.from(w);
+withOutlier[7] = 8.0; // 이상치 하나
+console.table([report('정상', w), report('이상치 1개', withOutlier)]);
+// TODO: 이상치가 있을 때 나머지 값들은 대부분 몇 칸(q 값)으로 뭉치는지 세어 본다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 묶음 크기와 정확도</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>C2의 이상치 문제를 묶음(group) 양자화로 푼다. 4,096개를 32 · 128 · 1,024 · 4,096개씩 묶어 묶음마다 scale을 따로 두고, RMSE와 “가중치당 비트 수”(값 8비트 + scale 32비트를 묶음 크기로 나눈 것)를 비교한다. 4비트(−7 … 7)로도 해 본다.</p>
+          <pre data-run="c3" data-title="C3 묶음 양자화"><code class="language-javascript">import { mulberry32, gaussian } from '/assets/js/core/rng.js';
+const rand = mulberry32(16);
+const w = Float32Array.from({ length: 4096 }, () =&gt; gaussian(rand) * 0.02);
+w[7] = 8.0; // C2의 이상치
+
+function groupQuantRmse(w, groupSize, bits) {
+  const qmax = 2 ** (bits - 1) - 1; // 8비트 127, 4비트 7
+  let sq = 0;
+  for (let g = 0; g &lt; w.length; g += groupSize) {
+    const group = w.subarray(g, g + groupSize);
+    // TODO: 이 묶음의 scale = max(|x|) / qmax
+    // TODO: 각 값을 round(x / scale) 한 뒤 되돌려 오차 제곱을 sq에 더한다
+  }
+  return Math.sqrt(sq / w.length);
+}
+
+const rows = [];
+for (const bits of [8, 4]) {
+  for (const groupSize of [32, 128, 1024, 4096]) {
+    rows.push({ bits, groupSize, rmse: groupQuantRmse(w, groupSize, bits), bitsPerWeight: +(bits + 32 / groupSize).toFixed(3) });
+  }
+}
+console.table(rows);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 로컬이냐 API냐: 손익분기</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>학과 안내 챗봇을 한 학기(16주) 운영한다. 학생 수와 질문 수에 따라 API 비용과 “로컬 모델을 내려받는 데이터량”을 비교하는 계산기를 만든다. 단가는 계산 연습용 가상 값이다. 마지막에 개인정보 조건이 있으면 비용과 상관없이 로컬을 고르도록 판단 함수를 완성한다.</p>
+          <pre data-run="c4" data-title="C4 손익분기"><code class="language-javascript">const PRICE = { inPer1M: 1.0, outPer1M: 5.0 }; // 가상 단가 (달러 / 100만 토큰)
+const scenario = { students: 30, questionsPerWeek: 20, weeks: 16, inTokens: 600, outTokens: 150 };
+const LOCAL_MB = { 'SmolLM2-135M': 137, 'Qwen2.5-0.5B': 512 };
+
+function apiCost(s) {
+  // TODO: 총 질문 수 × (입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가) / 1e6
+  return 0;
+}
+function localDownloadGB(s, model) {
+  // TODO: 학생 1명당 1회 내려받기(캐시)라고 가정 → students × MB / 1000
+  return 0;
+}
+function choose({ hasPersonalData, needsKorean, offline }) {
+  // TODO: 규칙을 코드로 — 개인정보·오프라인이면 로컬, 한국어 품질이 중요하면 로컬 중 큰 모델 또는 API ...
+  return '미정';
+}
+console.table([{ api달러: apiCost(scenario), smolGB: localDownloadGB(scenario, 'SmolLM2-135M'), qwenGB: localDownloadGB(scenario, 'Qwen2.5-0.5B') }]);
+console.log(choose({ hasPersonalData: true, needsKorean: true, offline: false }));
+console.log(choose({ hasPersonalData: false, needsKorean: true, offline: false }));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 이 모델은 왜 한국어를 못하나: 토크나이저 해부</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>SmolLM2의 실제 토크나이저(약 2MB)를 내려받아 같은 뜻의 영어·한국어 문장을 토큰으로 자른다. 한국어 한 글자가 토큰 몇 개가 되는지, 바이트 조각이 얼마나 많은지 센다. 그다음 SmolLM2의 채팅 템플릿으로 프롬프트 문자열을 만들어(10주차) 실제 모델에 들어가는 토큰 수를 센다. 처음 실행은 내려받기 때문에 10초를 넘을 수 있다. 그러면 한 번 더 실행한다(캐시됨).</p>
+          <pre data-run="c5" data-title="C5 토크나이저 해부"><code class="language-javascript">const { AutoTokenizer, env } = await import('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1');
+env.allowLocalModels = false;
+const tok = await AutoTokenizer.from_pretrained('HuggingFaceTB/SmolLM2-135M-Instruct');
+
+const pairs = [
+  ['What is a language model?', '언어 모델이란 무엇인가?'],
+  ['One person may use the GPU server for up to 12 hours.', '한 사람이 GPU 서버를 최대 12시간 쓸 수 있다.'],
+];
+const rows = [];
+for (const [en, ko] of pairs) {
+  const enIds = tok.encode(en, { add_special_tokens: false });
+  const koIds = tok.encode(ko, { add_special_tokens: false });
+  // TODO: 각 문장의 문자 수, 토큰 수, 토큰/문자 비율을 rows에 넣는다
+}
+console.table(rows);
+
+// TODO: 한국어 문장의 토큰을 하나씩 decode 해서 보여 준다. 글자가 온전하지 않은(� 포함) 조각은 몇 개인가?
+
+const messages = [{ role: 'user', content: '언어 모델이란 무엇인가? 한 문장으로 답하라.' }];
+const prompt = tok.apply_chat_template(messages, { tokenize: false, add_generation_prompt: true });
+console.log(prompt);
+// TODO: prompt 전체의 토큰 수와, 그중 특수 토큰(&lt;|im_start|&gt; 등)이 차지하는 수를 센다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 과정을 마치며</h2>
+        <ul>
+          <li>이미 학습된 LLM도 브라우저 안에서 추론할 수 있다. 데이터가 기기 밖으로 나가지 않고, 한 번 내려받으면 비용이 없고, 오프라인에서도 동작한다.</li>
+          <li>모델 크기 = 파라미터 수 × 가중치당 바이트. 양자화는 이 바이트를 줄인다. 어휘가 큰 모델은 임베딩 표를 어떻게 저장하느냐가 크기를 좌우한다.</li>
+          <li>작은 모델은 한국어·사실 지식·추론에서 금방 한계에 닿는다. 근거를 넣어 주면(RAG) 135M 모델도 “12시간”을 찾아내지만, 같은 답 안에서 “문서에 없다”고 말하는 모순도 섞는다. 근거는 필요조건이고, 근거를 제대로 읽는 능력은 모델 크기에 달려 있다.</li>
+          <li>로컬과 API는 우열이 아니라 선택이다. 개인정보 · 비용 · 품질 · 속도 · 오프라인 조건으로 고른다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔎</span><p><b>studyRAG로 이어서</b> — 관찰 질문 3에서 135M짜리 모델도 근거 문장을 주자 “12시간”을 찾아냈다. 문제는 “어떤 문장을 넣어 줄 것인가”다. <a href="https://samcho93.github.io/studyRAG/" target="_blank" rel="noopener">RAG 시스템 구축</a> 과정에서 청킹 · 임베딩 검색 · 평가로 그 문장을 자동으로 찾는다. <a href="https://samcho93.github.io/studyRAG/weeks/w05/" target="_blank" rel="noopener">5주차</a>는 이번 주와 같은 Transformers.js로 임베딩 모델을 브라우저에서 돌린다.</p></div>
+        <p>1주차의 빈도표에서 출발해 BPE, 임베딩, 어텐션, 트랜스포머를 직접 만들고, 미니 GPT를 학습시키고, 실제 LLM을 API와 로컬로 부려 보았다. 다음 과정에서는 이 LLM이 모르는 것을 찾아서 알려 주는 방법을 만든다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="16"> ✅ 16주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="16" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w16-local-llm.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w16-local-llm'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

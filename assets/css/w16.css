@@ -1,0 +1,80 @@
+/* Week 16: on-device LLM runner. Tokens from tokens.css only. */
+
+.w16-presets {
+  margin: 4px 0 10px;
+}
+
+.w16-presets .btn[aria-pressed="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+}
+
+.w16-prompt {
+  margin-bottom: 10px;
+}
+
+.w16-prompt textarea {
+  min-height: 90px;
+}
+
+.w16-muted {
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.w16-out .chip {
+  margin-bottom: 6px;
+}
+
+.w16-answer {
+  min-height: 3.2em;
+  margin: 6px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  font-size: 14.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.w16-table-wrap {
+  overflow-x: auto;
+}
+
+.w16-table {
+  width: 100%;
+  margin: 6px 0 0;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.w16-table th,
+.w16-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.w16-table thead th {
+  background: var(--color-surface-2);
+  white-space: nowrap;
+}
+
+.w16-rec-text {
+  min-width: 14em;
+}
+
+.w16-size-bar {
+  display: inline-block;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--color-accent);
+  vertical-align: middle;
+}
+
+.w16-size-bar.emb {
+  background: var(--color-accent2);
+}

@@ -1,0 +1,41 @@
+{
+ "note": "수업 PC 녹화 · greedy(온도 0) · 최대 64토큰 · WASM int8",
+ "runs": [
+  {
+   "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+   "preset": "en",
+   "text": "A language model is a computer program that generates and produces text based on a set of rules and parameters.",
+   "tokens": 22,
+   "firstTokenMs": 1746,
+   "totalMs": 6579,
+   "loadMs": 5473
+  },
+  {
+   "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+   "preset": "ko",
+   "text": "어떻게 모델이란? 한 문장으로 답변하라.",
+   "tokens": 48,
+   "firstTokenMs": 5042,
+   "totalMs": 20187,
+   "loadMs": 5473
+  },
+  {
+   "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+   "preset": "fact",
+   "text": "In the AI application software department, the number of hours a person can use the GPU server continuously is limited by the number of available GPUs. The department has a limited number of GPUs, and the person can only use them for a limited period of time. The person can use the GPU server continuously for a period of ",
+   "tokens": 64,
+   "firstTokenMs": 812,
+   "totalMs": 104574,
+   "loadMs": 5473
+  },
+  {
+   "model": "HuggingFaceTB/SmolLM2-135M-Instruct",
+   "preset": "ctx",
+   "text": "The document does not provide a specific number of hours that a person can use the GPU server continuously. However, it does mention that one person may use the server for up to 12 hours.\n\nThe document does not mention any specific time frame or duration for the GPU server to be used continuously. It only",
+   "tokens": 64,
+   "firstTokenMs": 3209,
+   "totalMs": 33208,
+   "loadMs": 5473
+  }
+ ]
+}
