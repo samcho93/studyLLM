@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>4주차 신경망 언어 모델과 학습 · LLM Lab</title>
+  <meta name="description" content="빈도표를 신경망으로 바꾼다: 로짓 → 소프트맥스 → 교차 엔트로피 → 역전파 → 경사 하강. 신경망 바이그램이 빈도표와 같은 손실에 도달하고, 임베딩과 은닉층을 더한 MLP가 새 문서에서 빈도표보다 낫다는 것을 직접 확인한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w04.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="4" data-crumb="PART 2 · 신경망과 트랜스포머 › <b>4주차 · 신경망 언어 모델과 학습</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🧮 4주차 · 신경망 언어 모델과 학습</span>
+      <h1>세지 말고, 배우게 한다</h1>
+      <p class="lead">1주차의 빈도표는 “실” 다음에 “습”이 몇 번 왔는지 세어서 확률을 만들었다. 이번 주는 그 표를 <strong>숫자를 조정할 수 있는 함수(신경망)</strong>로 바꾼다. 점수를 확률로 바꾸고(소프트맥스), 얼마나 틀렸는지 재고(교차 엔트로피), 어느 쪽으로 고칠지 계산해(역전파) 조금씩 고친다(경사 하강). 이 네 단계가 7주차 미니 GPT 학습의 전부다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 소프트맥스 · 교차 엔트로피 · 자동 미분</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 글을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div>임베딩</div><div>어텐션</div><div>트랜스포머</div><div><b>다음 토큰 확률</b></div><div>뽑기</div><div><b>학습·평가</b></div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>로짓 → 소프트맥스 → 교차 엔트로피를 손으로 계산하고, 로짓에 대한 경사가 <code>p − onehot</code>인 이유를 설명할 수 있다.</li>
+          <li>역전파를 계산 그래프 위의 연쇄 법칙으로 설명하고, 자동 미분(<code>Value</code>)의 결과를 손 계산·수치 미분으로 검산할 수 있다.</li>
+          <li>신경망 바이그램을 경사 하강으로 학습시켜 빈도표 바이그램과 같은 손실에 다가가는 것을 확인하고, 임베딩과 은닉층을 더한 MLP가 처음 보는 문서에서 왜 빈도표보다 나은지 설명할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>1주차 C5에서 n-gram을 “벡터 데이터베이스와 인덱스” 문서 없이 학습하고 그 문서로 평가했다. 앞 3글자를 보는 4-gram은 새 문서 356자 중 288자의 확률이 0이었고, 스무딩을 해도 글자당 NLL이 5.645로 앞 1글자만 보는 바이그램(4.163)보다 나빴다. 문맥을 길게 볼수록 오히려 못 맞힌다.</p>
+        <p>원인은 빈도표가 문맥을 <em>이름표</em>로만 다룬다는 데 있다. “실습실”과 “실험실”은 빈도표에서 서로 아무 관계 없는 두 행이다. 한쪽에서 배운 것이 다른 쪽에 전혀 옮겨 가지 않는다. 3주차에 본 임베딩은 비슷한 글자·단어를 가까운 벡터로 만든다. 그렇다면 문맥을 벡터로 바꾸고, <strong>벡터에서 다음 글자 확률을 계산하는 함수</strong>를 만들면 비슷한 문맥끼리 배운 것을 나눠 쓸 수 있다.</p>
+        <p>문제는 그 함수의 숫자(가중치)를 누가 정하느냐다. 셀 수 있는 표가 아니므로 세어서 정할 수 없다. 대신 “지금 가중치로 예측하면 얼마나 틀리는가”를 하나의 숫자(손실)로 재고, 그 숫자가 줄어드는 방향으로 가중치를 조금씩 고친다.</p>
+        <div class="callout">
+          <span class="callout__title">이번 주의 한 줄</span>
+          <p>학습 = 손실을 재고(순전파), 각 가중치가 손실에 얼마나 책임이 있는지 계산하고(역전파), 책임만큼 반대 방향으로 고치는 것(경사 하강)의 반복이다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>① 점수를 확률로: 소프트맥스</h3>
+        <p>신경망은 다음 글자 후보마다 아무 범위의 실수 점수를 낸다. 이 점수를 <strong>로짓(logit)</strong>이라 한다. 로짓은 음수일 수도 있고 합이 1도 아니므로 확률이 아니다. <strong>소프트맥스(softmax)</strong>는 각 로짓에 exp를 씌워 모두 양수로 만든 뒤 합으로 나눠 확률로 바꾼다.</p>
+        <pre><code class="language-text">p_i = exp(z_i) / Σ_j exp(z_j)</code></pre>
+        <figure class="figure">
+          <svg viewBox="0 0 640 236" role="img" aria-labelledby="w04-fig1-t" style="width: 100%">
+            <title id="w04-fig1-t">“실” 다음 후보 6개의 로짓 3.0, 2.1, 1.6, 1.6, 1.6, 0.9에 exp를 씌우면 20.09, 8.17, 4.95, 4.95, 4.95, 2.46이 되고, 합 45.57로 나누면 확률 44.1%, 17.9%, 10.9%, 10.9%, 10.9%, 5.4%가 된다</title>
+            <style>
+              .w04f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w04f-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w04f-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w04f-bar { fill: var(--color-accent); }
+              .w04f-bar2 { fill: var(--color-accent2); }
+              .w04f-grey { fill: var(--color-border-strong); }
+              .w04f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w04-a1); }
+            </style>
+            <defs><marker id="w04-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w04f-l" x="0" y="16">① 로짓 z (아무 실수)</text>
+            <text class="w04f-l" x="232" y="16">② exp(z) (모두 양수)</text>
+            <text class="w04f-l" x="400" y="16">③ ÷ 합 45.57 = 확률 p</text>
+            <g>
+              <text class="w04f-m" x="0" y="46">습</text><rect class="w04f-grey" x="24" y="35" width="90" height="14" rx="3"/><text class="w04f-m" x="122" y="46">3.0</text>
+              <text class="w04f-m" x="0" y="72">수</text><rect class="w04f-grey" x="24" y="61" width="63" height="14" rx="3"/><text class="w04f-m" x="95" y="72">2.1</text>
+              <text class="w04f-m" x="0" y="98">제</text><rect class="w04f-grey" x="24" y="87" width="48" height="14" rx="3"/><text class="w04f-m" x="80" y="98">1.6</text>
+              <text class="w04f-m" x="0" y="124">은</text><rect class="w04f-grey" x="24" y="113" width="48" height="14" rx="3"/><text class="w04f-m" x="80" y="124">1.6</text>
+              <text class="w04f-m" x="0" y="150">에</text><rect class="w04f-grey" x="24" y="139" width="48" height="14" rx="3"/><text class="w04f-m" x="80" y="150">1.6</text>
+              <text class="w04f-m" x="0" y="176">␣</text><rect class="w04f-grey" x="24" y="165" width="27" height="14" rx="3"/><text class="w04f-m" x="59" y="176">0.9</text>
+            </g>
+            <path class="w04f-arr" d="M168 106 H222"/>
+            <g>
+              <text class="w04f-m" x="240" y="46">20.09</text>
+              <text class="w04f-m" x="240" y="72">8.17</text>
+              <text class="w04f-m" x="240" y="98">4.95</text>
+              <text class="w04f-m" x="240" y="124">4.95</text>
+              <text class="w04f-m" x="240" y="150">4.95</text>
+              <text class="w04f-m" x="240" y="176">2.46</text>
+            </g>
+            <path class="w04f-arr" d="M312 106 H390"/>
+            <g>
+              <rect class="w04f-bar2" x="400" y="35" width="159" height="14" rx="3"/><text class="w04f-m" x="566" y="46">44.1%</text>
+              <rect class="w04f-bar" x="400" y="61" width="65" height="14" rx="3"/><text class="w04f-m" x="472" y="72">17.9%</text>
+              <rect class="w04f-bar" x="400" y="87" width="39" height="14" rx="3"/><text class="w04f-m" x="446" y="98">10.9%</text>
+              <rect class="w04f-bar" x="400" y="113" width="39" height="14" rx="3"/><text class="w04f-m" x="446" y="124">10.9%</text>
+              <rect class="w04f-bar" x="400" y="139" width="39" height="14" rx="3"/><text class="w04f-m" x="446" y="150">10.9%</text>
+              <rect class="w04f-bar" x="400" y="165" width="19" height="14" rx="3"/><text class="w04f-m" x="426" y="176">5.4%</text>
+            </g>
+            <text class="w04f-n" x="0" y="208">로짓 차이 0.9(3.0 − 2.1)가 확률에서는 e^0.9 ≈ 2.5배가 된다.</text>
+            <text class="w04f-n" x="0" y="228">모든 로짓에 같은 수를 더해도 확률은 그대로다 → 최댓값을 먼저 뺀다.</text>
+          </svg>
+          <figcaption>소프트맥스 세 단계. 확률의 합은 언제나 1이고, 로짓이 클수록 확률이 크다.</figcaption>
+        </figure>
+        <p>로짓이 1000처럼 크면 exp(1000)이 컴퓨터에서 무한대가 되어 ∞ ÷ ∞ = NaN이 나온다. 그래서 실제 구현은 모든 로짓에서 가장 큰 값을 먼저 뺀다(C1). 로짓을 <strong>온도</strong> T로 나눈 뒤 소프트맥스를 하면 T가 작을수록 1등이 확률을 독차지하고(T → 0이면 argmax), T가 클수록 균등해진다. 8주차 디코딩에서 이 손잡이를 다시 쓴다.</p>
+
+        <h3>② 얼마나 틀렸나: 교차 엔트로피</h3>
+        <p>정답이 “습”이었다면 모델이 “습”에 준 확률 p(습)만 보면 된다. 손실은 그 확률의 음의 로그다.</p>
+        <pre><code class="language-text">L = −log p(정답)        예) p(습) = 0.441 → L = −log 0.441 = 0.819</code></pre>
+        <p>이것이 <strong>교차 엔트로피(cross-entropy)</strong> 손실이다. 1주차에 문장의 확률을 평가한 “글자당 평균 음의 로그 가능도(NLL)”와 <strong>똑같은 식</strong>이다. 정답에 확률 1을 주면 손실 0, 아무것도 모르고 6개 후보에 똑같이 1/6을 주면 ln 6 = 1.792다. 오답 “수”의 로짓을 10으로 올려 확신하게 만들면 p(습)이 0.1% 아래로 떨어지고 손실은 7.002가 된다. −log는 p가 0에 가까울수록 끝없이 커지므로 <strong>틀린 답을 확신할수록 크게 벌을 받는다</strong>.</p>
+
+        <h3>③ 어느 쪽으로 고치나: 경사 = p − onehot</h3>
+        <p>손실을 줄이려면 각 로짓을 올려야 하는지 내려야 하는지 알아야 한다. 소프트맥스와 교차 엔트로피를 붙여 미분하면 놀랍도록 간단한 결과가 나온다.</p>
+        <pre><code class="language-text">∂L/∂z_i = p_i − y_i      (y = 정답만 1인 원-핫 벡터)</code></pre>
+        <table>
+          <thead><tr><th>후보</th><th>로짓 z</th><th>확률 p</th><th>정답 y</th><th>경사 p − y</th><th>경사 하강 z ← z − 경사</th></tr></thead>
+          <tbody>
+            <tr><td><b>습</b> (정답)</td><td>3.0</td><td>0.441</td><td>1</td><td>−0.559</td><td>올린다 ↑</td></tr>
+            <tr><td>수</td><td>2.1</td><td>0.179</td><td>0</td><td>+0.179</td><td>내린다 ↓ (가장 많이)</td></tr>
+            <tr><td>제 · 은 · 에</td><td>1.6</td><td>0.109</td><td>0</td><td>+0.109</td><td>내린다 ↓</td></tr>
+            <tr><td>␣</td><td>0.9</td><td>0.054</td><td>0</td><td>+0.054</td><td>조금 내린다 ↓</td></tr>
+          </tbody>
+        </table>
+        <p>정답의 로짓은 (1 − p)만큼 올리고, 오답은 <strong>자기가 가져간 확률만큼</strong> 내린다. 가장 헷갈리게 만든 후보가 가장 많이 내려간다. 경사의 합은 언제나 0이다. 이 표대로 한 걸음(z ← z − 1.0 × 경사) 가면 손실이 0.819에서 0.495로 줄어든다(C2).</p>
+
+        <h3>④ 역전파: 계산 그래프 위의 연쇄 법칙</h3>
+        <p>실제 신경망에서 로짓은 가중치로 계산된 값이다. 손실에서 가중치까지의 경사는 계산을 작은 연산(곱, 합, tanh, exp …)의 그래프로 나누고 <strong>연쇄 법칙(chain rule)</strong>을 거꾸로 적용해 구한다. 각 노드는 자기 연산의 <em>국소 미분</em>만 알면 된다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 250" role="img" aria-labelledby="w04-fig2-t" style="width: 100%">
+            <title id="w04-fig2-t">뉴런 y = tanh(w·x + b)의 계산 그래프. x = 2, w = −0.4를 곱해 −0.8, b = 0.2를 더해 n = −0.6, tanh로 y = −0.537. 역전파로 ∂y/∂n = 1 − y² = 0.712, ∂y/∂b = 0.712, ∂y/∂w = 0.712 × x = 1.423, ∂y/∂x = 0.712 × w = −0.285</title>
+            <style>
+              .w04g-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w04g-par { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w04g-l { font: 700 13px var(--font-sans); fill: var(--color-text); }
+              .w04g-v { font: 12px var(--font-mono); fill: var(--color-text); }
+              .w04g-g { font: 700 12px var(--font-mono); fill: var(--color-accent2); }
+              .w04g-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w04g-f { stroke: var(--color-text-muted); stroke-width: 1.6; fill: none; marker-end: url(#w04-a2); }
+              .w04g-b { stroke: var(--color-accent2); stroke-width: 1.6; stroke-dasharray: 5 3; fill: none; marker-end: url(#w04-a3); }
+              .w04g-bt { font: 600 11px var(--font-mono); fill: var(--color-accent2); }
+            </style>
+            <defs>
+              <marker id="w04-a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker>
+              <marker id="w04-a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-accent2)"/></marker>
+            </defs>
+            <rect class="w04g-box" x="0" y="20" width="90" height="52" rx="8"/><text class="w04g-l" x="10" y="38">x</text><text class="w04g-v" x="10" y="54">값 2.0</text><text class="w04g-g" x="10" y="67">∂ −0.285</text>
+            <rect class="w04g-par" x="0" y="100" width="90" height="52" rx="8"/><text class="w04g-l" x="10" y="118">w</text><text class="w04g-v" x="10" y="134">값 −0.4</text><text class="w04g-g" x="10" y="147">∂ 1.423</text>
+            <rect class="w04g-box" x="150" y="60" width="90" height="52" rx="8"/><text class="w04g-l" x="160" y="78">x·w  ×</text><text class="w04g-v" x="160" y="94">값 −0.8</text><text class="w04g-g" x="160" y="107">∂ 0.712</text>
+            <rect class="w04g-par" x="150" y="170" width="90" height="52" rx="8"/><text class="w04g-l" x="160" y="188">b</text><text class="w04g-v" x="160" y="204">값 0.2</text><text class="w04g-g" x="160" y="217">∂ 0.712</text>
+            <rect class="w04g-box" x="300" y="110" width="90" height="52" rx="8"/><text class="w04g-l" x="310" y="128">n  +</text><text class="w04g-v" x="310" y="144">값 −0.6</text><text class="w04g-g" x="310" y="157">∂ 0.712</text>
+            <rect class="w04g-box" x="450" y="110" width="90" height="52" rx="8"/><text class="w04g-l" x="460" y="128">y  tanh</text><text class="w04g-v" x="460" y="144">값 −0.537</text><text class="w04g-g" x="460" y="157">∂ 1</text>
+            <path class="w04g-f" d="M90 46 C120 46 120 80 148 80"/>
+            <path class="w04g-f" d="M90 126 C120 126 120 94 148 94"/>
+            <path class="w04g-f" d="M240 86 C270 86 270 128 298 128"/>
+            <path class="w04g-f" d="M240 196 C270 196 270 146 298 146"/>
+            <path class="w04g-f" d="M390 136 H448"/>
+            <path class="w04g-b" d="M495 166 C495 196 400 200 360 166"/><text class="w04g-bt" x="398" y="214">× (1 − y²) = 0.712</text>
+            <path class="w04g-b" d="M300 162 C280 206 262 206 242 206"/><text class="w04g-bt" x="248" y="240">× 1</text>
+            <path class="w04g-b" d="M198 112 C198 150 110 150 60 154"/><text class="w04g-bt" x="96" y="168">× x = 2</text>
+            <path class="w04g-b" d="M170 60 C150 20 120 14 92 22"/><text class="w04g-bt" x="100" y="12">× w = −0.4</text>
+            <text class="w04g-n" x="560" y="120">순전파 →</text>
+            <text class="w04g-n" x="560" y="140">값을 채운다</text>
+            <text class="w04g-n" x="560" y="178" style="fill: var(--color-accent2)">← 역전파</text>
+            <text class="w04g-n" x="560" y="198" style="fill: var(--color-accent2)">경사를 채운다</text>
+          </svg>
+          <figcaption>순전파(검은 화살표)로 값을, 역전파(점선)로 경사를 채운다. 노드의 경사 = 위에서 내려온 경사 × 자기 연산의 국소 미분.</figcaption>
+        </figure>
+        <p>규칙은 세 가지뿐이다. <strong>덧셈</strong>은 경사를 그대로 넘기고, <strong>곱셈</strong>은 상대편 값을 곱해 넘기고, 한 값이 여러 곳에 쓰였으면 <strong>돌아온 경사를 더한다</strong>. 이 과정의 <code>value.js</code>가 정확히 이것을 한다. 곱셈 노드는 “내 경사에 상대편 값을 곱해 두 입력에 더하라”는 함수 하나만 기억한다.</p>
+        <pre><code class="language-javascript">mul(other) {
+  const out = new Value(this.data * other.data, [this, other], '×');
+  out._backward = () =&gt; {
+    this.grad  += other.data * out.grad;   // ∂(a·b)/∂a = b
+    other.grad += this.data  * out.grad;   // ∂(a·b)/∂b = a
+  };
+  return out;
+}</code></pre>
+        <p><code>backward()</code>는 그래프를 위상 정렬해 손실에서 입력 쪽으로 이 함수들을 차례로 부른다. 이것이 <strong>자동 미분(autograd)</strong>이다. PyTorch도, 7주차에 쓸 <code>tensor.js</code>도 같은 일을 숫자 하나가 아니라 행렬 단위로 한다.</p>
+
+        <h3>⑤ 경사 하강과 학습률</h3>
+        <p>경사를 구했으면 모든 가중치를 <code>w ← w − lr × ∂L/∂w</code>로 고친다. 학습률(lr)이 한 걸음의 크기다. 신경망 바이그램(C4)을 300스텝 학습시켜 보면 lr에 따라 결과가 크게 다르다.</p>
+        <table>
+          <thead><tr><th>lr</th><th>50스텝</th><th>150스텝</th><th>300스텝</th><th>모양</th></tr></thead>
+          <tbody>
+            <tr><td>50</td><td>4.029</td><td>3.224</td><td>2.758</td><td>너무 느리다</td></tr>
+            <tr><td><b>200</b></td><td>3.020</td><td>2.419</td><td><b>2.250</b></td><td>꾸준히 내려간다</td></tr>
+            <tr><td>500</td><td>2.528</td><td>2.268</td><td>2.269</td><td>빠르지만 오르내린다</td></tr>
+            <tr><td>1000</td><td>3.264</td><td>3.651</td><td>2.644</td><td>진동 — 골짜기를 넘나든다</td></tr>
+          </tbody>
+        </table>
+        <p class="muted">숫자는 코퍼스 전체의 학습 손실(글자당 교차 엔트로피)이다. 시작 손실은 모든 글자에 1/495를 준 ln 495 = 6.205다. lr이 커 보이는 것은 손실을 예시 6,827개로 평균해 경사가 작기 때문이다.</p>
+
+        <h3>⑥ 신경망 바이그램 = 빈도표 바이그램</h3>
+        <p>가장 단순한 신경망 언어 모델을 만든다. 앞 글자를 495차원 원-핫 벡터로 바꿔 495 × 495 가중치 W에 곱하면 로짓 495개가 나온다. 원-핫 벡터를 곱하는 것은 <strong>W의 한 행을 꺼내는 것</strong>과 같다. 이 행을 소프트맥스하면 다음 글자의 확률이 된다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 170" role="img" aria-labelledby="w04-fig3-t" style="width: 100%">
+            <title id="w04-fig3-t">앞 글자 “실”의 원-핫 벡터에 495 × 495 가중치 W를 곱하면 W의 “실” 행이 로짓이 된다. 소프트맥스를 거쳐 p(습 | 실)이 되고, 교차 엔트로피로 손실을 잰다. 300스텝 학습 후 p(습 | 실) = 0.326, 빈도표는 7/21 = 0.333</title>
+            <style>
+              .w04h-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w04h-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w04h-row { fill: var(--color-accent); }
+              .w04h-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w04h-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w04h-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w04h-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w04-a4); }
+            </style>
+            <defs><marker id="w04-a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w04h-l" x="0" y="18">원-핫(실)</text>
+            <rect class="w04h-box" x="0" y="30" width="96" height="24" rx="5"/>
+            <text class="w04h-m" x="8" y="47">0 0 … 1 … 0</text>
+            <text class="w04h-n" x="0" y="72">495칸 중 “실”만 1</text>
+            <text class="w04h-l" x="120" y="42">×</text>
+            <text class="w04h-l" x="146" y="18">W (495 × 495)</text>
+            <rect class="w04h-hi" x="146" y="30" width="110" height="96" rx="6"/>
+            <rect class="w04h-row" x="146" y="68" width="110" height="12"/>
+            <text class="w04h-n" x="150" y="100">“실” 행만 쓰인다</text>
+            <text class="w04h-n" x="150" y="116">= 행 꺼내기</text>
+            <path class="w04h-arr" d="M262 74 H300"/>
+            <text class="w04h-l" x="306" y="18">로짓 495개</text>
+            <rect class="w04h-box" x="306" y="62" width="104" height="24" rx="5"/>
+            <text class="w04h-m" x="314" y="79">z = W[실]</text>
+            <path class="w04h-arr" d="M414 74 H448"/>
+            <text class="w04h-l" x="454" y="18">소프트맥스 → 손실</text>
+            <rect class="w04h-box" x="454" y="36" width="186" height="76" rx="6"/>
+            <text class="w04h-m" x="464" y="58">p(습|실) = 0.326</text>
+            <text class="w04h-n" x="464" y="78">빈도표: 7/21 = 0.333</text>
+            <text class="w04h-m" x="464" y="100">L = −log p(정답)</text>
+            <text class="w04h-n" x="0" y="150">W = 0에서 시작(손실 6.205) → 300스텝 후 2.250 · 빈도표 바이그램 2.182</text>
+          </svg>
+          <figcaption>원-핫 × W = W의 한 행. 신경망 바이그램은 “빈도표 대신 로짓 표를 경사 하강으로 채우는” 모델이다.</figcaption>
+        </figure>
+        <p>이 모델을 코퍼스 전체로 학습시키면 손실이 6.205에서 출발해 300스텝 뒤 2.250이 되고, 1주차 방식으로 세어서 만든 바이그램의 손실 2.182에 계속 다가간다(C4). 학습된 W의 “실” 행을 소프트맥스하면 p(습) = 0.326, p(수) = 0.135로 빈도표의 7/21 = 0.333, 3/21 = 0.143과 거의 같다.</p>
+        <p>우연이 아니다. 앞 글자가 “실”인 예시만 모아 보면 손실은 Σ 횟수(실→b) × (−log p(b))이고, 이 값이 가장 작아지는 p는 정확히 <strong>횟수 ÷ 합</strong>이다. 빈도표는 이 최적화 문제의 답을 한 번에 적어 놓은 것이고, 신경망은 같은 답을 경사 하강으로 찾아간다. 그렇다면 신경망으로 바꿔서 얻는 것은 무엇일까? 바로 다음 단계, <strong>문맥을 넓혀도 표가 터지지 않는다</strong>는 점이다.</p>
+
+        <h3>⑦ 문맥 넓히기: 임베딩 + 은닉층 (MLP 언어 모델)</h3>
+        <p>벤지오(Bengio) 등이 2003년에 제안한 방식이다. 앞 3글자를 각각 16차원 <strong>임베딩</strong>으로 바꿔 이어 붙이고(48차원), 은닉층 32개와 출력층을 거쳐 로짓 495개를 낸다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 180" role="img" aria-labelledby="w04-fig4-t" style="width: 100%">
+            <title id="w04-fig4-t">앞 3글자 실, 습, 실을 임베딩 표 E에서 16차원 벡터 셋으로 꺼내 이어 붙이고(48차원), W1과 GELU로 은닉 32차원, W2로 로짓 495개를 만든 뒤 소프트맥스로 다음 글자 확률을 낸다. 파라미터 25,839개</title>
+            <style>
+              .w04k-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w04k-emb { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w04k-hid { fill: var(--color-accent2-soft); stroke: var(--color-accent2); }
+              .w04k-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w04k-n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+              .w04k-m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+              .w04k-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w04-a5); }
+            </style>
+            <defs><marker id="w04-a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w04k-l" x="0" y="18">앞 3글자</text>
+            <rect class="w04k-box" x="0" y="30" width="34" height="30" rx="5"/><text class="w04k-l" x="10" y="50">실</text>
+            <rect class="w04k-box" x="0" y="68" width="34" height="30" rx="5"/><text class="w04k-l" x="10" y="88">습</text>
+            <rect class="w04k-box" x="0" y="106" width="34" height="30" rx="5"/><text class="w04k-l" x="10" y="126">실</text>
+            <path class="w04k-arr" d="M38 83 H70"/>
+            <text class="w04k-l" x="76" y="18">E에서 꺼내기</text>
+            <rect class="w04k-emb" x="76" y="36" width="96" height="16" rx="3"/><text class="w04k-n" x="180" y="49">16</text>
+            <rect class="w04k-emb" x="76" y="74" width="96" height="16" rx="3"/><text class="w04k-n" x="180" y="87">16</text>
+            <rect class="w04k-emb" x="76" y="112" width="96" height="16" rx="3"/><text class="w04k-n" x="180" y="125">16</text>
+            <text class="w04k-n" x="76" y="152">같은 글자 = 같은 벡터</text>
+            <path class="w04k-arr" d="M204 83 H236"/>
+            <text class="w04k-l" x="242" y="18">이어 붙이기</text>
+            <rect class="w04k-emb" x="242" y="72" width="100" height="20" rx="3"/><text class="w04k-m" x="256" y="87">48차원</text>
+            <path class="w04k-arr" d="M346 83 H378"/>
+            <text class="w04k-l" x="384" y="18">W1 · GELU</text>
+            <rect class="w04k-hid" x="384" y="66" width="70" height="32" rx="5"/><text class="w04k-m" x="392" y="87">은닉 32</text>
+            <path class="w04k-arr" d="M458 83 H490"/>
+            <text class="w04k-l" x="496" y="18">W2 · 소프트맥스</text>
+            <rect class="w04k-box" x="496" y="56" width="144" height="54" rx="6"/>
+            <text class="w04k-m" x="506" y="78">로짓 495개</text>
+            <text class="w04k-n" x="506" y="98">→ p(다음 글자)</text>
+            <text class="w04k-n" x="0" y="172">파라미터 25,839개로 가능한 3글자 문맥 495³ ≈ 1.2억 개를 모두 다룬다</text>
+          </svg>
+          <figcaption>MLP 언어 모델. 문맥이 달라도 같은 가중치를 쓰고, 비슷한 글자는 비슷한 임베딩을 갖게 되므로 본 적 없는 문맥에서도 그럴듯한 확률을 낸다.</figcaption>
+        </figure>
+        <p>“벡터 데이터베이스와 인덱스” 문서를 빼고 학습한 뒤 그 문서로 평가하면 다음과 같다(C5, 미니배치 32 · 600스텝 · AdamW).</p>
+        <table>
+          <thead><tr><th>모델</th><th>보는 앞 글자</th><th>새 문서 NLL</th></tr></thead>
+          <tbody>
+            <tr><td>빈도 바이그램 (k = 0.1)</td><td>1</td><td>4.163</td></tr>
+            <tr><td>빈도 트라이그램 (k = 0.1)</td><td>2</td><td>5.000</td></tr>
+            <tr><td>빈도 4-gram (k = 0.1)</td><td>3</td><td>5.645</td></tr>
+            <tr><td><b>MLP (임베딩 16 · 은닉 32)</b></td><td>3</td><td><b>4.075</b></td></tr>
+          </tbody>
+        </table>
+        <p>같은 3글자를 보는 4-gram보다 1.5 nats 이상 낮고, 1주차의 최강자였던 바이그램보다도 낮다. 빈도표는 문맥이 길어질수록 무너졌지만 MLP는 문맥을 늘려도 버틴다. 데이터가 6천여 자뿐이라 차이가 아직 작을 뿐, 이 방향(문맥을 벡터로, 확률은 학습으로)이 GPT까지 이어진다. 남은 문제는 “앞 3글자”처럼 창 크기를 정해 두는 대신 <strong>앞의 모든 토큰 중 필요한 것을 골라 보는</strong> 방법이다. 그것이 다음 주의 어텐션이다.</p>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — 소프트맥스, 교차 엔트로피, 역전파는 <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 신경망 단원(MNIST 손글씨 분류)에서 이미 썼다. 그때는 “이미지 → 숫자 10개 중 하나”였고, 지금은 “앞 글자 → 글자 495개 중 하나”다. 출력 칸 수만 다른 <strong>같은 분류 문제</strong>다. 언어 모델은 다음 토큰을 맞히는 분류기를 수없이 반복해 부르는 것이다.</p></div>
+        <div class="bridge"><span class="bi">🎲</span><p><b>1주차와 연결</b> — 1주차 C4·C5에서 계산한 “글자당 평균 음의 로그 가능도(NLL)”가 이번 주의 교차 엔트로피 손실이다. 1주차에는 모델을 <em>평가</em>하는 데 썼고, 이번 주에는 모델을 <em>학습</em>시키는 목표로 쓴다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <h3>실습 1 · 소프트맥스 · 교차 엔트로피 탐색기</h3>
+        <p>“실” 다음 후보 6개의 로짓을 슬라이더로 움직이면 확률, 손실, 경사가 바로 바뀐다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). 처음 로짓은 아직 학습되지 않은 모델처럼 오답 “수”를 가장 높게 두었다.</p>
+        <div id="w04-softmax"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 상태의 손실은 균등 추측(ln 6 = 1.792)보다 큰가 작은가? <b>⬇ 경사 하강 1스텝</b>을 한 번 누르면 어느 로짓이 올라가고 어느 로짓이 가장 많이 내려가는가? 손실은 얼마가 되는가?</li>
+          <li>“모두 0 (균등)”을 누르고 모든 로짓에 같은 값(예: 모두 5)을 주면 확률은 어떻게 되는가? 소프트맥스에서 최댓값을 빼도 되는 이유와 연결한다.</li>
+          <li>“빈도표처럼”을 누른다. 로짓 = log(횟수)일 때 p(습)은 7/17(후보 6개의 횟수 합)과 같은가? 여기서 경사 하강을 계속 누르면 무엇에 다가가는가?</li>
+          <li>“과신한 오답”을 누른다. 손실은 균등 추측의 몇 배인가? 손실 곡선에서 점이 어디에 있는가? 이 상태에서 경사 하강 1스텝을 누르면 무엇이 가장 크게 바뀌는가?</li>
+          <li>온도를 0.05까지 내리면 확률 막대는 어떻게 되는가? 정답이 1등이 아닐 때 T를 낮추면 손실은 어떻게 되는가?</li>
+        </ol>
+
+        <h3>실습 2 · 자동 미분 그래프</h3>
+        <p>뉴런 하나(<code>L = (tanh(x₁·w₁ + x₂·w₂ + b) − y)²</code>)의 계산 그래프다. 처음에는 순전파만 끝나 있어 경사가 “?”다. <b>② 역전파</b>를 누르면 L에서 입력 쪽으로 경사가 한 칸씩 채워진다. 노드를 누르면(또는 Tab으로 옮겨 Enter) 그 노드의 경사가 연쇄 법칙으로 어떻게 계산됐는지 나온다.</p>
+        <div id="w04-autograd"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>② 역전파 후 w₁ 노드를 누른다. ∂L/∂w₁는 어떤 두 수의 곱인가? 그중 하나가 x₁ = 2인 이유를 “곱셈은 상대편 값을 곱한다”로 설명한다.</li>
+          <li>n, s, x₁·w₁, x₂·w₂, b의 경사가 모두 같은 이유는 무엇인가? (덧셈 노드의 규칙)</li>
+          <li>lr 0.05로 ③을 여러 번 누른다. 몇 스텝 만에 손실이 0.001 아래로 내려가는가? 손실 기록 그래프의 모양을 그린다.</li>
+          <li>↺ 후 “lr 0.4 (진동)”으로 10스텝을 두세 번 누른다. 손실 기록이 어떻게 달라지는가? 왜 경사 방향이 맞는데도 손실이 올라가는가?</li>
+          <li>↺ 후 “lr 1.0 (튕겨 나감)”으로 1스텝을 누른다. n과 tanh 기울기(1 − h²)는 얼마인가? 이후 몇 번을 눌러도 손실이 0.25에서 움직이지 않는 이유를 역전파 식으로 설명한다.</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 워커에서 돌아가며 10초가 넘으면 멈춘다. 처음 상태 그대로 실행해도 오류 없이 빈 결과가 나오며, TODO를 채우면 기대 결과가 나와야 한다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 소프트맥스를 손으로</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>로짓을 확률로 바꾸는 소프트맥스를 두 가지로 구현한다. 그냥 exp를 씌우는 버전과 최댓값을 먼저 빼는 안정 버전이다. 기대 결과: p(습) = 0.4408, 합 = 1. 로짓에 1000을 더하면 그냥 버전은 NaN, 안정 버전은 원래와 같은 확률이 나온다. 마지막으로 온도 T를 바꿔 본다(T = 0.1이면 1등이 1.000).</p>
+          <pre data-run="c1" data-title="C1 소프트맥스"><code class="language-javascript">const cands = ['습', '수', '제', '은', '에', '␣']; // "실" 다음 후보
+const z = [3.0, 2.1, 1.6, 1.6, 1.6, 0.9];         // 모델이 낸 점수(로짓)
+
+function softmaxNaive(z) {
+  // TODO: e = exp(z)를 구하고 e의 합으로 나눈다
+  return z.map(() =&gt; 0);
+}
+
+function softmax(z, T = 1) {
+  // TODO: 가장 큰 값 m을 먼저 빼고, T로 나눈 뒤 exp → 합으로 나눈다
+  //       (m을 빼도 결과가 같은 이유: 분자와 분모에 똑같이 exp(−m)이 곱해진다)
+  return z.map(() =&gt; 0);
+}
+
+const p = softmax(z);
+console.table(cands.map((c, i) =&gt; ({ c, z: z[i], exp: +Math.exp(z[i]).toFixed(3), p: +p[i].toFixed(4) })));
+console.log('합:', p.reduce((a, b) =&gt; a + b, 0)); // 1이어야 한다
+
+const big = z.map((x) =&gt; x + 1000); // 로짓이 아주 크면?
+console.log('naive(z+1000):', softmaxNaive(big));
+console.log('stable(z+1000):', softmax(big).map((x) =&gt; +x.toFixed(4)));
+// TODO: T = 0.1, 0.5, 1, 2, 10 에 대해 softmax(z, T)를 출력하고, T가 작을 때와 클 때의 모양을 비교한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 교차 엔트로피와 그 경사, 수치 미분으로 검산</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>교차 엔트로피 L = −log p(정답)과 해석적 경사 p − onehot을 구현하고, 로짓 하나씩 ±h만큼 흔들어 본 <strong>수치 미분</strong>과 비교한다. 기대 결과: L = 0.8193, 최대 차이 10<sup>−10</sup> 이하, 경사의 합 0. 과신한 오답의 손실은 7.002, 한 걸음 내려간 뒤 손실은 0.4947이다.</p>
+          <pre data-run="c2" data-title="C2 교차 엔트로피와 경사"><code class="language-javascript">const cands = ['습', '수', '제', '은', '에', '␣'];
+function softmax(z) {
+  const m = Math.max(...z);
+  const e = z.map((x) =&gt; Math.exp(x - m));
+  const s = e.reduce((a, b) =&gt; a + b, 0);
+  return e.map((x) =&gt; x / s);
+}
+
+// TODO: 교차 엔트로피 L = −log softmax(z)[t]
+const crossEntropy = (z, t) =&gt; 0;
+// TODO: 해석적 경사 ∂L/∂z = p − onehot(t)
+const gradCE = (z, t) =&gt; z.map(() =&gt; 0);
+
+const z = [3.0, 2.1, 1.6, 1.6, 1.6, 0.9];
+const t = 0; // 정답 "습"
+const g = gradCE(z, t);
+
+// TODO: 수치 미분으로 검산한다. z[i]만 ±h 바꾼 두 손실의 차이 / 2h
+const h = 1e-5;
+const num = z.map((_, i) =&gt; 0);
+
+console.log('손실 L =', crossEntropy(z, t).toFixed(4));
+console.table(cands.map((c, i) =&gt; ({ c, analytic: +g[i].toFixed(6), numeric: +num[i].toFixed(6) })));
+console.log('최대 차이:', Math.max(...g.map((x, i) =&gt; Math.abs(x - num[i]))).toExponential(2));
+console.log('경사의 합:', g.reduce((a, b) =&gt; a + b, 0)); // 왜 0인가?
+
+// TODO: "수"의 로짓을 10으로 올린 과신한 오답의 손실을 구하고, 균등 추측 ln 6과 비교한다
+// TODO: z ← z − 1.0 × g 로 한 걸음 내려간 뒤 손실이 줄었는지 확인한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. Value로 식을 만들고 역전파하기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>사이트의 스칼라 자동 미분 <code>value.js</code>로 (1) 뉴런 y = tanh(w·x + b)를 만들어 역전파하고 손으로 유도한 미분과 비교한다. (2) 교차 엔트로피를 exp · 덧셈 · 나눗셈 · log로 직접 조립해 로짓의 경사가 C2의 p − onehot과 같은지 확인한다. 기대 결과: y = −0.5370, ∂y/∂w = 1.4232, 교차 엔트로피 그래프의 노드 수 22개.</p>
+          <pre data-run="c3" data-title="C3 Value 역전파"><code class="language-javascript">import { Value, crossEntropyV } from '/assets/js/core/value.js';
+// Value: data와 grad를 가진 숫자. add · mul · tanh · exp · log · pow · neg · div 로 식을 만들고
+//        마지막 값에서 backward()를 부르면 모든 입력의 grad가 채워진다
+
+// (1) 뉴런 하나: y = tanh(w·x + b)
+const x = new Value(2.0);
+const w = new Value(-0.4);
+const b = new Value(0.2);
+// TODO: y를 Value 연산으로 만들고 y.backward()를 부른다
+const y = new Value(0);
+
+// TODO: 손으로 유도한 미분 dy/dw = (1 − y²)·x, dy/db = 1 − y², dy/dx = (1 − y²)·w
+console.log('y =', y.data.toFixed(4));
+console.table([
+  { param: 'w', autograd: w.grad, hand: 0 },
+  { param: 'b', autograd: b.grad, hand: 0 },
+  { param: 'x', autograd: x.grad, hand: 0 },
+]);
+
+// (2) 교차 엔트로피를 기본 연산으로 직접 조립한다 (정답 0번 "습")
+const zs = [3.0, 2.1, 1.6, 1.6, 1.6, 0.9].map((v) =&gt; new Value(v));
+// TODO: exps = zs.map(z =&gt; z.exp()), sum = 모두 더한 Value, L = −log(exps[0] / sum)
+const L = new Value(0);
+L.backward();
+// TODO: 각 z의 grad가 C2의 p − onehot과 같은지 표로 비교한다
+console.log('L =', L.data.toFixed(4), '· 노드 수:', L.topo().length);
+console.log('z.grad:', zs.map((z) =&gt; +z.grad.toFixed(4)).join(' '));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 신경망 바이그램 학습 — 빈도표에 다가가는가</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>495 × 495 가중치 W 하나뿐인 신경망 바이그램을 코퍼스 전체로 학습시킨다. 원-핫 × W는 W의 행 꺼내기이고, 앞 글자가 같은 예시는 로짓이 같으므로 앞 글자마다 소프트맥스를 한 번만 계산한다(6,827개 예시를 하나씩 도는 것과 수학적으로 같고 훨씬 빠르다). 기대 결과: 손실이 6.2046에서 300스텝 뒤 약 2.250이 되어 빈도표 바이그램 2.1824와의 차이(gap)가 0.07 정도로 줄어든다. 실행에 2~3초 걸린다. LR을 50, 1000으로 바꿔 ⑤의 표를 재현해 본다.</p>
+          <pre data-run="c4" data-title="C4 신경망 바이그램"><code class="language-javascript">import { charVocab } from '/assets/js/core/text.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const text = corpus.documents.map((d) =&gt; d.text).join('\n\n');
+const vocab = charVocab(text);
+const V = vocab.size; // 495
+const ids = vocab.encode(text);
+const xs = ids.slice(0, -1), ys = ids.slice(1); // (앞 글자, 다음 글자) 예시 6,827개
+const N = xs.length;
+
+// 1주차 방식: 세어서 나눈 바이그램의 학습 NLL (비교 기준)
+const C = new Float64Array(V * V);  // C[a*V + b] = a 다음에 b가 온 횟수
+const rowN = new Float64Array(V);   // rowN[a] = a가 앞 글자인 예시 수
+for (let i = 0; i &lt; N; i++) { C[xs[i] * V + ys[i]]++; rowN[xs[i]]++; }
+let countNLL = 0;
+for (let i = 0; i &lt; N; i++) countNLL -= Math.log(C[xs[i] * V + ys[i]] / rowN[xs[i]]);
+countNLL /= N;
+
+// 신경망 바이그램: logits = onehot(a) · W = W의 a번째 행 (V × V 가중치)
+const W = new Float64Array(V * V); // 0으로 시작 → 처음엔 모든 글자가 1/495
+const grad = new Float64Array(V * V);
+const p = new Float64Array(V);
+const LR = 200, STEPS = 300;
+const log = [];
+for (let step = 0; step &lt;= STEPS; step++) {
+  grad.fill(0);
+  let loss = 0;
+  // 앞 글자가 같은 예시는 로짓이 같다 → 앞 글자 a마다 소프트맥스를 한 번만 계산하고 C[a][b]개로 센다
+  for (let a = 0; a &lt; V; a++) {
+    if (!rowN[a]) continue;
+    const o = a * V;
+    // TODO 1: W[o … o+V−1]의 소프트맥스를 p에 구한다 (최댓값을 빼는 안정 버전)
+    // TODO 2: loss += Σ_b C[o+b] × (−log p[b])       ← 예시 C[a][b]개 각각의 −log p
+    // TODO 3: grad[o+b] = (rowN[a] × p[b] − C[o+b]) / N   ← 예시마다의 (p − onehot)를 더한 것
+  }
+  loss /= N;
+  if (step % 50 === 0) log.push({ step, loss: +loss.toFixed(4), gap: +(loss - countNLL).toFixed(4) });
+  if (step === STEPS) break;
+  // TODO 4: 경사 하강 W[j] −= LR × grad[j]
+}
+console.table(log);
+console.log('빈도표 바이그램 NLL:', countNLL.toFixed(4));
+// TODO 5: 학습된 W의 "실" 행을 소프트맥스해 습·수·제·은의 확률을 빈도표(7/21, 3/21 …)와 비교한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. MLP 언어 모델 vs 빈도표 — 처음 보는 문서에서</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>1주차 C5와 같은 설정으로 “벡터 데이터베이스와 인덱스”(<code>rag-vectordb</code>)를 빼고 학습한다. 앞 3글자 + 임베딩 16 + 은닉 32의 MLP를 사이트의 <code>tensor.js</code>(임베딩 · linear · GELU · 교차 엔트로피 · AdamW, 역전파는 <code>backward(loss)</code> 한 줄)로 만든다. tensor.js에는 이어 붙이기 연산이 없으므로, 자리마다 따로 곱해 더한다. 기대 결과: MLP의 새 문서 NLL ≈ 4.08, 같은 3글자를 보는 빈도 4-gram 5.645, 트라이그램 5.000, 바이그램 4.163. 실행에 5~6초 걸린다(10초 제한 안).</p>
+          <pre data-run="c5" data-title="C5 MLP 언어 모델"><code class="language-javascript">import { Tensor, embedding, linear, add, gelu, crossEntropy, backward, noGrad, AdamW } from '/assets/js/core/tensor.js';
+import { countNgrams, nll } from '/assets/js/core/ngram.js';
+import { mulberry32 } from '/assets/js/core/rng.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const join = (docs) =&gt; docs.map((d) =&gt; d.text).join('\n\n');
+const trainText = join(corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb'));
+const valText = join(corpus.documents.filter((d) =&gt; d.id === 'rag-vectordb')); // 학습에 안 쓴 문서
+
+// 어휘: 코퍼스 전체 글자 495개 + 시작 표시 BOS
+const chars = [...new Set(trainText + valText)].sort();
+const stoi = new Map(chars.map((c, i) =&gt; [c, i]));
+const V = chars.length, BOS = V;
+const CTX = 3, D = 16, H = 32; // 앞 3글자 · 임베딩 16차원 · 은닉 32
+
+function makeExamples(text) {
+  const ids = [...Array(CTX).fill(BOS), ...[...text].map((c) =&gt; stoi.get(c))];
+  const X = [], Y = [];
+  for (let i = CTX; i &lt; ids.length; i++) { X.push(ids.slice(i - CTX, i)); Y.push(ids[i]); }
+  return { X, Y };
+}
+const train = makeExamples(trainText), val = makeExamples(valText);
+
+const rand = mulberry32(1);
+const E = Tensor.randn([V + 1, D], 1, rand);                                         // 글자 임베딩 표
+const W1 = [0, 1, 2].map(() =&gt; Tensor.randn([D, H], 1 / Math.sqrt(CTX * D), rand)); // 자리마다 하나
+const b1 = Tensor.zeros([H], true);
+const W2 = Tensor.randn([H, V], 0.5 / Math.sqrt(H), rand);
+const b2 = Tensor.zeros([V], true);
+const params = [E, ...W1, b1, W2, b2];
+
+function forward(X) {
+  // TODO: 자리 j = 0, 1, 2마다 embedding(E, X.map(x =&gt; x[j]))로 [N, D]를 꺼내 linear(…, W1[j])를 하고 모두 add한다
+  //       (첫 자리에만 b1을 넣는다. [E[x0] | E[x1] | E[x2]] · W1 을 자리별로 나눈 것과 같다)
+  // TODO: h = gelu(합), logits = linear(h, W2, b2) 를 돌려준다
+  return null;
+}
+const evalNLL = (set) =&gt; noGrad(() =&gt; crossEntropy(forward(set.X), set.Y).data[0]);
+
+const opt = new AdamW(params, { lr: 0.01, weightDecay: 0.5 });
+const log = [];
+for (let step = 1; step &lt;= 600; step++) {
+  const idx = Array.from({ length: 32 }, () =&gt; Math.floor(rand() * train.X.length)); // 미니배치 32개
+  const logits = forward(idx.map((i) =&gt; train.X[i]));
+  if (!logits) { console.log('TODO: forward를 완성한다'); break; }
+  const loss = crossEntropy(logits, idx.map((i) =&gt; train.Y[i]));
+  opt.zeroGrad();
+  backward(loss);
+  opt.step();
+  if (step % 200 === 0) log.push({ step, batchLoss: +loss.data[0].toFixed(3), valNLL: +evalNLL(val).toFixed(3) });
+}
+console.table(log);
+
+// TODO: 같은 valText에서 빈도 n-gram(n = 2, 3, 4, k = 0.1)의 NLL을 구해 MLP와 한 표로 비교한다
+//       nll(countNgrams([...trainText], n), [...valText], { k: 0.1 }).nll
+const rows = [];
+console.table(rows);</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>신경망은 후보마다 로짓을 내고, 소프트맥스가 로짓을 확률로 바꾼다. 계산할 때는 최댓값을 먼저 뺀다.</li>
+          <li>교차 엔트로피 L = −log p(정답)은 1주차의 NLL과 같은 식이다. 틀린 답을 확신할수록 손실이 폭발적으로 커진다.</li>
+          <li>로짓에 대한 경사는 p − onehot이다. 정답은 올리고, 오답은 자기 확률만큼 내린다.</li>
+          <li>역전파는 계산 그래프 위의 연쇄 법칙이다. 노드마다 “위에서 온 경사 × 국소 미분”을 계산해 더한다. 자동 미분은 이것을 기계적으로 해 준다.</li>
+          <li>경사 하강 w ← w − lr × 경사. lr이 작으면 느리고, 크면 진동하거나 포화 구간으로 튕겨 나가 멈춘다.</li>
+          <li>신경망 바이그램은 빈도표 바이그램과 같은 답(같은 손실)에 도달한다. 이득은 문맥을 넓힐 때 나온다. 임베딩 + 은닉층 MLP는 같은 3글자를 보는 빈도표보다 새 문서를 훨씬 잘 맞힌다.</li>
+        </ul>
+        <p><strong>다음 주(5주차 어텐션)</strong>에는 “앞 3글자”처럼 정해진 창을 버린다. 앞의 모든 토큰을 보되 지금 필요한 토큰에 더 큰 가중치를 주는 어텐션을 직접 계산한다. 가중치를 정하는 데 이번 주의 소프트맥스가 다시 쓰인다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="4"> ✅ 4주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="4" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount as mountSoftmax } from '../../assets/js/widgets/w04-softmax.js';
+    import { mount as mountAutograd } from '../../assets/js/widgets/w04-autograd.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mountSoftmax(document.getElementById('w04-softmax'));
+    mountAutograd(document.getElementById('w04-autograd'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

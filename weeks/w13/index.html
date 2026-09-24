@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>13주차 응용 ① 텍스트 처리 자동화 · LLM Lab</title>
+  <meta name="description" content="LLM으로 문서 여러 개를 한꺼번에 요약·분류·정보 추출한다. 프롬프트 템플릿, 출력 검증, 골드셋 평가, 동시 실행·재시도·캐시·비용까지 일괄 처리 파이프라인을 만든다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w13.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="13" data-crumb="PART 5 · LLM 응용 실습 › <b>13주차 · 응용 ① 텍스트 처리 자동화</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🗂️ 13주차 · 응용 ① 텍스트 처리 자동화</span>
+      <h1>한 번 묻기에서 천 번 돌리기로</h1>
+      <p class="lead">11주차에는 LLM에게 질문 하나를 보내고 답 하나를 받았다. 실무에서는 문서 수백 개를 요약하고, 문의 수천 건을 분류하고, 공문에서 날짜와 금액을 뽑는다. 이때 LLM은 채팅 상대가 아니라 <strong>파이프라인의 한 단계</strong>다. 이번 주는 코퍼스 17문서를 한꺼번에 처리하는 일괄 처리기를 만들고, 출력이 “가끔” 깨지는 것을 코드로 잡아내고, 결과를 골드셋과 비교해 숫자로 평가한다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 문서 일괄 처리기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 선택 (없으면 예시 응답)</span>
+        <span class="chip">🧩 응용 실습</span>
+      </div>
+      <div class="flow" aria-label="LLM 일괄 처리 파이프라인에서 이번 주가 다루는 단계">
+        <div>문서 불러오기</div><div><b>프롬프트 템플릿</b></div><div><b>호출 · 재시도 · 캐시</b></div><div><b>파싱 · 검증</b></div><div><b>골드셋 평가</b></div><div>저장 · 활용</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>요약·분류·정보 추출을 프롬프트 템플릿 하나로 여러 문서에 적용하고, 출력 형식(길이, 라벨 집합, JSON 스키마)을 코드로 검사할 수 있다.</li>
+          <li>작은 골드셋으로 정확도·혼동 행렬·필드 단위 정확 일치를 계산해 제로샷과 퓨샷 프롬프트를 숫자로 비교할 수 있다.</li>
+          <li>동시 실행 제한·재시도·캐시를 갖춘 일괄 실행기를 만들고, 호출 수와 비용을 실행 전에 어림할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>11주차 플레이그라운드에서 “이 문서를 한 줄로 요약해 줘”를 보내면 대개 좋은 답이 온다. 그래서 문서 1,000개도 똑같이 하면 될 것 같다. 해 보면 다섯 가지 문제가 한꺼번에 터진다.</p>
+        <ol>
+          <li><strong>형식이 가끔 깨진다.</strong> “라벨만 답하라”고 해도 “분류 결과: 이론-LLM”이라고 답하고, JSON을 달라고 해도 코드 펜스(<code>```json</code>)나 “위 JSON은…” 같은 설명을 붙인다. 한 번이면 눈으로 고치지만, 1,000건 중 3%면 30건이 조용히 망가진다.</li>
+          <li><strong>그럴듯하게 틀린다.</strong> 교과목 문서가 아닌 학과 소개에서 “학점: 3”을 뽑아낸다. 형식은 완벽하므로 파싱 검사로는 걸러지지 않는다.</li>
+          <li><strong>API가 거절한다.</strong> 짧은 시간에 요청을 몰아 보내면 429(요청 한도 초과)가 돌아온다. 재시도 없이 돌리면 일부 문서가 빈칸으로 남는다.</li>
+          <li><strong>비용과 시간이 보이지 않는다.</strong> 문서 하나에 1원이 안 되더라도 퓨샷 예시를 붙이면 입력이 50% 늘고, 같은 문서를 두 번 보내면 두 번 낸다.</li>
+          <li><strong>좋아졌는지 모른다.</strong> 프롬프트를 고친 뒤 “이번 게 더 나은 것 같다”는 느낌만 남는다. 정답을 아는 작은 평가 세트가 없으면 개선을 증명할 수 없다.</li>
+        </ol>
+        <div class="callout">
+          <span class="callout__title">이번 주의 관점</span>
+          <p>LLM 호출은 함수 호출이 아니라 <strong>네트워크 너머 확률 모델</strong>의 호출이다. 실패는 예외가 아니라 일상이므로, 출력은 항상 검사하고, 호출은 항상 재시도·제한·캐시를 거치고, 결과는 항상 골드셋으로 잰다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>일괄 처리 파이프라인</h3>
+        <p>문서 N개를 처리하는 코드는 다섯 단계로 나뉜다. LLM이 하는 일은 ③의 호출 한 번뿐이고, 나머지는 모두 우리가 짜는 평범한 코드다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 680 250" role="img" aria-labelledby="w13-fig1-t" style="width: 100%">
+            <title id="w13-fig1-t">문서 17개가 템플릿에 채워지고, 동시 실행 수가 제한된 호출 풀에서 재시도와 캐시를 거쳐 LLM을 부르고, 응답을 파싱·검증한 뒤 골드셋과 비교해 정확도를 내는 다섯 단계</title>
+            <style>
+              .w13f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w13f-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+              .w13f-m { font: 600 11.5px var(--font-mono); fill: var(--color-text); }
+              .w13f-box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w13f-hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w13f-doc { fill: var(--color-surface); stroke: var(--color-border-strong); }
+              .w13f-ok { fill: var(--color-success); }
+              .w13f-bad { fill: var(--color-danger); }
+              .w13f-warn { fill: var(--color-warning); }
+              .w13f-lane { fill: var(--color-accent); }
+              .w13f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w13-a); }
+            </style>
+            <defs><marker id="w13-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w13f-l" x="0" y="18">① 문서</text>
+            <rect class="w13f-doc" x="12" y="40" width="80" height="100" rx="6"/>
+            <rect class="w13f-doc" x="6" y="34" width="80" height="100" rx="6"/>
+            <rect class="w13f-doc" x="0" y="28" width="80" height="100" rx="6"/>
+            <text class="w13f-m" x="10" y="52">학과 소개</text>
+            <text class="w13f-m" x="10" y="70">교과목 안내</text>
+            <text class="w13f-m" x="10" y="88">실습실 규정</text>
+            <text class="w13f-m" x="10" y="106">LLM 교안…</text>
+            <text class="w13f-n" x="0" y="162">코퍼스 17개</text>
+            <path class="w13f-arr" d="M98 85 H130"/>
+
+            <text class="w13f-l" x="136" y="18">② 템플릿</text>
+            <rect class="w13f-box" x="136" y="28" width="118" height="112" rx="8"/>
+            <text class="w13f-m" x="146" y="50">…요약하라.</text>
+            <text class="w13f-m" x="146" y="70">문서:</text>
+            <rect class="w13f-hi" x="144" y="78" width="102" height="20" rx="4"/>
+            <text class="w13f-m" x="150" y="92">{{document}}</text>
+            <text class="w13f-m" x="146" y="118">요약:</text>
+            <text class="w13f-n" x="136" y="162">문서마다 채운다</text>
+            <path class="w13f-arr" d="M260 85 H292"/>
+
+            <text class="w13f-l" x="298" y="18">③ 호출 풀</text>
+            <rect class="w13f-hi" x="298" y="28" width="150" height="112" rx="8"/>
+            <rect class="w13f-lane" x="308" y="42" width="60" height="12" rx="3"/><text class="w13f-n" x="374" y="52">실행 중</text>
+            <rect class="w13f-lane" x="308" y="62" width="44" height="12" rx="3"/><text class="w13f-n" x="358" y="72">실행 중</text>
+            <rect class="w13f-warn" x="308" y="82" width="22" height="12" rx="3"/><text class="w13f-n" x="336" y="92">429 → 대기 → 재시도</text>
+            <rect class="w13f-ok" x="308" y="102" width="10" height="12" rx="3"/><text class="w13f-n" x="324" y="112">캐시 적중 → 건너뜀</text>
+            <text class="w13f-n" x="308" y="132">동시 ≤ 2 · 온도 0</text>
+            <text class="w13f-n" x="298" y="162">LLM은 여기서만</text>
+            <path class="w13f-arr" d="M454 85 H486"/>
+
+            <text class="w13f-l" x="492" y="18">④ 검증</text>
+            <rect class="w13f-box" x="492" y="28" width="86" height="112" rx="8"/>
+            <circle class="w13f-ok" cx="506" cy="48" r="6"/><text class="w13f-n" x="518" y="52">JSON</text>
+            <circle class="w13f-bad" cx="506" cy="70" r="6"/><text class="w13f-n" x="518" y="74">```json</text>
+            <circle class="w13f-ok" cx="506" cy="92" r="6"/><text class="w13f-n" x="518" y="96">라벨</text>
+            <circle class="w13f-warn" cx="506" cy="114" r="6"/><text class="w13f-n" x="518" y="118">152자</text>
+            <text class="w13f-n" x="492" y="162">형식 계약</text>
+            <path class="w13f-arr" d="M584 85 H604"/>
+
+            <text class="w13f-l" x="610" y="18">⑤ 평가</text>
+            <rect class="w13f-box" x="610" y="28" width="68" height="112" rx="8"/>
+            <text class="w13f-m" x="618" y="52">골드셋</text>
+            <text class="w13f-m" x="618" y="80">12/17</text>
+            <text class="w13f-m" x="618" y="100">= 71%</text>
+            <text class="w13f-n" x="610" y="162">정확도</text>
+
+            <text class="w13f-n" x="0" y="200">③은 느리고 비싸고 가끔 실패한다 → 동시 실행 제한, 지수 백오프 재시도, 프롬프트 해시 캐시로 감싼다.</text>
+            <text class="w13f-n" x="0" y="222">④⑤가 없으면 “잘 되는 것 같다”로 끝난다 → 출력 계약을 코드로 검사하고, 정답을 아는 문서로 점수를 낸다.</text>
+          </svg>
+          <figcaption>일괄 처리 파이프라인. 오른쪽 숫자는 이번 주 예시 응답의 제로샷 분류 결과다.</figcaption>
+        </figure>
+
+        <h3>세 가지 작업과 출력 계약</h3>
+        <p>작업마다 “출력이 어떤 모양이어야 하는가”를 먼저 정한다. 이것을 <strong>출력 계약</strong>이라 부르자. 계약이 정해져야 코드로 검사할 수 있다.</p>
+        <table>
+          <thead><tr><th>작업</th><th>출력 계약</th><th>코드로 하는 검사</th><th>예시 응답에서 본 실패</th></tr></thead>
+          <tbody>
+            <tr><td><b>요약</b></td><td>N자 이내 평문 한두 문장</td><td>글자 수, 서두 문장(“다음은…”), 핵심어 포함</td><td>152자 요약(제한 100자), “24시간 개방”처럼 문서에 없는 내용</td></tr>
+            <tr><td><b>분류</b></td><td>고정된 라벨 5개 중 하나</td><td>라벨 집합에 있는지, 골드 라벨과 같은지</td><td>“데이터베이스”(집합 밖), “분류 결과: 이론-LLM”(군더더기)</td></tr>
+            <tr><td><b>정보 추출</b></td><td>필드 5개짜리 JSON 객체</td><td><code>JSON.parse</code>, 필드·타입 검사, 값 정규화</td><td>코드 펜스, JSON 뒤 설명문, “3학점” 문자열, 없는 값 채우기</td></tr>
+          </tbody>
+        </table>
+        <p>분류에서 라벨을 <strong>고정된 집합</strong>으로 주는 이유는 집계 때문이다. 라벨이 자유 문장이면 “RAG 이론”, “검색 이론”, “이론(RAG)”이 모두 다른 값이 되어 셀 수 없다. 추출에서는 스키마(필드 이름과 타입)가 같은 역할을 한다. 정규화(normalization)는 “3학점” → 3, “주 1회 3시간” → 3, “40%” → 40처럼 같은 뜻의 다른 표기를 하나로 맞추는 일이다. 정규화는 형식만 고칠 수 있다. 문서에 없는 값을 지어낸 환각은 정규화로 고칠 수 없다.</p>
+
+        <h3>제로샷과 퓨샷</h3>
+        <p>지시문만 주는 것을 제로샷(zero-shot), 입력과 정답 예시 몇 개를 함께 주는 것을 퓨샷(few-shot)이라 한다. 예시는 “라벨만 한 단어로” 같은 형식을 말보다 확실하게 보여 준다. 대신 매 호출마다 예시만큼 입력 토큰이 늘어난다. 이번 주 예시 응답으로 잰 값은 다음과 같다.</p>
+        <table>
+          <thead><tr><th>작업 (기본 템플릿)</th><th>제로샷</th><th>퓨샷</th><th>입력 토큰 (추정)</th></tr></thead>
+          <tbody>
+            <tr><td>분류 17문서 · 정확도</td><td>12/17 (71%)</td><td>16/17 (94%)</td><td>5,670 → 8,458 (+49%)</td></tr>
+            <tr><td>추출 4문서 · 필드 일치 (엄격한 파싱)</td><td>6/20</td><td>19/20</td><td>1,446 → 2,174</td></tr>
+            <tr><td>요약 17문서 · 규칙 통과 (100자)</td><td>13/17</td><td>17/17</td><td>5,398 → 6,869</td></tr>
+          </tbody>
+        </table>
+        <p>퓨샷으로도 남는 오류가 있다. “임베딩과 유사도”(RAG 교안)는 LLM 교안의 “임베딩”과 주제가 겹쳐 끝까지 이론-LLM으로 분류된다. 예시를 늘리기보다 라벨의 <em>정의</em>(“RAG 교안: 검색·청킹·평가 등 RAG 파이프라인을 다루는 문서”)를 템플릿에 적는 편이 낫다. 이런 판단은 혼동 행렬을 봐야 할 수 있다.</p>
+
+        <h3>평가: 작은 골드셋</h3>
+        <p>골드셋(gold set)은 사람이 정답을 달아 둔 작은 평가용 데이터다. 이번 주는 17문서마다 분류 정답, 요약 핵심어 세 개, 안내 문서 4개의 추출 정답을 <code>assets/data/w13/gold.json</code>에 만들어 두었다. 20~50개면 충분하다. 목적은 모델의 절대 실력이 아니라 <strong>프롬프트 A와 B 중 무엇이 나은가</strong>를 같은 잣대로 재는 것이다.</p>
+        <ul>
+          <li><strong>정확도</strong>: 맞힌 문서 수 / 전체. 분류의 기본 지표다.</li>
+          <li><strong>혼동 행렬(confusion matrix)</strong>: 행은 정답, 열은 예측. 대각선 밖의 칸이 “무엇을 무엇으로 착각하는가”를 보여 준다. 제로샷에서는 이론-RAG 6개 중 2개가 이론-LLM 칸에 들어간다.</li>
+          <li><strong>필드 단위 정확 일치</strong>: 추출은 문서 단위로 맞다/틀리다 하기엔 거칠다. 필드마다 정규화한 값이 정답과 같은지 센다. 정답이 null인데 값을 채웠으면 <strong>환각</strong>으로 따로 센다.</li>
+          <li><strong>요약</strong>은 정답 문장이 하나로 정해지지 않는다. 길이 제한 준수와 핵심어 포함률처럼 코드로 셀 수 있는 규칙부터 잰다.</li>
+        </ul>
+        <p>파싱을 얼마나 관대하게 하느냐도 점수를 바꾼다. 추출 제로샷 응답 4개 중 <code>JSON.parse</code>를 통과하는 것은 2개뿐이지만, 코드 펜스와 뒤 설명문을 걷어 내면 4개 모두 파싱되고 필드 일치가 6/20에서 15/20으로 오른다. 남은 5개 오류 중 4개는 환각이다.</p>
+
+        <h3>긴 문서: 맵-리듀스 요약</h3>
+        <p>문서가 모델의 컨텍스트 창보다 길면 한 번에 넣을 수 없다. 이때 문서를 문단 단위 청크로 나눠 각각 요약하고(map), 부분 요약을 모아 다시 요약한다(reduce). 모은 것이 아직 길면 한 번 더 반복한다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 200" role="img" aria-labelledby="w13-fig2-t" style="width: 100%">
+            <title id="w13-fig2-t">2,640자 문서를 400자 이하 청크 8개로 나누어 각각 요약하고, 부분 요약 698자를 다시 청크 2개로 나누어 요약한 뒤, 138자를 최종 요약하는 두 라운드의 맵-리듀스</title>
+            <style>
+              .w13g-l { font: 600 12.5px var(--font-sans); fill: var(--color-text); }
+              .w13g-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+              .w13g-c { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+              .w13g-s { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w13g-f { fill: var(--color-accent2-soft); stroke: var(--color-accent2); }
+              .w13g-arr { stroke: var(--color-text-muted); stroke-width: 1.5; fill: none; marker-end: url(#w13-b); }
+            </style>
+            <defs><marker id="w13-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w13g-l" x="0" y="16">긴 문서 2,640자</text>
+            <rect class="w13g-c" x="0" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="28" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="56" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="84" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="112" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="140" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="168" y="26" width="24" height="140" rx="4"/>
+            <rect class="w13g-c" x="196" y="26" width="24" height="140" rx="4"/>
+            <text class="w13g-n" x="0" y="186">청크 8개 (문단 경계, 각 ≤ 400자)</text>
+            <path class="w13g-arr" d="M228 96 H262"/>
+            <text class="w13g-l" x="268" y="16">map ①</text>
+            <rect class="w13g-s" x="268" y="36" width="18" height="50" rx="3"/><rect class="w13g-s" x="290" y="36" width="18" height="50" rx="3"/><rect class="w13g-s" x="312" y="36" width="18" height="50" rx="3"/><rect class="w13g-s" x="334" y="36" width="18" height="50" rx="3"/>
+            <rect class="w13g-s" x="268" y="106" width="18" height="50" rx="3"/><rect class="w13g-s" x="290" y="106" width="18" height="50" rx="3"/><rect class="w13g-s" x="312" y="106" width="18" height="50" rx="3"/><rect class="w13g-s" x="334" y="106" width="18" height="50" rx="3"/>
+            <text class="w13g-n" x="268" y="186">부분 요약 합 698자 &gt; 400</text>
+            <path class="w13g-arr" d="M362 96 H396"/>
+            <text class="w13g-l" x="402" y="16">map ②</text>
+            <rect class="w13g-s" x="402" y="46" width="30" height="40" rx="3"/>
+            <rect class="w13g-s" x="402" y="106" width="30" height="40" rx="3"/>
+            <text class="w13g-n" x="402" y="186">합 138자</text>
+            <path class="w13g-arr" d="M442 96 H476"/>
+            <text class="w13g-l" x="482" y="16">reduce</text>
+            <rect class="w13g-f" x="482" y="76" width="54" height="40" rx="4"/>
+            <text class="w13g-n" x="482" y="186">최종 요약 · 호출 11회</text>
+            <text class="w13g-n" x="548" y="92">8 + 2 + 1</text>
+            <text class="w13g-n" x="548" y="110">= 11회</text>
+          </svg>
+          <figcaption>Challenge C4의 실제 실행 결과. RAG 교안 6편을 이은 2,640자 문서를 “한 번에 400자”인 모의 요약기로 요약했다.</figcaption>
+        </figure>
+        <p>맵-리듀스는 호출 수가 청크 수만큼 늘고, 단계마다 정보가 조금씩 빠진다. C4의 최종 요약에는 첫 청크와 다섯 번째 청크의 첫 문장만 남는다. 청크를 문단 경계에서 자르는 이유는 RAG의 청킹과 같다. 문장 중간에서 자르면 두 청크 모두 그 문장을 제대로 요약하지 못한다.</p>
+
+        <h3>일괄 실행의 운영 문제</h3>
+        <table>
+          <thead><tr><th>문제</th><th>대책</th><th>이번 주에 확인하는 곳</th></tr></thead>
+          <tbody>
+            <tr><td>요청을 몰아 보내면 429</td><td><strong>동시 실행 제한</strong>: 한꺼번에 k개까지만 보낸다 (작업자 k개가 대기열에서 하나씩 가져간다)</td><td>위젯 “동시 실행 수” · C5</td></tr>
+            <tr><td>일시적 실패 (429, 5xx, 네트워크)</td><td><strong>재시도 + 지수 백오프</strong>: 기다리는 시간을 150 → 300 → 600ms처럼 두 배씩 늘린다. 401(키 오류)은 재시도하지 않는다</td><td>위젯 “재시도” · C5</td></tr>
+            <tr><td>같은 입력을 또 보냄</td><td><strong>캐시</strong>: 프롬프트(와 모델·온도)의 해시를 키로 응답을 저장한다</td><td>위젯 “캐시 적중” · C5</td></tr>
+            <tr><td>돌릴 때마다 결과가 다름</td><td><strong>온도 0</strong>: 가장 그럴듯한 답을 고르게 한다. 공급자 쪽 계산 때문에 온도 0도 가끔 달라질 수 있으므로 결과는 저장해 둔다</td><td>위젯 “온도” (8주차 디코딩)</td></tr>
+            <tr><td>비용을 모름</td><td><strong>실행 전 어림</strong>: 토큰 ≈ 글자 수 / 1.5 (한국어), 비용 = 입력 토큰 × 입력 단가 + 출력 토큰 × 출력 단가</td><td>위젯 “비용” · C1</td></tr>
+          </tbody>
+        </table>
+        <p>예를 들어 기본 분류 템플릿으로 17문서를 돌리면 입력은 약 5,670토큰, 출력은 약 69토큰이다. 예시 단가(입력 100만 토큰당 1달러, 출력 5달러)로 약 0.006달러, 문서 1,000개로 환산하면 약 0.35달러다. 단가는 모델과 시기마다 다르므로 실제 요금표를 보고 고친다. 중요한 것은 금액보다 <strong>무엇이 비용을 키우는가</strong>다. 분류는 출력이 짧아 입력(문서 + 지시문 + 예시)이 비용의 대부분이다. 퓨샷 예시 5줄이 문서마다 반복된다는 점을 기억한다.</p>
+        <div class="bridge"><span class="bi">📚</span><p><b>RAG 과정과 연결</b> — 일괄 처리의 첫 단계는 “문서를 텍스트로 불러오기”다. PDF·HWP·웹 페이지에서 본문을 뽑고 문단을 나누는 방법은 <a href="https://samcho93.github.io/studyRAG/weeks/w03/" target="_blank" rel="noopener">RAG 3주차 문서 로딩 &amp; 파싱</a>에서 다룬다. 이번 주 추출 파이프라인에 그 로더를 붙이면 실제 공문 더미를 처리할 수 있다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>작업(요약·분류·정보 추출)을 고르고 프롬프트 템플릿을 고치면 선택한 문서 전체에 같은 템플릿이 채워져 나간다. 키가 없으면 <b>예시 응답</b> 모드로 동작한다. 예시 응답은 기본 템플릿에 대해 미리 작성해 둔 수업용 응답이며, 실제 LLM에서 자주 보는 실패를 일부러 넣어 두었다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). 표의 행을 누르면 그 문서에 실제로 나간 프롬프트와 원문 응답, 판정 이유가 나온다.</p>
+        <div id="w13-batch"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 화면(분류 · 제로샷 · 엄격한 파싱)의 정확도와 “형식 유효” 값을 적는다. 혼동 행렬에서 대각선 밖에 있는 칸은 어느 것인가? ✗ 열(라벨 무효)에 들어간 문서의 원문 응답은 무엇인가?</li>
+          <li><b>관대한 파싱</b>을 켠다. 정확도가 어떻게 변하는가? 이때 “LLM 호출” 수가 늘지 않는 이유는 무엇인가? “데이터베이스”는 왜 여전히 복구되지 않는가?</li>
+          <li><b>퓨샷 예시</b>를 켠다. 정확도와 토큰(입력) 값이 각각 얼마로 바뀌는가? 남은 오류 한 건은 어떤 문서이고, 왜 헷갈릴 만한가?</li>
+          <li>작업을 <b>정보 추출</b>로 바꾼다. 엄격한 파싱에서 형식 유효는 몇 개인가? 관대한 파싱을 켠 뒤 “학과 소개” 행을 눌러 판정 이유를 읽는다. 파싱이 성공했는데도 ✗인 이유와, 어떤 필드가 환각인지 적는다.</li>
+          <li>작업을 <b>요약</b>으로 바꾸고 길이 제한을 100자 → 70자로 줄인다. 길이 준수는 몇 개가 되는가? “N자 이내”라고 프롬프트에 적었는데도 코드로 길이를 검사해야 하는 이유를 한 문장으로 쓴다.</li>
+          <li><b>캐시 사용</b>을 끄고 동시 실행 수를 1과 4로 바꿔 가며 ▶ 일괄 실행을 누른다. 소요 시간은 어떻게 변하는가? “재시도” 3회는 어느 문서에서 생겼나(시도 열의 ↻)? 캐시를 다시 켜고 같은 설정으로 두 번 실행하면 호출 수는?</li>
+          <li>분류에서 캐시를 끄고 온도를 0.8로 올린 뒤 ▶ 일괄 실행을 여러 번 누른다. 매번 바뀌는 문서는 어느 것인가? 온도 0으로 돌리면 어떤가? 온도 0.8에서 캐시를 켜면 어떤 문제가 생기는가?</li>
+          <li>(API 키가 있으면) 실제 LLM 모드에서 분류 17문서를 돌린다. 실행 전 추정 비용과 실행 후 비용을 비교하고, 예시 응답과 다르게 나온 문서를 찾는다.</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 모든 Challenge는 API 키 없이 예시 응답(<code>/assets/data/w13/*.json</code>)과 모의 LLM 함수로 동작한다. 코드는 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 템플릿 채우기와 길이 검사</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p><code>{{name}}</code> 자리표시자를 값으로 바꾸는 <code>fill</code>을 구현한다. 이름을 잘못 쓴 자리표시자는 그대로 두고 따로 알려 줘야 한다. 17문서로 프롬프트를 채워 추정 토큰 합계를 구하고, 예시 응답의 요약 중 100자를 넘는 것을 찾는다. 기대 결과: 합계 5,101토큰, 가장 긴 프롬프트는 <code>rag-chunking</code>(600자), 제한을 넘은 요약은 2개.</p>
+          <pre data-run="c1" data-title="C1 템플릿과 길이"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const template = '다음 문서를 {{limit}}자 이내로 요약하라.\n요약문만 출력한다.\n\n문서:\n"""\n{{document}}\n"""\n요약:';
+
+function fill(template, vars) {
+  const missing = [];
+  // TODO: 정규식 /\{\{\s*(\w+)\s*\}\}/g 로 {{name}}을 찾아 vars[name]으로 바꾼다
+  //       vars에 없는 이름은 그대로 두고 missing에 모은다
+  const text = template;
+  return { text, missing };
+}
+const estTokens = (s) =&gt; Math.ceil([...s].length / 1.5); // 한국어 1.5자 ≈ 1토큰으로 어림
+
+// 1) 모든 문서로 프롬프트를 채우고 길이를 본다
+const rows = corpus.documents.map((d) =&gt; {
+  const { text } = fill(template, { document: d.text, limit: 100 });
+  return { id: d.id, 문서자수: [...d.text].length, 프롬프트자수: [...text].length, 추정토큰: estTokens(text) };
+});
+console.table(rows);
+// TODO: 추정 토큰 합계와 가장 긴 프롬프트의 id를 출력한다
+
+// 2) 오타 난 자리표시자를 잡아낸다
+console.log(fill('{{documnet}} 를 {{limit}}자로', { document: 'x', limit: 50 }).missing); // 기대: ['documnet']
+
+// 3) 예시 응답의 요약 길이 검사
+const sums = await (await fetch('/assets/data/w13/summarize.json')).json();
+const LIMIT = 100;
+// TODO: sums.zero의 각 요약을 { id, 글자수, 통과 }로 만들고, 통과하지 못한 것만 표로 출력한다
+console.log('요약 개수:', Object.keys(sums.zero).length);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 분류 정확도와 혼동 행렬</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>예시 응답의 분류 결과를 골드 라벨과 비교해 정확도와 혼동 행렬을 만든다. 라벨 집합 밖의 답은 “무효” 열에 센다. 제로샷과 퓨샷을 같은 코드로 평가하는 것이 핵심이다. 기대 결과: 제로샷 0.706, 퓨샷 0.941. 라벨별 재현율도 구해 가장 약한 라벨을 찾는다.</p>
+          <pre data-run="c2" data-title="C2 분류 평가"><code class="language-javascript">const gold = await (await fetch('/assets/data/w13/gold.json')).json();
+const cls = await (await fetch('/assets/data/w13/classify.json')).json();
+const LABELS = gold.labels; // ['학과안내', '규정', '교과목', '이론-LLM', '이론-RAG']
+
+function parseLabel(raw) {
+  // TODO: 앞뒤 공백·따옴표·마침표를 걷어 내고, LABELS에 정확히 있으면 그 라벨을, 아니면 null을 돌려준다
+  return null;
+}
+function evaluate(outputs) {
+  const ids = Object.keys(gold.docs);
+  const cols = [...LABELS, '무효'];
+  // confusion[정답][예측] — 예측이 null이면 '무효' 열에 센다
+  const confusion = Object.fromEntries(LABELS.map((g) =&gt; [g, Object.fromEntries(cols.map((c) =&gt; [c, 0]))]));
+  let correct = 0;
+  const errors = [];
+  for (const id of ids) {
+    const raw = outputs[id];
+    const want = gold.docs[id].category;
+    // TODO: parseLabel(raw)로 예측을 구해 confusion을 채운다
+    // TODO: 맞으면 correct++, 틀리면 errors에 { id, raw, gold: want }를 넣는다
+  }
+  return { accuracy: correct / ids.length, confusion, errors };
+}
+const zero = evaluate(cls.zero);
+const few = evaluate({ ...cls.zero, ...cls.few }); // few에 없는 문서는 zero와 같은 답
+console.log('zero-shot 정확도', zero.accuracy.toFixed(3), '· few-shot 정확도', few.accuracy.toFixed(3));
+console.table(zero.confusion);
+console.table(zero.errors);
+// TODO: 라벨별 재현율(recall) = confusion[g][g] / 그 행의 합 을 표로 만들고 가장 낮은 라벨을 찾는다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. JSON 추출: 파싱 · 검증 · 정규화</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>LLM이 돌려준 원문 문자열에서 JSON을 꺼내고(코드 펜스와 뒤 설명문 처리), 스키마를 검사하고, “3학점” 같은 값을 정수로 정규화한 뒤 골드셋과 필드 단위로 비교한다. 기대 결과: <code>JSON.parse</code>만으로는 4개 중 2개만 파싱되고, 완성하면 필드 일치가 5/5, 4/5, 2/5, 4/5, 환각 필드는 4개다.</p>
+          <pre data-run="c3" data-title="C3 JSON 추출"><code class="language-javascript">const gold = await (await fetch('/assets/data/w13/gold.json')).json();
+const ext = await (await fetch('/assets/data/w13/extract.json')).json();
+const FIELDS = gold.extraction.fields; // ['과목명', '학점', '주당_수업시간', '주차수', '성적비율']
+
+function extractJSON(raw) {
+  // TODO: 먼저 JSON.parse(raw)를 시도한다
+  // TODO: 실패하면 ```json 펜스를 지우고 첫 '{'부터 마지막 '}'까지 잘라 다시 시도한다. 그래도 실패하면 null
+  return null;
+}
+function toInt(v) {
+  // TODO: null → null, 숫자 → 그대로, "3학점" → 3, "주 1회 3시간" → 3 ("시간" 앞 숫자 우선), "40%" → 40
+  return v;
+}
+function normalize(obj) {
+  const errors = [];
+  // TODO: FIELDS에 없는 키와 빠진 키를 errors에 적는다
+  // TODO: 학점·주당_수업시간·주차수는 toInt, 성적비율은 값마다 toInt하고 합이 100인지 검사한다
+  return { record: obj, errors };
+}
+const same = (a, b) =&gt; JSON.stringify(a) === JSON.stringify(b);
+const rows = [];
+for (const [id, raw] of Object.entries(ext.zero)) {
+  const want = gold.extraction.items[id] ?? gold.extraction.default;
+  const obj = extractJSON(raw);
+  const { record, errors } = obj ? normalize(obj) : { record: null, errors: ['JSON 파싱 실패'] };
+  const hits = FIELDS.filter((f) =&gt; record &amp;&amp; same(record[f], want[f]));
+  // TODO: 정답이 null인데 값을 채운 필드(환각)를 찾아 rows에 함께 적는다
+  rows.push({ id, parsed: !!obj, errors: errors.join('; '), 일치: `${hits.length}/${FIELDS.length}` });
+}
+console.table(rows);
+console.log(toInt('3학점'), toInt('주 1회 3시간'), toInt('40%'), toInt(null)); // 기대: 3 3 40 null</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 맵-리듀스 요약</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>한 번에 400자만 읽을 수 있는 모의 요약기로 2,640자짜리 문서를 요약한다. 문단 경계로 청크를 나누는 <code>chunkByParagraph</code>와, 부분 요약이 여전히 길면 한 번 더 도는 재귀 <code>mapReduce</code>를 완성한다. 기대 결과: 청크 8개, 2라운드, 모의 LLM 호출 11회. 최종 요약에서 빠진 교안은 어느 것인지도 확인한다.</p>
+          <pre data-run="c4" data-title="C4 맵-리듀스"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+// “긴 문서”: RAG 교안 6편을 이어 붙인다
+const longDoc = corpus.documents.filter((d) =&gt; d.id.startsWith('rag-')).map((d) =&gt; d.text).join('\n\n');
+const CONTEXT_LIMIT = 400; // 모의 LLM이 한 번에 읽을 수 있는 글자 수
+let calls = 0;
+const len = (s) =&gt; [...s].length;
+
+// 모의 요약기 (실제 LLM 대신): 문단마다 첫 문장을 골라 limit자까지 담는다
+function mockSummarize(text, limit) {
+  calls++;
+  if (len(text) &gt; CONTEXT_LIMIT) throw new Error(`컨텍스트 초과: ${len(text)}자 &gt; ${CONTEXT_LIMIT}자`);
+  const firsts = text.split('\n\n').map((p) =&gt; p.trim().split(/(?&lt;=다\.)\s+/)[0]);
+  let out = '';
+  for (const s of firsts) {
+    if (len(out) + len(s) + 1 &gt; limit) break;
+    out += (out ? ' ' : '') + s;
+  }
+  return out || [...firsts[0]].slice(0, limit).join('');
+}
+
+function chunkByParagraph(text, maxChars) {
+  // TODO: '\n\n'으로 문단을 나누고 차례로 붙이되, 붙이면 maxChars를 넘을 때 새 청크를 시작한다
+  return [text];
+}
+
+function mapReduce(text, limit, round = 1) {
+  // TODO: map — 청크마다 mockSummarize(chunk, 120)
+  // TODO: reduce — 부분 요약을 '\n\n'으로 이어 CONTEXT_LIMIT 안이면 mockSummarize(합친 것, limit)
+  //       아직 길면 합친 것을 입력으로 mapReduce(합친 것, limit, round + 1)
+  return mockSummarize(text, limit);
+}
+
+console.log('긴 문서:', len(longDoc), '자');
+try {
+  console.log(mockSummarize(longDoc, 150));
+} catch (e) {
+  console.log('한 번에 요약:', e.message);
+}
+calls = 0;
+const chunks = chunkByParagraph(longDoc, CONTEXT_LIMIT);
+console.table(chunks.map((c, i) =&gt; ({ i, 글자수: len(c), 시작: c.slice(0, 20) })));
+try {
+  const s = mapReduce(longDoc, 150);
+  console.log(s);
+  console.log(len(s) + '자 · 모의 LLM 호출', calls, '회');
+} catch (e) {
+  console.log('실패:', e.message);
+}</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 동시 실행 · 재시도 · 캐시가 있는 일괄 실행기</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>25ms 걸리고 가끔 429를 내는 모의 LLM으로 34개 요청(17문서를 실수로 두 번씩)을 처리한다. 동시 실행 제한, 지수 백오프 재시도, 해시 키 캐시를 넣은 <code>runBatch</code>를 완성하고 세 설정을 비교한다. 기대 결과: 캐시 없이는 호출 38회(재시도 4회 포함), 캐시가 있으면 21회로 17회(45%)를 아낀다. 동시 4는 순차보다 약 4배 빠르다(시간은 환경마다 다르다).</p>
+          <pre data-run="c5" data-title="C5 일괄 실행기"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const cls = await (await fetch('/assets/data/w13/classify.json')).json();
+const answer = new Map(corpus.documents.map((d) =&gt; [d.text, cls.few[d.id] ?? cls.zero[d.id]]));
+const sleep = (ms) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i &lt; str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) &gt;&gt;&gt; 0;
+  return h.toString(16).padStart(8, '0');
+}
+const stats = { calls: 0, inFlight: 0, maxInFlight: 0 };
+const failedOnce = new Set();
+async function mockLLM(prompt) {
+  stats.calls++;
+  stats.inFlight++;
+  stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
+  try {
+    await sleep(25);
+    const h = fnv1a(prompt);
+    if (parseInt(h, 16) % 5 === 0 &amp;&amp; !failedOnce.has(h)) {
+      failedOnce.add(h);
+      const e = new Error('429 Too Many Requests');
+      e.status = 429;
+      throw e;
+    }
+    const doc = prompt.split('"""\n')[1]?.split('\n"""')[0];
+    return answer.get(doc) ?? '모름';
+  } finally {
+    stats.inFlight--;
+  }
+}
+const tpl = (text) =&gt; `다음 문서의 종류를 라벨 하나로 답하라.\n문서:\n"""\n${text}\n"""\n라벨:`;
+const prompts = [...corpus.documents, ...corpus.documents].map((d) =&gt; tpl(d.text));
+
+async function runBatch(prompts, { concurrency = 1, retries = 3, cache = null } = {}) {
+  const results = new Array(prompts.length);
+  let retried = 0;
+  let hits = 0;
+  // TODO ① withRetry(prompt): mockLLM을 부르고, e.status === 429이면 20 × 2^attempt ms 기다린 뒤 다시 (최대 retries번, retried++)
+  // TODO ② cache(Map)가 있으면 fnv1a(prompt)를 키로 먼저 찾는다(hits++). 없으면 호출하고 저장한다
+  //        (결과 대신 Promise를 저장하면 아직 진행 중인 중복 요청도 막는다. 실패한 것은 지운다)
+  // TODO ③ 작업자(lane) concurrency개가 공유 인덱스 next에서 하나씩 가져가 실행한다 → Promise.all
+  for (let i = 0; i &lt; prompts.length; i++) {
+    results[i] = await mockLLM(prompts[i]).catch((e) =&gt; 'ERROR ' + e.message);
+  }
+  return { results, retried, hits };
+}
+async function measure(label, opts) {
+  Object.assign(stats, { calls: 0, inFlight: 0, maxInFlight: 0 });
+  failedOnce.clear();
+  const t0 = performance.now();
+  const r = await runBatch(prompts, opts);
+  return { label, ms: Math.round(performance.now() - t0), calls: stats.calls, 최대동시: stats.maxInFlight, 재시도: r.retried, 캐시적중: r.hits, 오류: r.results.filter((x) =&gt; x.startsWith('ERROR')).length };
+}
+const rows = [];
+rows.push(await measure('순차 · 캐시 없음', { concurrency: 1 }));
+rows.push(await measure('동시 4 · 캐시 없음', { concurrency: 4 }));
+rows.push(await measure('동시 4 · 캐시', { concurrency: 4, cache: new Map() }));
+console.table(rows);
+// TODO: 캐시로 아낀 호출 수(rows[1].calls − rows[2].calls)와 비율, 순차 대비 속도 배수를 출력한다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>LLM 일괄 처리는 템플릿 채우기 → 호출 → 파싱·검증 → 평가로 이어지는 파이프라인이다. LLM은 그중 한 단계일 뿐이다.</li>
+          <li>작업마다 출력 계약(길이, 고정 라벨 집합, JSON 스키마)을 정하고 코드로 검사한다. 정규화는 표기를 고치지만 환각은 고치지 못한다.</li>
+          <li>작은 골드셋으로 정확도·혼동 행렬·필드 단위 일치를 재면 제로샷과 퓨샷, 엄격한 파싱과 관대한 파싱을 숫자로 비교할 수 있다.</li>
+          <li>호출은 동시 실행 제한, 지수 백오프 재시도, 해시 캐시로 감싸고, 재현이 필요하면 온도 0을 쓴다. 비용은 실행 전에 토큰으로 어림한다.</li>
+          <li>컨텍스트보다 긴 문서는 문단 단위로 나눠 맵-리듀스로 요약한다. 호출이 늘고 정보가 조금씩 빠진다는 대가가 있다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">📏</span><p><b>RAG 과정과 연결</b> — 이번 주의 골드셋 평가는 <a href="https://samcho93.github.io/studyRAG/weeks/w09/" target="_blank" rel="noopener">RAG 9주차 평가</a>의 축소판이다. RAG에서는 같은 생각으로 질문·정답·근거 문서를 묶은 골든셋을 만들고 Recall@k와 Faithfulness를 잰다. “바꿀 때마다 같은 세트로 다시 잰다”는 원칙이 그대로 이어진다.</p></div>
+        <p><strong>다음 주(14주차 응용 ② 대화형 챗봇 만들기)</strong>에는 일괄 처리에서 대화로 돌아간다. 이번 주에 만든 템플릿과 재시도 코드를 바탕으로, 페르소나(시스템 프롬프트)·대화 메모리·스트리밍 출력을 갖춘 학과 안내 챗봇을 만든다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="13"> ✅ 13주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="13" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w13-batch.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w13-batch'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

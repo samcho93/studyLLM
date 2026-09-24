@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "description": "13주차 골드 라벨: 코퍼스 17문서의 분류 정답, 요약 핵심어, 교과목 정보 추출 정답. 사람이 문서를 읽고 직접 작성했다.",
+  "labels": ["학과안내", "규정", "교과목", "이론-LLM", "이론-RAG"],
+  "summaryLimit": 100,
+  "docs": {
+    "dept-overview":       { "category": "학과안내", "keywords": ["1년 과정", "출석률 80%", "팀 프로젝트"] },
+    "course-llm-syllabus": { "category": "교과목",   "keywords": ["3학점", "12주", "미니 GPT"] },
+    "course-rag-syllabus": { "category": "교과목",   "keywords": ["3학점", "Recall@k", "팀 프로젝트"] },
+    "facility-rules":      { "category": "규정",     "keywords": ["오후 9시", "음식물", "12시간"] },
+    "llm-lm":              { "category": "이론-LLM", "keywords": ["다음 토큰", "바이그램", "확률"] },
+    "llm-tokenizer":       { "category": "이론-LLM", "keywords": ["BPE", "어휘", "비용"] },
+    "llm-embedding":       { "category": "이론-LLM", "keywords": ["벡터", "분포 가설", "코사인 유사도"] },
+    "llm-attention":       { "category": "이론-LLM", "keywords": ["쿼리", "소프트맥스", "인과 마스크"] },
+    "llm-transformer":     { "category": "이론-LLM", "keywords": ["잔차 연결", "위치 임베딩", "피드포워드"] },
+    "llm-decoding":        { "category": "이론-LLM", "keywords": ["그리디", "온도", "top-p"] },
+    "llm-training":        { "category": "이론-LLM", "keywords": ["사전학습", "SFT", "LoRA"] },
+    "rag-intro":           { "category": "이론-RAG", "keywords": ["환각", "검색", "근거"] },
+    "rag-chunking":        { "category": "이론-RAG", "keywords": ["청킹", "오버랩", "재귀 분할"] },
+    "rag-embedding":       { "category": "이론-RAG", "keywords": ["코사인 유사도", "한국어", "접두어"] },
+    "rag-vectordb":        { "category": "이론-RAG", "keywords": ["Flat", "HNSW", "근사"] },
+    "rag-hybrid":          { "category": "이론-RAG", "keywords": ["BM25", "RRF", "리랭킹"] },
+    "rag-evaluation":      { "category": "이론-RAG", "keywords": ["골든셋", "Recall@k", "Faithfulness"] }
+  },
+  "extraction": {
+    "fields": ["과목명", "학점", "주당_수업시간", "주차수", "성적비율"],
+    "note": "교과목 문서가 아니면 모든 필드가 null이다. 주당_수업시간은 한 주에 수업하는 시간(주 1회 3시간 → 3)이다.",
+    "items": {
+      "course-llm-syllabus": {
+        "과목명": "LLM 원리와 활용",
+        "학점": 3,
+        "주당_수업시간": 3,
+        "주차수": 12,
+        "성적비율": { "주차별 실습 과제": 40, "미니 GPT 학습 보고서": 20, "종합 프로젝트": 30, "수업 참여": 10 }
+      },
+      "course-rag-syllabus": {
+        "과목명": "검색증강생성(RAG) 시스템 구축",
+        "학점": 3,
+        "주당_수업시간": 3,
+        "주차수": 12,
+        "성적비율": { "주차별 실습 과제": 30, "중간 점검": 20, "팀 프로젝트": 40, "수업 참여": 10 }
+      }
+    },
+    "default": { "과목명": null, "학점": null, "주당_수업시간": null, "주차수": null, "성적비율": null }
+  }
+}

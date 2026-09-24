@@ -1,0 +1,675 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>13주차 응용 ① 텍스트 처리 자동화 · 교사용 · LLM Lab</title>
+  <meta name="description" content="13주차 텍스트 처리 자동화 교사용 슬라이드: 강의 흐름, 교사 노트, Challenge 정답, 자주 막히는 지점, 토론 주제, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/slides.css">
+  <link rel="stylesheet" href="../../assets/css/w13.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-week="13" data-crumb="🧑‍🏫 교사용 › <b>13주차 · 응용 ① 텍스트 처리 자동화</b>">
+    <main class="pane center" id="main">
+      <div class="slide-view" data-deck data-deck-title="13주차 · 응용 ① 텍스트 처리 자동화">
+        <div class="deck-bar"><div class="deck-row" data-deck-controls></div></div>
+        <div class="deck-progress"><i></i></div>
+        <div class="deck-wrap">
+          <div class="deck-viewport">
+        <div class="deck-stage">
+
+          <!-- 1 -->
+          <section class="slide slide--title" data-title="표지">
+            <div class="kicker">LLM 원리와 활용 · 응용 실습 · 13주차</div>
+            <h1>응용 ① 텍스트 처리 자동화</h1>
+            <p>한 번 묻기에서 천 번 돌리기로</p>
+            <div class="deco" aria-hidden="true">🗂️</div>
+            <aside class="notes">
+              <p><strong>오늘 흐름 (180분)</strong></p>
+              <table>
+                <tr><td>0:00–0:10</td><td>11주차 복습 · “한 번 잘 되면 천 번도 잘 되나?”</td></tr>
+                <tr><td>0:10–0:35</td><td>일괄 처리 파이프라인 · 출력 계약 3종(요약·분류·추출)</td></tr>
+                <tr><td>0:35–1:05</td><td>데모: 분류 → 관대한 파싱 → 퓨샷 → 추출 → 요약 · 관찰 질문 1~5</td></tr>
+                <tr><td>1:05–1:15</td><td>휴식</td></tr>
+                <tr><td>1:15–1:40</td><td>골드셋 평가 · 혼동 행렬 · 필드 일치 · 맵-리듀스 요약</td></tr>
+                <tr><td>1:40–2:00</td><td>운영: 동시 실행 · 재시도 · 캐시 · 온도 · 비용 · 관찰 6~8 · 코드 슬라이드</td></tr>
+                <tr><td>2:00–2:50</td><td>Challenge C1~C4 (C5는 과제)</td></tr>
+                <tr><td>2:50–3:00</td><td>정리 · 14주차(챗봇) 예고</td></tr>
+              </table>
+              <p>응용 실습 주차다. 정규 12주의 개념(프롬프트, 온도, 토큰, JSON 출력)을 “많이, 안정적으로, 재 가며” 쓰는 법이 주제다. API 키가 없어도 모든 활동이 예시 응답으로 돌아간다는 점을 먼저 알린다. 키를 쓰는 학생에게는 키를 화면 공유하지 말라고 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 2 -->
+          <section class="slide" data-title="한 번 vs 천 번">
+            <h2>한 번 잘 되면, 천 번도 잘 될까?</h2>
+            <p class="big-quote">1,000건 × 3% 형식 오류 = 조용히 망가진 30건</p>
+            <ul>
+              <li>“라벨만 답하라” → <code>분류 결과: 이론-LLM</code></li>
+              <li>“JSON만” → <code>```json … ```</code> + “위 JSON은…”</li>
+              <li>학과 소개에서 <strong>학점: 3</strong>을 지어낸다 (형식은 완벽)</li>
+              <li>몰아 보내면 <strong>429</strong> · 두 번 보내면 <strong>두 번 낸다</strong></li>
+            </ul>
+            <aside class="notes">
+              <p><strong>발문:</strong> “11주차 플레이그라운드에서 요약이 잘 됐다. 학과 공지 1,000개를 요약하라는 일을 받으면 무엇부터 할까?” → 대부분 반복문 하나를 떠올린다. 그 반복문에서 무엇이 터지는지를 오늘 하나씩 본다.</p>
+              <p>예시는 모두 오늘 쓰는 예시 응답에 실제로 들어 있는 실패다. 실제 LLM에서도 흔히 본다.</p>
+            </aside>
+          </section>
+
+          <!-- 3 -->
+          <section class="slide" data-title="학습 목표">
+            <h2>오늘 할 수 있게 되는 것</h2>
+            <ol>
+              <li>템플릿 하나로 요약·분류·추출을 여러 문서에 적용하고 <strong>출력 계약</strong>을 코드로 검사한다</li>
+              <li>작은 <strong>골드셋</strong>으로 정확도·혼동 행렬·필드 일치를 재서 프롬프트를 숫자로 비교한다</li>
+              <li><strong>동시 실행 제한 · 재시도 · 캐시</strong>가 있는 일괄 실행기를 만들고 비용을 어림한다</li>
+            </ol>
+            <aside class="notes">
+              <p>목표 2가 오늘의 중심이다. “느낌”이 아니라 “12/17 → 16/17”로 말하는 습관을 만든다. RAG 9주차 평가로 그대로 이어진다.</p>
+            </aside>
+          </section>
+
+          <!-- 4 -->
+          <section class="slide" data-title="일괄 처리 파이프라인">
+            <h2>LLM은 파이프라인의 한 단계일 뿐</h2>
+            <div class="pathway">
+              <div class="card"><span class="cn">① 템플릿</span><span class="ct">문서마다 채우기</span><span class="cs">{{document}} · {{labels}}</span></div>
+              <div class="card is-here"><span class="cn">② 호출 풀</span><span class="ct">LLM 호출</span><span class="cs">동시 ≤ k · 재시도 · 캐시</span></div>
+              <div class="card"><span class="cn">③ 검증</span><span class="ct">파싱 · 스키마 · 정규화</span><span class="cs">✓ / ✗ / ⚠</span></div>
+              <div class="card"><span class="cn">④ 평가</span><span class="ct">골드셋 비교</span><span class="cs">정확도 · 혼동 행렬</span></div>
+            </div>
+            <p>LLM이 하는 일은 ②뿐, 나머지는 <strong>평범한 코드</strong>다</p>
+            <aside class="notes">
+              <p>학생 문서의 그림과 같은 구조다. ②는 느리고 비싸고 가끔 실패한다 → 감싸는 코드가 필요하다. ③④가 없으면 “잘 되는 것 같다”로 끝난다.</p>
+              <p>①의 입력(문서 텍스트)을 어디서 얻는지는 RAG 3주차(문서 로딩 &amp; 파싱)에서 다룬다고 짚는다.</p>
+            </aside>
+          </section>
+
+          <!-- 5 -->
+          <section class="slide" data-title="출력 계약">
+            <h2>작업마다 출력 계약을 먼저 정한다</h2>
+            <table>
+              <thead><tr><th>작업</th><th>계약</th><th>코드 검사</th><th>대표 실패</th></tr></thead>
+              <tbody>
+                <tr><td>요약</td><td>N자 이내 평문</td><td>글자 수 · 서두 · 핵심어</td><td>152자 / “24시간 개방”</td></tr>
+                <tr><td>분류</td><td>라벨 5개 중 하나</td><td>집합 포함 · 골드 비교</td><td>“데이터베이스”</td></tr>
+                <tr><td>추출</td><td>필드 5개 JSON</td><td>parse · 스키마 · 정규화</td><td>```json · “3학점” · 환각</td></tr>
+              </tbody>
+            </table>
+            <p class="muted">라벨을 고정해야 셀 수 있고, 스키마를 정해야 검사할 수 있다</p>
+            <aside class="notes">
+              <p><strong>핵심:</strong> 정규화(“3학점” → 3)는 표기를 고친다. 환각(없는 값을 채움)은 정규화로 못 고친다. 이 둘을 구분하게 한다.</p>
+              <p>“24시간 개방”은 실습실 규정 요약 예시 응답이다(원문은 평일 오후 9시). 핵심어 검사(오후 9시·12시간 누락)로만 간접적으로 잡힌다 — 요약의 사실 검증은 어렵다는 점을 남겨 둔다.</p>
+            </aside>
+          </section>
+
+          <!-- 6 -->
+          <section class="slide slide--demo" data-title="데모: 문서 일괄 처리기">
+            <h2>데모 · 문서 일괄 처리기</h2>
+            <div id="deck-w13-batch"></div>
+            <aside class="notes">
+              <p><strong>시연 순서</strong> (결과는 오른쪽 실행 결과 창)</p>
+              <ol>
+                <li>처음 화면: 분류 · 제로샷 · 엄격한 파싱 → 정확도 12/17(71%), 형식 유효 15/17. 혼동 행렬의 빨간 칸과 ✗ 열(“데이터베이스”, “분류 결과: 이론-LLM”)</li>
+                <li>관대한 파싱 ON → 13/17. LLM 호출 수는 그대로(파싱만 다시 했다). “데이터베이스”는 복구 불가</li>
+                <li>퓨샷 ON → 16/17(94%), 입력 토큰 5,670 → 8,458. 남은 오류 “임베딩과 유사도”</li>
+                <li>정보 추출 → 엄격: 형식 유효 1/4, 필드 6/20. 관대: 15/20. “학과 소개” 행 → 담당교수(스키마 밖), 학점 3·주당 45(환각). 퓨샷 → 19/20, 실습실 규정의 주당 12(“최대 12시간”)가 남는다</li>
+                <li>요약 → 13/17 통과. 길이 제한 70자 → 길이 준수 6/17</li>
+                <li>캐시 끄고 동시 1 vs 4 → 시간 비교. 재시도 3회(어텐션 1, 하이브리드 2)</li>
+              </ol>
+            </aside>
+          </section>
+
+          <!-- 7 -->
+          <section class="slide" data-title="제로샷 vs 퓨샷">
+            <h2>퓨샷: 정확도를 사고 토큰을 낸다</h2>
+            <table>
+              <thead><tr><th>작업</th><th>제로샷</th><th>퓨샷</th><th>입력 토큰 (추정)</th></tr></thead>
+              <tbody>
+                <tr><td>분류 17문서 정확도</td><td>12/17 (71%)</td><td><strong>16/17 (94%)</strong></td><td>5,670 → 8,458 (+49%)</td></tr>
+                <tr><td>추출 필드 일치 (엄격)</td><td>6/20</td><td><strong>19/20</strong></td><td>1,446 → 2,174</td></tr>
+                <tr><td>요약 규칙 통과 (100자)</td><td>13/17</td><td><strong>17/17</strong></td><td>5,398 → 6,869</td></tr>
+              </tbody>
+            </table>
+            <p>예시는 <strong>형식</strong>을 말보다 확실히 보여 준다 · 예시는 <strong>매 호출마다</strong> 반복된다</p>
+            <aside class="notes">
+              <p>숫자는 위젯이 쓰는 예시 응답과 같은 추정 방식(한국어 1.5자 ≈ 1토큰)으로 계산한 값이다.</p>
+              <p><strong>발문:</strong> “정확도 23%p를 입력 49%와 바꿨다. 이득인가?” → 오류 한 건을 사람이 고치는 비용과 비교해야 답이 나온다. 문서가 길면 예시 비중이 작아진다는 점도 짚는다.</p>
+              <p>퓨샷 예시는 코퍼스 밖 문장으로 만들었다(도서관 규정 등). 평가 문서를 예시로 쓰면 점수가 부풀려진다 — 데이터 누수.</p>
+            </aside>
+          </section>
+
+          <!-- 8 -->
+          <section class="slide" data-title="JSON 추출: 파싱·검증·정규화">
+            <h2>JSON 추출은 세 단계로 검사한다</h2>
+            <div class="cols">
+              <div>
+                <h3>LLM 원문 응답</h3>
+                <pre><code>```json
+{"과목명": "LLM 원리와 활용",
+ "학점": "3학점",
+ "주당_수업시간": "주 1회 3시간", …}
+```</code></pre>
+              </div>
+              <div>
+                <h3>검사</h3>
+                <ol>
+                  <li><strong>파싱</strong>: parse → 실패하면 펜스·설명문 걷어 내기</li>
+                  <li><strong>검증</strong>: 필드 이름·개수·타입, 성적 합 100</li>
+                  <li><strong>정규화</strong>: “3학점” → 3, “40%” → 40</li>
+                </ol>
+                <p class="muted">parse만: 2/4 파싱 · 필드 6/20<br>세 단계: 4/4 파싱 · 필드 15/20 · 환각 4</p>
+              </div>
+            </div>
+            <aside class="notes">
+              <p>관대한 파싱은 양날의 칼이다. 복구한 건수를 반드시 따로 센다(위젯은 “관대한 파싱” 판정 이유로 표시). 복구율이 높으면 프롬프트나 공급자의 JSON 모드를 고친다.</p>
+              <p>공급자의 구조화 출력(JSON 스키마 강제) 기능을 쓰면 1·2단계 실패가 크게 준다. 그래도 환각(3단계 뒤 골드 비교에서만 보임)은 남는다.</p>
+            </aside>
+          </section>
+
+          <!-- 9 -->
+          <section class="slide" data-title="골드셋 평가">
+            <h2>골드셋: 정답을 아는 17문서</h2>
+            <table>
+              <thead><tr><th>정답＼예측</th><th>학과</th><th>규정</th><th>교과</th><th>LLM</th><th>RAG</th><th>무효</th></tr></thead>
+              <tbody>
+                <tr><td>학과안내</td><td>1</td><td></td><td></td><td></td><td></td><td></td></tr>
+                <tr><td>규정</td><td></td><td>1</td><td></td><td></td><td></td><td></td></tr>
+                <tr><td>교과목</td><td></td><td></td><td>1</td><td></td><td><strong>1</strong></td><td></td></tr>
+                <tr><td>이론-LLM</td><td></td><td></td><td></td><td>6</td><td></td><td><strong>1</strong></td></tr>
+                <tr><td>이론-RAG</td><td></td><td></td><td></td><td><strong>2</strong></td><td>3</td><td><strong>1</strong></td></tr>
+              </tbody>
+            </table>
+            <p>제로샷 · 엄격한 파싱 · 정확도 12/17 · 재현율 최저: 교과목·이론-RAG 0.5</p>
+            <aside class="notes">
+              <p>“RAG 시스템 구축 교과목 안내”가 RAG로 분류된 칸이 흥미롭다. 문서 <em>주제</em>와 문서 <em>종류</em>가 다르다. 라벨 정의가 모호하면 모델도 사람도 헷갈린다 → 라벨 정의를 템플릿에 적는다.</p>
+              <p>골드셋은 20~50개면 충분하다. 목적은 모델의 절대 점수가 아니라 A/B 비교다. 골드셋 자체의 오류도 가끔 발견된다 — 두 사람이 따로 라벨을 달아 비교하면 좋다.</p>
+            </aside>
+          </section>
+
+          <!-- 10 -->
+          <section class="slide" data-title="맵-리듀스 요약">
+            <h2>긴 문서: 맵-리듀스 요약</h2>
+            <pre><code>2,640자 ──문단 경계──▶ 청크 8개 (각 ≤ 400자)
+   map ①  청크마다 요약 → 합 698자  (아직 &gt; 400)
+   map ②  다시 청크 2개 → 합 138자
+   reduce 최종 요약 1회
+   호출 = 8 + 2 + 1 = 11회</code></pre>
+            <ul>
+              <li>호출 수는 청크 수만큼 늘고, 단계마다 <strong>정보가 빠진다</strong></li>
+              <li>문장 중간에서 자르지 않는다 — RAG 청킹과 같은 이유</li>
+            </ul>
+            <aside class="notes">
+              <p>Challenge C4의 실제 실행 결과다. 모의 요약기는 “문단마다 첫 문장”을 고르는 추출 요약이다. 최종 요약에는 RAG 입문(첫 청크)과 임베딩(다섯째 청크)의 첫 문장만 남는다 → 청킹·벡터DB·평가 내용이 사라진다.</p>
+              <p>실제 LLM은 더 잘 합치지만 같은 경향(앞쪽 편향, 세부 누락)이 있다. 대안: 요약 대신 “문서별 핵심 사실 목록”을 뽑아 합치는 방법.</p>
+            </aside>
+          </section>
+
+          <!-- 11 -->
+          <section class="slide" data-title="운영: 동시·재시도·캐시·온도·비용">
+            <h2>호출을 감싸는 다섯 가지</h2>
+            <table>
+              <thead><tr><th>문제</th><th>대책</th></tr></thead>
+              <tbody>
+                <tr><td>몰아 보내면 429</td><td><strong>동시 실행 제한</strong> — 작업자 k개가 대기열에서 하나씩</td></tr>
+                <tr><td>일시적 실패</td><td><strong>재시도 + 지수 백오프</strong> 150 → 300 → 600ms (401은 재시도 안 함)</td></tr>
+                <tr><td>같은 입력 반복</td><td><strong>캐시</strong> — 키 = hash(모델 · 온도 · 프롬프트)</td></tr>
+                <tr><td>매번 다른 결과</td><td><strong>온도 0</strong> + 결과 저장</td></tr>
+                <tr><td>비용 모름</td><td><strong>실행 전 어림</strong> — 토큰 ≈ 글자 / 1.5</td></tr>
+              </tbody>
+            </table>
+            <p class="muted">분류 17문서 ≈ 입력 5,670토큰 → 예시 단가($1/$5)로 $0.006 · 1,000문서 ≈ $0.35</p>
+            <aside class="notes">
+              <p>단가는 예시다. 수업 당일 공급자 요금표로 바꿔 보여 준다(위젯 “비용 설정”에서 수정).</p>
+              <p><strong>캐시 키에 온도·모델을 넣는 이유:</strong> 다른 모델의 답을 재사용하면 안 된다. 온도 &gt; 0에서 캐시를 켜면 첫 무작위 결과가 고정된다 — 위젯이 이 경우 경고를 띄운다.</p>
+              <p>온도 0도 완전히 결정적이지 않다(병렬 연산 순서, 공급자 쪽 배치). “재현성 = 결과를 저장해 두는 것”이라고 정리한다.</p>
+            </aside>
+          </section>
+
+          <!-- 12 -->
+          <section class="slide" data-title="코드로 보면">
+            <h2>재시도와 캐시, 코드 30줄</h2>
+            <pre data-run="demo-retry" data-title="재시도 + 캐시"><code class="language-javascript">const sleep = (ms) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+let calls = 0;
+async function flakyLLM(prompt) { // 처음 두 번은 429를 낸다
+  calls++;
+  if (calls &lt;= 2) {
+    const e = new Error('429 Too Many Requests');
+    e.status = 429;
+    throw e;
+  }
+  return `요약: ${prompt.slice(0, 12)}…`;
+}
+async function withRetry(fn, retries = 3, base = 100) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (e.status !== 429 || attempt &gt;= retries) throw e;
+      const wait = base * 2 ** attempt; // 100 → 200 → 400ms
+      console.log(`시도 ${attempt + 1} 실패 (${e.message}) → ${wait}ms 뒤 재시도`);
+      await sleep(wait);
+    }
+  }
+}
+const cache = new Map();
+async function cachedCall(prompt) {
+  if (cache.has(prompt)) return { text: cache.get(prompt), cached: true };
+  const text = await withRetry(() =&gt; flakyLLM(prompt));
+  cache.set(prompt, text);
+  return { text, cached: false };
+}
+const doc = '실습실은 평일 오후 9시까지 개방된다.';
+console.log(await cachedCall(doc));
+console.log(await cachedCall(doc)); // 같은 프롬프트 → 캐시
+console.log('실제 호출 수:', calls);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> “시도 1 실패 → 100ms 뒤 재시도”, “시도 2 실패 → 200ms 뒤 재시도”, 첫 호출 <code>cached: false</code>, 두 번째 <code>cached: true</code>, 실제 호출 수 3.</p>
+              <p><code>e.status !== 429</code> 조건을 지우고 “모든 오류를 재시도”하면 무엇이 문제인가? → 키 오류(401)나 잘못된 요청(400)도 세 번 더 보내 시간만 버린다.</p>
+            </aside>
+          </section>
+
+          <!-- 13 -->
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>정리</h2>
+            <ul>
+              <li>일괄 처리 = 템플릿 → 호출 → <strong>검증</strong> → <strong>평가</strong>, LLM은 한 단계</li>
+              <li>출력 계약(길이 · 라벨 집합 · 스키마)을 정하고 코드로 검사한다. 정규화 ≠ 환각 수정</li>
+              <li>골드셋으로 제로샷/퓨샷, 엄격/관대한 파싱을 <strong>숫자로</strong> 비교한다</li>
+              <li>동시 제한 · 백오프 재시도 · 해시 캐시 · 온도 0 · 비용 어림</li>
+            </ul>
+            <h3>다음 주 · 응용 ② 대화형 챗봇 만들기</h3>
+            <p class="muted">오늘의 템플릿과 재시도 코드 위에 페르소나 · 대화 메모리 · 스트리밍을 얹는다</p>
+            <aside class="notes">
+              <p>C5는 과제로 낸다. 다음 주 시작 5분 동안 “캐시로 아낀 호출 수(17회)”와 “진행 중 중복을 막는 방법(Promise 캐시)”을 확인한다.</p>
+            </aside>
+          </section>
+
+          <!-- Appendix -->
+          <section class="slide" data-title="부록 A · 강의안" data-appendix>
+            <h2>부록 A · 강의안</h2>
+            <table>
+              <thead><tr><th>시간</th><th>활동</th><th>산출물</th></tr></thead>
+              <tbody>
+                <tr><td>10분</td><td>11주차 복습 · 한 번 vs 천 번 발문</td><td>—</td></tr>
+                <tr><td>25분</td><td>파이프라인 · 출력 계약 3종</td><td>작업별 계약 메모</td></tr>
+                <tr><td>30분</td><td>데모 · 관찰 1~5</td><td>제로샷/퓨샷 기록표</td></tr>
+                <tr><td>10분</td><td>휴식</td><td>—</td></tr>
+                <tr><td>25분</td><td>골드셋 평가 · 맵-리듀스</td><td>혼동 행렬 해석</td></tr>
+                <tr><td>20분</td><td>운영 5종 · 관찰 6~8 · 코드 슬라이드</td><td>시간·호출 수 비교</td></tr>
+                <tr><td>50분</td><td>Challenge C1~C4</td><td>C3 추출기(14주차 재사용)</td></tr>
+                <tr><td>10분</td><td>정리 · 14주차 예고</td><td>C5 과제</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 B · C1 정답" data-appendix>
+            <h2>부록 B · C1 정답</h2>
+            <pre data-run="ans-c1" data-title="C1 정답"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const template = '다음 문서를 {{limit}}자 이내로 요약하라.\n요약문만 출력한다.\n\n문서:\n"""\n{{document}}\n"""\n요약:';
+
+function fill(template, vars) {
+  const missing = [];
+  const text = template.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, name) =&gt; {
+    if (name in vars) return String(vars[name]);
+    missing.push(name);
+    return m;
+  });
+  return { text, missing };
+}
+const estTokens = (s) =&gt; Math.ceil([...s].length / 1.5);
+
+const rows = corpus.documents.map((d) =&gt; {
+  const { text } = fill(template, { document: d.text, limit: 100 });
+  return { id: d.id, 문서자수: [...d.text].length, 프롬프트자수: [...text].length, 추정토큰: estTokens(text) };
+});
+console.table(rows);
+const total = rows.reduce((a, r) =&gt; a + r.추정토큰, 0);
+const longest = rows.reduce((a, r) =&gt; (r.프롬프트자수 &gt; a.프롬프트자수 ? r : a));
+console.log('추정 입력 토큰 합계:', total, '· 가장 긴 프롬프트:', longest.id, longest.프롬프트자수 + '자');
+
+console.log(fill('{{documnet}} 를 {{limit}}자로', { document: 'x', limit: 50 }).missing);
+
+const sums = await (await fetch('/assets/data/w13/summarize.json')).json();
+const LIMIT = 100;
+const checked = Object.entries(sums.zero).map(([id, s]) =&gt; ({ id, 글자수: [...s].length, 통과: [...s].length &lt;= LIMIT }));
+console.table(checked.filter((r) =&gt; !r.통과));
+console.log(`제한 준수 ${checked.filter((r) =&gt; r.통과).length}/${checked.length}`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 프롬프트 = 문서 + 50자(지시문). 가장 짧은 facility-rules 334자·223토큰, 가장 긴 rag-chunking 600자·400토큰. 추정 입력 토큰 합계 5,101. 오타 검사 → <code>['documnet']</code>. 제한 초과 요약: dept-overview 152자, rag-chunking 130자 → 제한 준수 15/17.</p>
+              <p><strong>자주 틀리는 곳:</strong> <code>limit: 100</code>은 숫자라 <code>String()</code>으로 바꿔야 한다(replace 콜백은 자동 변환되지만 습관을 들인다). <code>text.length</code> 대신 <code>[...text].length</code>를 쓰면 이모지도 한 글자로 센다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C2 정답" data-appendix>
+            <h2>부록 B · C2 정답</h2>
+            <pre data-run="ans-c2" data-title="C2 정답"><code class="language-javascript">const gold = await (await fetch('/assets/data/w13/gold.json')).json();
+const cls = await (await fetch('/assets/data/w13/classify.json')).json();
+const LABELS = gold.labels;
+
+function parseLabel(raw) {
+  const t = raw.trim().replace(/^["'“”\[(]+|["'“”\]).。!]+$/g, '').trim();
+  return LABELS.includes(t) ? t : null;
+}
+function evaluate(outputs) {
+  const ids = Object.keys(gold.docs);
+  const cols = [...LABELS, '무효'];
+  const confusion = Object.fromEntries(LABELS.map((g) =&gt; [g, Object.fromEntries(cols.map((c) =&gt; [c, 0]))]));
+  let correct = 0;
+  const errors = [];
+  for (const id of ids) {
+    const raw = outputs[id];
+    const want = gold.docs[id].category;
+    const pred = parseLabel(raw);
+    confusion[want][pred ?? '무효']++;
+    if (pred === want) correct++;
+    else errors.push({ id, raw, gold: want });
+  }
+  return { accuracy: correct / ids.length, confusion, errors };
+}
+const zero = evaluate(cls.zero);
+const few = evaluate({ ...cls.zero, ...cls.few });
+console.log('zero-shot 정확도', zero.accuracy.toFixed(3), '· few-shot 정확도', few.accuracy.toFixed(3));
+console.table(zero.confusion);
+console.table(zero.errors);
+const recall = LABELS.map((g) =&gt; {
+  const row = zero.confusion[g];
+  const n = Object.values(row).reduce((a, b) =&gt; a + b, 0);
+  return { label: g, n, recall: +(row[g] / n).toFixed(3) };
+});
+console.table(recall);
+const worst = recall.reduce((a, b) =&gt; (b.recall &lt; a.recall ? b : a));
+console.log('재현율이 가장 낮은 라벨:', worst.label, worst.recall);
+console.table(few.errors);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 제로샷 0.706 · 퓨샷 0.941. 제로샷 오류 5건: course-rag-syllabus(이론-RAG), llm-decoding(“분류 결과: 이론-LLM” → 무효), rag-intro·rag-embedding(이론-LLM), rag-vectordb(“데이터베이스” → 무효).</p>
+              <p>재현율: 학과안내 1 · 규정 1 · 교과목 0.5 · 이론-LLM 0.857 · 이론-RAG 0.5. 최저가 동률이라 코드는 먼저 나온 교과목을 고른다 — 동률 처리도 토론거리다. 퓨샷 남은 오류: rag-embedding 1건.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C3 정답" data-appendix>
+            <h2>부록 B · C3 정답</h2>
+            <pre data-run="ans-c3" data-title="C3 정답"><code class="language-javascript">const gold = await (await fetch('/assets/data/w13/gold.json')).json();
+const ext = await (await fetch('/assets/data/w13/extract.json')).json();
+const FIELDS = gold.extraction.fields;
+
+function extractJSON(raw) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const body = raw.replace(/```(?:json)?/g, '');
+    const a = body.indexOf('{');
+    const b = body.lastIndexOf('}');
+    if (a &lt; 0 || b &lt; a) return null;
+    try {
+      return JSON.parse(body.slice(a, b + 1));
+    } catch {
+      return null;
+    }
+  }
+}
+function toInt(v) {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return v;
+  const m = String(v).match(/(\d+)\s*시간/) ?? String(v).match(/\d+/);
+  return m ? Number(m[1] ?? m[0]) : NaN;
+}
+function normalize(obj) {
+  const errors = [];
+  for (const k of Object.keys(obj)) if (!FIELDS.includes(k)) errors.push(`스키마 밖 필드 ${k}`);
+  for (const f of FIELDS) if (!(f in obj)) errors.push(`빠진 필드 ${f}`);
+  const record = { 과목명: obj.과목명 ?? null };
+  for (const f of ['학점', '주당_수업시간', '주차수']) record[f] = toInt(obj[f]);
+  if (obj.성적비율 &amp;&amp; typeof obj.성적비율 === 'object') {
+    record.성적비율 = Object.fromEntries(Object.entries(obj.성적비율).map(([k, v]) =&gt; [k, toInt(v)]));
+    const sum = Object.values(record.성적비율).reduce((a, b) =&gt; a + b, 0);
+    if (sum !== 100) errors.push(`성적비율 합 ${sum}`);
+  } else record.성적비율 = null;
+  return { record, errors };
+}
+const same = (a, b) =&gt; JSON.stringify(a) === JSON.stringify(b);
+const rows = [];
+let hallucinated = 0;
+for (const [id, raw] of Object.entries(ext.zero)) {
+  const want = gold.extraction.items[id] ?? gold.extraction.default;
+  const obj = extractJSON(raw);
+  const { record, errors } = obj ? normalize(obj) : { record: null, errors: ['JSON 파싱 실패'] };
+  const hits = FIELDS.filter((f) =&gt; record &amp;&amp; same(record[f], want[f]));
+  const halluc = FIELDS.filter((f) =&gt; record &amp;&amp; want[f] === null &amp;&amp; record[f] !== null);
+  hallucinated += halluc.length;
+  rows.push({ id, parsed: !!obj, errors: errors.join('; '), 일치: `${hits.length}/${FIELDS.length}`, 환각: halluc.join(',') });
+}
+console.table(rows);
+console.log(toInt('3학점'), toInt('주 1회 3시간'), toInt('40%'), toInt(null));
+const strict = Object.values(ext.zero).filter((r) =&gt; { try { JSON.parse(r); return true; } catch { return false; } }).length;
+console.log(`JSON.parse만 쓰면 ${strict}/4개만 파싱된다 · 환각 필드 ${hallucinated}개`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> course-llm-syllabus 5/5(펜스 제거 + 정규화) · course-rag-syllabus 4/5(과목명 “RAG 시스템 구축”으로 줄임) · dept-overview 2/5, 스키마 밖 필드 담당교수, 환각 과목명·학점·주당_수업시간 · facility-rules 4/5, 환각 주당_수업시간(“최대 12시간”을 착각). <code>toInt</code> → 3 3 40 null. JSON.parse만으로는 2/4, 환각 필드 4개.</p>
+              <p><strong>짚을 점:</strong> 첫 <code>{</code>부터 마지막 <code>}</code>까지 자르는 방법은 응답에 JSON이 둘이면 깨진다. 위젯은 괄호 짝을 세는 방법을 쓴다. 성적비율 비교를 <code>JSON.stringify</code>로 하면 키 순서가 다를 때 틀린다 — 키를 정렬해 비교하는 것이 안전하다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C4 정답" data-appendix>
+            <h2>부록 B · C4 정답</h2>
+            <pre data-run="ans-c4" data-title="C4 정답"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const longDoc = corpus.documents.filter((d) =&gt; d.id.startsWith('rag-')).map((d) =&gt; d.text).join('\n\n');
+const CONTEXT_LIMIT = 400;
+let calls = 0;
+const len = (s) =&gt; [...s].length;
+
+function mockSummarize(text, limit) {
+  calls++;
+  if (len(text) &gt; CONTEXT_LIMIT) throw new Error(`컨텍스트 초과: ${len(text)}자 &gt; ${CONTEXT_LIMIT}자`);
+  const firsts = text.split('\n\n').map((p) =&gt; p.trim().split(/(?&lt;=다\.)\s+/)[0]);
+  let out = '';
+  for (const s of firsts) {
+    if (len(out) + len(s) + 1 &gt; limit) break;
+    out += (out ? ' ' : '') + s;
+  }
+  return out || [...firsts[0]].slice(0, limit).join('');
+}
+
+function chunkByParagraph(text, maxChars) {
+  const chunks = [];
+  let cur = '';
+  for (const p of text.split('\n\n')) {
+    const next = cur ? `${cur}\n\n${p}` : p;
+    if (cur &amp;&amp; len(next) &gt; maxChars) {
+      chunks.push(cur);
+      cur = p;
+    } else cur = next;
+  }
+  if (cur) chunks.push(cur);
+  return chunks;
+}
+
+function mapReduce(text, limit, round = 1) {
+  const chunks = chunkByParagraph(text, CONTEXT_LIMIT);
+  const partial = chunks.map((c) =&gt; mockSummarize(c, 120));
+  const joined = partial.join('\n\n');
+  console.log(`라운드 ${round}: 청크 ${chunks.length}개 → 부분 요약 합 ${len(joined)}자`);
+  if (len(joined) &lt;= CONTEXT_LIMIT) return mockSummarize(joined, limit);
+  return mapReduce(joined, limit, round + 1);
+}
+
+console.log('긴 문서:', len(longDoc), '자');
+try {
+  console.log(mockSummarize(longDoc, 150));
+} catch (e) {
+  console.log('한 번에 요약:', e.message);
+}
+calls = 0;
+const chunks = chunkByParagraph(longDoc, CONTEXT_LIMIT);
+console.table(chunks.map((c, i) =&gt; ({ i, 글자수: len(c), 시작: c.slice(0, 20) })));
+try {
+  const s = mapReduce(longDoc, 150);
+  console.log(s);
+  console.log(len(s) + '자 · 모의 LLM 호출', calls, '회');
+} catch (e) {
+  console.log('실패:', e.message);
+}</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과:</strong> 긴 문서 2,640자 → 한 번에 요약하면 “컨텍스트 초과: 2640자 &gt; 400자”. 청크 8개(287 · 300 · 357 · 302 · 336 · 333 · 342 · 369자). 라운드 1: 합 698자 → 라운드 2: 청크 2개 → 합 138자. 최종 요약 66자: “대규모 언어 모델(LLM)은 학습 시점까지의 데이터로만 답한다. 한국어 문서를 다룰 때는 임베딩 모델 선택이 중요하다.” 모의 LLM 호출 11회.</p>
+              <p><strong>토론:</strong> 청킹·벡터DB·하이브리드·평가 교안의 내용이 최종 요약에서 모두 빠졌다. 요약 길이(150자)보다 짧은 66자인데도 그렇다 — 모의 요약기가 문단 첫 문장만 고르기 때문. 실제 LLM이라면 어떻게 달라질지 묻는다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 B · C5 정답" data-appendix>
+            <h2>부록 B · C5 정답</h2>
+            <pre data-run="ans-c5" data-title="C5 정답"><code class="language-javascript">const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const cls = await (await fetch('/assets/data/w13/classify.json')).json();
+const answer = new Map(corpus.documents.map((d) =&gt; [d.text, cls.few[d.id] ?? cls.zero[d.id]]));
+const sleep = (ms) =&gt; new Promise((r) =&gt; setTimeout(r, ms));
+function fnv1a(str) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i &lt; str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 0x01000193) &gt;&gt;&gt; 0;
+  return h.toString(16).padStart(8, '0');
+}
+const stats = { calls: 0, inFlight: 0, maxInFlight: 0 };
+const failedOnce = new Set();
+async function mockLLM(prompt) {
+  stats.calls++;
+  stats.inFlight++;
+  stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
+  try {
+    await sleep(25);
+    const h = fnv1a(prompt);
+    if (parseInt(h, 16) % 5 === 0 &amp;&amp; !failedOnce.has(h)) {
+      failedOnce.add(h);
+      const e = new Error('429 Too Many Requests');
+      e.status = 429;
+      throw e;
+    }
+    const doc = prompt.split('"""\n')[1]?.split('\n"""')[0];
+    return answer.get(doc) ?? '모름';
+  } finally {
+    stats.inFlight--;
+  }
+}
+const tpl = (text) =&gt; `다음 문서의 종류를 라벨 하나로 답하라.\n문서:\n"""\n${text}\n"""\n라벨:`;
+const prompts = [...corpus.documents, ...corpus.documents].map((d) =&gt; tpl(d.text));
+
+async function runBatch(prompts, { concurrency = 1, retries = 3, cache = null } = {}) {
+  const results = new Array(prompts.length);
+  let retried = 0;
+  let hits = 0;
+  async function withRetry(prompt) {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await mockLLM(prompt);
+      } catch (e) {
+        if (e.status !== 429 || attempt &gt;= retries) throw e;
+        retried++;
+        await sleep(20 * 2 ** attempt);
+      }
+    }
+  }
+  let next = 0;
+  async function lane() {
+    while (next &lt; prompts.length) {
+      const i = next++;
+      const key = fnv1a(prompts[i]);
+      let p = cache?.get(key);
+      if (p) hits++;
+      else {
+        p = withRetry(prompts[i]);
+        cache?.set(key, p); // store the Promise: duplicates still in flight share it
+      }
+      try {
+        results[i] = await p;
+      } catch (e) {
+        cache?.delete(key); // never cache failures
+        results[i] = 'ERROR ' + e.message;
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, lane));
+  return { results, retried, hits };
+}
+async function measure(label, opts) {
+  Object.assign(stats, { calls: 0, inFlight: 0, maxInFlight: 0 });
+  failedOnce.clear();
+  const t0 = performance.now();
+  const r = await runBatch(prompts, opts);
+  return { label, ms: Math.round(performance.now() - t0), calls: stats.calls, 최대동시: stats.maxInFlight, 재시도: r.retried, 캐시적중: r.hits, 오류: r.results.filter((x) =&gt; x.startsWith('ERROR')).length };
+}
+const rows = [];
+rows.push(await measure('순차 · 캐시 없음', { concurrency: 1 }));
+rows.push(await measure('동시 4 · 캐시 없음', { concurrency: 4 }));
+rows.push(await measure('동시 4 · 캐시', { concurrency: 4, cache: new Map() }));
+console.table(rows);
+const saved = rows[1].calls - rows[2].calls;
+console.log(`캐시로 아낀 호출 ${saved}회 (${Math.round((saved / rows[1].calls) * 100)}%) · 속도 ${(rows[0].ms / rows[1].ms).toFixed(1)}배`);</code></pre>
+            <aside class="notes">
+              <p><strong>실행 결과 (Node 예):</strong> 순차 · 캐시 없음 2,789ms · 호출 38 · 최대 동시 1 · 재시도 4 / 동시 4 · 캐시 없음 701ms · 38 · 4 · 4 / 동시 4 · 캐시 508ms · 호출 21 · 재시도 4 · 캐시 적중 17. “캐시로 아낀 호출 17회 (45%) · 속도 4.0배”. 시간은 타이머 해상도에 따라 다르고, 호출·재시도·적중 수는 항상 같다.</p>
+              <p>429가 나는 문서(해시 % 5 = 0): dept-overview, facility-rules, llm-decoding, rag-intro. <strong>짚을 점:</strong> 결과가 아니라 Promise를 캐시에 넣어야 “아직 진행 중인 같은 요청”도 막는다. 결과만 저장하면 타이밍에 따라 적중 수가 달라진다. 실패한 Promise는 캐시에서 지운다.</p>
+            </aside>
+          </section>
+
+          <section class="slide" data-title="부록 C · 자주 막히는 지점" data-appendix>
+            <h2>부록 C · 학생이 자주 막히는 지점</h2>
+            <table>
+              <thead><tr><th>증상</th><th>원인</th><th>대응</th></tr></thead>
+              <tbody>
+                <tr><td>템플릿을 고쳤는데 예시 응답이 그대로다</td><td>예시 응답은 기본 템플릿용으로 미리 쓴 것</td><td>실제 LLM 모드에서 확인하거나, 판정 규칙(길이·파싱)의 변화를 본다</td></tr>
+                <tr><td>모든 문서에 같은 답이 나온다</td><td>템플릿에서 <code>{{document}}</code>를 지웠다</td><td>위젯의 ⛔ 경고 확인. 자리표시자 검사를 코드에 넣는다</td></tr>
+                <tr><td>실제 LLM에서 401/403</td><td>키 오류·공급자 선택 실수</td><td>키를 다시 저장. 401은 재시도해도 소용없다</td></tr>
+                <tr><td>C3에서 <code>JSON.parse</code>가 계속 실패</td><td>펜스 제거 전에 parse하거나 <code>lastIndexOf</code> 실수</td><td>중간 문자열을 <code>console.log</code>로 찍어 본다</td></tr>
+                <tr><td>C5에서 최대 동시가 1로 나온다</td><td>lane 안에서 <code>for</code>+<code>await</code>로 순서대로 돌림</td><td>lane 여러 개를 만들고 <code>Promise.all</code></td></tr>
+                <tr><td>C5가 10초 넘게 걸린다</td><td>백오프가 무한 반복(재시도 상한 없음)</td><td><code>attempt &gt;= retries</code>면 throw</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="slide" data-title="부록 D · 토론 주제" data-appendix>
+            <h2>부록 D · 토론 주제</h2>
+            <ol>
+              <li>관대한 파싱으로 복구한 결과를 믿어도 되는가? 복구율이 몇 %를 넘으면 프롬프트를 고쳐야 할까?</li>
+              <li>퓨샷으로 정확도 71% → 94%, 입력 토큰 +49%. 어떤 업무에서 이득이고 어떤 업무에서 손해인가?</li>
+              <li>골드셋 17개로 “프롬프트 B가 낫다”고 말할 수 있는가? 몇 개면 믿을 만한가?</li>
+              <li>학과 공지 1,000건을 LLM으로 분류해 자동 게시한다면, 사람이 꼭 확인해야 하는 건은 어떻게 고를까? (⚠·✗ 판정, 온도 0.8에서 답이 흔들리는 문서)</li>
+            </ol>
+          </section>
+
+          <section class="slide" data-title="부록 E · 평가 루브릭" data-appendix>
+            <h2>부록 E · 평가 루브릭</h2>
+            <table>
+              <thead><tr><th>항목</th><th>우수 (3)</th><th>보통 (2)</th><th>미흡 (1)</th></tr></thead>
+              <tbody>
+                <tr><td>템플릿·검사 (C1)</td><td>자리표시자 오류 검출 + 길이·토큰 집계</td><td>채우기만 동작</td><td>동작하지 않음</td></tr>
+                <tr><td>평가 (C2·C3)</td><td>혼동 행렬·필드 일치·환각을 구분해 해석</td><td>정확도만 제시</td><td>미완성</td></tr>
+                <tr><td>파이프라인 (C4·C5)</td><td>재귀 맵-리듀스 + 동시·재시도·Promise 캐시</td><td>일부 기능만</td><td>미제출</td></tr>
+                <tr><td>관찰·토론</td><td>비용과 정확도의 교환을 숫자로 설명</td><td>현상만 서술</td><td>참여 없음</td></tr>
+              </tbody>
+            </table>
+          </section>
+
+        </div>
+          </div>
+        </div>
+        <section class="notes-pane" aria-label="교사 노트">
+          <button type="button" class="notes-head"><span>🧑‍🏫 교사 노트</span><span class="spacer"></span><span class="notes-next"></span><span class="notes-toggle">▾ 접기</span></button>
+          <div class="notes-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { initDeck } from '../../assets/js/site/slides.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    import { mount } from '../../assets/js/widgets/w13-batch.js';
+    initRunners(document.querySelector('.deck-stage'));
+    initDeck();
+    mount(document.getElementById('deck-w13-batch'), { outputTitle: '문서 일괄 처리 결과 (데모 슬라이드)' });
+  </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+/* Week 4: softmax · cross-entropy explorer and autograd graph. Tokens from tokens.css only. */
+
+.w04-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+.w04-ctx {
+  margin: 0 0 10px;
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+
+.w04-ctx code {
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------- softmax: logit sliders */
+.w04-logits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: 4px 18px;
+  margin-bottom: var(--space-3);
+}
+
+.w04-lrow {
+  display: grid;
+  grid-template-columns: 2em 1fr 3.4em;
+  gap: 8px;
+  align-items: center;
+  font-size: var(--text-sm);
+}
+
+.w04-lch {
+  display: grid;
+  place-items: center;
+  height: 1.9em;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  font-weight: var(--weight-bold);
+}
+
+.w04-lrow input[type="range"] {
+  width: 100%;
+  min-height: 28px;
+  accent-color: var(--color-accent);
+}
+
+.w04-lrow output {
+  font: 600 13px var(--font-mono);
+  text-align: right;
+}
+
+.w04-formula {
+  margin: 4px 0 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  font: 13px var(--font-mono);
+}
+
+.stat.w04-bad .stat__value {
+  color: var(--color-danger);
+}
+
+.stat.w04-good .stat__value {
+  color: var(--color-success);
+}
+
+/* probability / gradient table */
+.w04-tbl {
+  display: grid;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.w04-th,
+.w04-tr {
+  display: grid;
+  grid-template-columns: 2.6em 2.8em minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.w04-th {
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+}
+
+.w04-tr {
+  padding: 2px 4px;
+  border-radius: 6px;
+}
+
+.w04-tr.is-target {
+  background: var(--color-accent2-soft);
+}
+
+.w04-c {
+  display: grid;
+  justify-items: center;
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+}
+
+.w04-c small {
+  color: var(--color-accent2);
+  font-size: 9.5px;
+}
+
+.w04-z {
+  font: 12px var(--font-mono);
+  text-align: right;
+}
+
+.w04-p,
+.w04-g {
+  display: grid;
+  gap: 1px;
+}
+
+.w04-p em,
+.w04-g em {
+  color: var(--color-text-muted);
+  font: normal 11px var(--font-mono);
+}
+
+.w04-bar,
+.w04-gbar {
+  position: relative;
+  display: block;
+  height: 11px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--color-surface-2);
+}
+
+.w04-bar i {
+  display: block;
+  height: 100%;
+  background: var(--color-accent);
+}
+
+.w04-tr.is-target .w04-bar i {
+  background: var(--color-accent2);
+}
+
+.w04-gbar::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 1px;
+  background: var(--color-border-strong);
+}
+
+.w04-gbar i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.w04-gbar i.up {
+  background: var(--color-success);
+}
+
+.w04-gbar i.down {
+  background: var(--color-danger);
+}
+
+.legend .w04-lg-p { background: var(--color-accent); }
+.legend .w04-lg-t { background: var(--color-accent2); }
+.legend .w04-lg-up { background: var(--color-success); }
+.legend .w04-lg-down { background: var(--color-danger); }
+
+/* loss curve + sparkline */
+.w04-curve,
+.w04-spark {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+}
+
+.w04-curve .ax,
+.w04-spark .ax {
+  stroke: var(--color-border-strong);
+}
+
+.w04-curve .ref {
+  stroke: var(--color-warning);
+  stroke-dasharray: 4 3;
+}
+
+.w04-curve .crv,
+.w04-spark .crv {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2;
+}
+
+.w04-curve .dot,
+.w04-spark .dot {
+  fill: var(--color-accent2);
+  stroke: var(--color-surface);
+  stroke-width: 2;
+}
+
+.w04-spark .pt {
+  fill: var(--color-accent);
+}
+
+.w04-curve .lbl,
+.w04-spark .lbl {
+  fill: var(--color-text-muted);
+  font: 10px var(--font-sans);
+}
+
+/* ---------------------------------------------------------------- autograd graph */
+.w04-graph-wrap {
+  overflow-x: auto;
+  margin: 0 -4px 4px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.w04-graph {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+  height: auto;
+}
+
+.w04-edge {
+  fill: none;
+  stroke: var(--color-border-strong);
+  stroke-width: 1.6;
+  marker-end: var(--arr);
+  transition: stroke var(--dur-fast);
+}
+
+.w04-edge.is-flow {
+  stroke: var(--color-accent2);
+  stroke-width: 2.6;
+}
+
+.w04-arrhead {
+  fill: var(--color-text-muted);
+}
+
+.w04-node {
+  cursor: pointer;
+  outline: none;
+}
+
+.w04-node rect {
+  fill: var(--color-surface);
+  stroke: var(--color-border-strong);
+  stroke-width: 1.4;
+  transition: fill var(--dur-fast), stroke var(--dur-fast);
+}
+
+.w04-node.param rect {
+  fill: var(--color-accent-soft);
+  stroke: var(--color-accent);
+}
+
+.w04-node.const rect {
+  fill: var(--color-surface-2);
+  stroke-dasharray: 4 3;
+}
+
+.w04-node.loss rect {
+  fill: var(--color-danger-soft);
+  stroke: var(--color-danger);
+}
+
+.w04-node.is-sel rect {
+  stroke: var(--color-accent2);
+  stroke-width: 3;
+}
+
+.w04-node.is-active rect {
+  fill: var(--color-warning-soft);
+  stroke: var(--color-warning);
+  stroke-width: 3;
+}
+
+.w04-node:focus-visible rect {
+  stroke: var(--color-focus);
+  stroke-width: 3.5;
+}
+
+.w04-node text {
+  fill: var(--color-text);
+  pointer-events: none;
+}
+
+.w04-node .nm {
+  font: 700 13.5px var(--font-sans);
+}
+
+.w04-node .op {
+  fill: var(--color-text-muted);
+  font: 600 12px var(--font-mono);
+}
+
+.w04-node .dv {
+  font: 12px var(--font-mono);
+}
+
+.w04-node .gv {
+  fill: var(--color-text-muted);
+  font: 12px var(--font-mono);
+}
+
+.w04-node.has-grad .gv {
+  fill: var(--color-accent2);
+  font-weight: 700;
+}
+
+.legend .w04-lg-param { background: var(--color-accent-soft); border: 1px solid var(--color-accent); }
+.legend .w04-lg-const { background: var(--color-surface-2); border: 1px dashed var(--color-border-strong); }
+.legend .w04-lg-loss { background: var(--color-danger-soft); border: 1px solid var(--color-danger); }
+.legend .w04-lg-flow { height: 4px; background: var(--color-accent2); vertical-align: 3px; }
+
+.w04-presets {
+  margin-top: 6px;
+}
+
+.w04-detail {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--color-surface-2);
+  font-size: 13px;
+}
+
+.w04-detail p {
+  margin: 0 0 4px;
+}
+
+.w04-detail p:last-child {
+  margin-bottom: 0;
+}
+
+.w04-chain {
+  font-family: var(--font-mono);
+  word-break: break-word;
+}
+
+.w04-chain span {
+  padding: 0 3px;
+  border-radius: 4px;
+  background: var(--color-surface);
+}
+
+.w04-upd {
+  width: 100%;
+  margin: 0;
+  font: 12px var(--font-mono);
+}
+
+.w04-upd th,
+.w04-upd td {
+  padding: 3px 6px;
+  text-align: right;
+}
+
+.w04-upd th:first-child,
+.w04-upd td:first-child {
+  text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .w04-edge,
+  .w04-node rect {
+    transition: none;
+  }
+}

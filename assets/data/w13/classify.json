@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "task": "classify",
+  "description": "수업용 작성 예시: 기본 분류 템플릿에 대한 LLM 응답을 사람이 미리 작성했다. 실제 LLM 호출 결과가 아니다. 틀린 라벨, 라벨 집합 밖의 답, 군더더기가 붙은 답을 일부러 넣었다. alt는 온도 > 0에서 가끔 나오는 다른 답이다.",
+  "transient": { "llm-attention": 1, "rag-hybrid": 2 },
+  "zero": {
+    "dept-overview": "학과안내",
+    "course-llm-syllabus": "교과목",
+    "course-rag-syllabus": "이론-RAG",
+    "facility-rules": "규정",
+    "llm-lm": "이론-LLM",
+    "llm-tokenizer": "이론-LLM",
+    "llm-embedding": "이론-LLM",
+    "llm-attention": "이론-LLM",
+    "llm-transformer": "이론-LLM",
+    "llm-decoding": "분류 결과: 이론-LLM",
+    "llm-training": "이론-LLM",
+    "rag-intro": "이론-LLM",
+    "rag-chunking": "이론-RAG",
+    "rag-embedding": "이론-LLM",
+    "rag-vectordb": "데이터베이스",
+    "rag-hybrid": "이론-RAG",
+    "rag-evaluation": "이론-RAG."
+  },
+  "few": {
+    "course-rag-syllabus": "교과목",
+    "llm-decoding": "이론-LLM",
+    "rag-intro": "이론-RAG",
+    "rag-vectordb": "이론-RAG"
+  },
+  "alt": {
+    "zero": { "course-rag-syllabus": "교과목", "rag-intro": "이론-RAG", "rag-embedding": "이론-RAG", "llm-embedding": "이론-RAG", "dept-overview": "교과목" },
+    "few": { "rag-embedding": "이론-RAG", "llm-embedding": "이론-RAG", "rag-intro": "이론-LLM", "course-rag-syllabus": "이론-RAG" }
+  }
+}
