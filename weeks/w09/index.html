@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>9주차 평가와 스케일링 · LLM Lab</title>
+  <meta name="description" content="언어 모델을 숫자로 재는 법(손실 · 퍼플렉서티 · bits/글자 · 학습/검증 분할)과 모델이 커질 때 필요한 메모리와 계산량(6ND · Chinchilla · KV 캐시)을 미니 GPT 체크포인트로 직접 확인한다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w09.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="9" data-crumb="PART 3 · 미니 GPT 만들기 › <b>9주차 · 평가와 스케일링</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">📏 9주차 · 평가와 스케일링</span>
+      <h1>잘 외운 모델과 잘 배운 모델</h1>
+      <p class="lead">7주차에 학습시킨 미니 GPT는 학습 손실이 0.12까지 내려갔고, 8주차에는 그럴듯한 문장을 뽑아냈다. 그럼 좋은 모델인가? 이번 주는 언어 모델을 <strong>숫자로 재는 법</strong>(퍼플렉서티)과, 모델을 키울 때 <strong>무엇이 얼마나 드는지</strong>(메모리와 계산량)를 계산한다. 결론부터 말하면 우리 모델은 처음 보는 문서에서 1주차 바이그램보다도 못하다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 퍼플렉서티 측정기 · LLM 메모리 계산기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div>임베딩</div><div>어텐션</div><div>트랜스포머</div><div>학습</div><div>디코딩</div><div><b>평가</b></div><div><b>스케일링</b></div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>교차 엔트로피 손실을 퍼플렉서티와 bits/글자로 바꾸고, 그 값을 “평균 몇 개 후보 중에서 고민하는가”로 해석할 수 있다.</li>
+          <li>학습 문서와 검증 문서의 퍼플렉서티를 비교해 과대적합을 찾아내고, 조기 종료 지점을 고를 수 있다.</li>
+          <li>파라미터 수로 추론·학습 메모리(가중치 · KV 캐시 · Adam)와 학습 계산량(6·N·D)을 어림하고, 70B 모델이 GPU 한 장에 들어가지 않는 이유를 설명할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>7주차 미니 GPT를 3,000스텝 학습시키고 “실습실은” 뒤를 이어 쓰게 하면 “실습실은 본관 3층 305호와 306호를 사용하며, 각 실습실에는 GPU가 장착된 PC 30대가 있다.”가 나온다. 완벽한 문장이다. 그런데 이것은 학과 소개 문서의 문장을 한 글자도 틀리지 않고 베낀 것이다. 2,000스텝 때는 “실습실은 30%, 중간 점검 20%, 팀 프로젝트 40% …”처럼 RAG 강의계획서의 성적 비율을 엉뚱하게 이어 붙였다. <strong>생성된 글을 눈으로 보고 모델의 좋고 나쁨을 판단하면 속는다.</strong></p>
+        <p>두 번째 문제는 크기다. 우리 모델의 파라미터는 106,959개다. 공개된 7B·70B 모델만 해도 그보다 6만~65만 배 크다. 모델을 10배 키우면 메모리는 얼마나 필요하고, 학습에는 GPU 몇 장이 며칠 필요한가? 이 질문에 답하지 못하면 어떤 모델을 쓸지(11·16주차), 어떻게 미세조정할지(10주차) 고를 수 없다.</p>
+        <div class="callout">
+          <span class="callout__title">이번 주의 두 질문</span>
+          <p>① 이 모델은 <b>처음 보는 글</b>을 얼마나 잘 예측하는가? (평가) ② 모델을 키우면 <b>메모리와 계산</b>이 얼마나 드는가? (스케일링)</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>손실 → 퍼플렉서티 → bits/글자</h3>
+        <p>4주차부터 써 온 교차 엔트로피 손실은 “실제로 나온 다음 글자에 모델이 준 확률”의 음의 로그 평균이다. 1주차 C4의 글자당 NLL과 같은 식이다.</p>
+        <pre><code class="language-text">손실 L = −(1/N) Σ ln p(xᵢ | x₁ … xᵢ₋₁)      (단위: nats/글자)
+퍼플렉서티 PPL = e^L                        (단위 없음)
+bits/글자 = L / ln 2                         (한 글자를 몇 비트로 압축할 수 있나)</code></pre>
+        <p>손실 4.163은 감이 오지 않지만, e<sup>4.163</sup> ≈ 64는 해석할 수 있다. 모든 후보에 똑같은 확률 1/k를 주면 손실은 ln k이고 퍼플렉서티는 정확히 k다. 그래서 <strong>퍼플렉서티(perplexity) = “모델이 매 글자마다 평균 몇 개 후보 중에서 고민하는가”</strong>로 읽는다. PPL 64인 모델은 매번 64면 주사위를 굴리는 것만큼 헷갈려 한다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 236" role="img" aria-labelledby="w09-fig1-t" style="width: 100%">
+            <title id="w09-fig1-t">퍼플렉서티 로그 눈금 자. 1에 가까울수록 확신, 오른쪽으로 갈수록 헤맨다. GPT-3000 학습 문서 1.14, GPT-300 학습 문서 6.2, 바이그램 학습 문서 22.7, 바이그램 검증 문서 64.3, GPT-300 검증 문서 71.8, 학습 전 모델과 균등 분포 495, GPT-3000 검증 문서 약 15,487</title>
+            <style>
+              .w09f-l { font: 600 12px var(--font-sans); fill: var(--color-text); }
+              .w09f-n { font: 11px var(--font-sans); fill: var(--color-text-muted); }
+              .w09f-axis { stroke: var(--color-border-strong); stroke-width: 2; }
+              .w09f-tick { stroke: var(--color-border-strong); }
+              .w09f-tr { fill: var(--color-accent); }
+              .w09f-va { fill: var(--color-danger); }
+              .w09f-mu { fill: var(--color-text-muted); }
+              .w09f-lead { stroke: var(--color-border); stroke-dasharray: 2 2; }
+            </style>
+            <!-- log10 scale: x = 30 + 140 * log10(ppl), 1 → 30, 10 → 170, 100 → 310, 1000 → 450, 10000 → 590 -->
+            <line class="w09f-axis" x1="30" x2="620" y1="110" y2="110"/>
+            <line class="w09f-tick" x1="30" x2="30" y1="104" y2="116"/><text class="w09f-n" x="30" y="132" text-anchor="middle">1</text>
+            <line class="w09f-tick" x1="170" x2="170" y1="104" y2="116"/><text class="w09f-n" x="170" y="132" text-anchor="middle">10</text>
+            <line class="w09f-tick" x1="310" x2="310" y1="104" y2="116"/><text class="w09f-n" x="310" y="132" text-anchor="middle">100</text>
+            <line class="w09f-tick" x1="450" x2="450" y1="104" y2="116"/><text class="w09f-n" x="450" y="132" text-anchor="middle">1,000</text>
+            <line class="w09f-tick" x1="590" x2="590" y1="104" y2="116"/><text class="w09f-n" x="590" y="132" text-anchor="middle">10,000</text>
+            <text class="w09f-n" x="30" y="150">← 확신한다 (외웠을 수도)</text>
+            <text class="w09f-n" x="620" y="150" text-anchor="end">헤맨다 →</text>
+            <!-- training docs (above) -->
+            <circle class="w09f-tr" cx="38" cy="110" r="6"/><line class="w09f-lead" x1="38" x2="38" y1="36" y2="104"/><text class="w09f-l" x="34" y="30">GPT-3000 학습 1.14</text>
+            <circle class="w09f-tr" cx="141" cy="110" r="6"/><line class="w09f-lead" x1="141" x2="141" y1="60" y2="104"/><text class="w09f-l" x="120" y="54">GPT-300 학습 6.2</text>
+            <circle class="w09f-tr" cx="220" cy="110" r="6"/><line class="w09f-lead" x1="220" x2="220" y1="84" y2="104"/><text class="w09f-l" x="200" y="78">바이그램 학습 22.7</text>
+            <circle class="w09f-mu" cx="407" cy="110" r="6"/><line class="w09f-lead" x1="407" x2="407" y1="60" y2="104"/><text class="w09f-l" x="360" y="54">학습 전 · 균등 495</text>
+            <!-- held-out doc (below) -->
+            <circle class="w09f-va" cx="283" cy="110" r="6"/><line class="w09f-lead" x1="283" x2="283" y1="116" y2="170"/><text class="w09f-l" x="200" y="184">바이그램 검증 64.3</text>
+            <circle class="w09f-va" cx="290" cy="110" r="6"/><line class="w09f-lead" x1="290" x2="320" y1="116" y2="190"/><text class="w09f-l" x="300" y="204">GPT-300 검증 71.8</text>
+            <circle class="w09f-va" cx="617" cy="110" r="6"/><line class="w09f-lead" x1="617" x2="617" y1="116" y2="170"/><text class="w09f-l" x="620" y="184" text-anchor="end">GPT-3000 검증 ≈15,487</text>
+            <text class="w09f-n" x="0" y="232">파란 점 = 학습 문서 평균, 빨간 점 = 검증 문서(rag-vectordb). 이 과정의 체크포인트로 실제로 잰 값이다.</text>
+          </svg>
+          <figcaption>퍼플렉서티 자(로그 눈금). 같은 GPT-3000이 학습 문서에서는 1.14, 처음 보는 문서에서는 약 15,487이다.</figcaption>
+        </figure>
+        <p>bits/글자(bits per character)는 같은 값을 밑 2로 쓴 것이다. PPL 2 = 1 bit/글자(동전 던지기 한 번), PPL 64 = 6 bits/글자다. 좋은 언어 모델은 곧 좋은 압축기다. 다음 글자를 잘 맞힐수록 적은 비트로 글을 적을 수 있다.</p>
+        <p>학습 전 미니 GPT(1스텝)의 손실은 6.2018이다. ln 495 = 6.2046이므로 PPL ≈ 494, 즉 495글자 중 아무거나 찍는 것과 같다. 학습이 제대로 시작됐는지 확인하는 첫 번째 점검이 이것이다.</p>
+        <div class="callout callout--more">
+          <span class="callout__title">퍼플렉서티를 비교할 때 주의</span>
+          <p>퍼플렉서티는 <b>토큰 단위</b>에 따라 값이 달라진다. 글자 단위 PPL 64와 BPE 토큰 단위 PPL 64는 다른 뜻이다(토큰 하나가 여러 글자를 담으므로). 어휘와 토크나이저가 같은 모델끼리, 같은 평가 문서로 잰 값만 비교한다. 글자 단위로 통일하고 싶으면 bits/글자를 쓴다.</p>
+        </div>
+
+        <h3>학습 문서가 아니라 검증 문서로 잰다</h3>
+        <p>모델이 학습한 문서로 재면 “얼마나 잘 외웠나”를 잴 뿐이다. 그래서 문서 하나(“벡터 데이터베이스와 인덱스”, <code>rag-vectordb</code>, 356자)를 학습에서 빼 두었다. 이것이 <strong>검증 세트(validation set)</strong>다. 1주차 C5에서 n-gram을 평가할 때와 같은 문서다. 네 모델을 같은 방법으로 재면 다음과 같다.</p>
+        <table class="w09-fig-table">
+          <thead><tr><th>모델</th><th>학습 문서 손실</th><th>학습 PPL</th><th>검증 손실</th><th>검증 PPL</th><th>검증 bits/글자</th></tr></thead>
+          <tbody>
+            <tr><td>바이그램 (1주차, add-0.1)</td><td>3.124</td><td>22.7</td><td><strong>4.163</strong></td><td><strong>64.3</strong></td><td>6.01</td></tr>
+            <tr><td>미니 GPT · 300스텝</td><td>1.824</td><td>6.20</td><td>4.274</td><td>71.8</td><td>6.17</td></tr>
+            <tr><td>미니 GPT · 800스텝</td><td>0.412</td><td>1.51</td><td>7.157</td><td>1,283</td><td>10.33</td></tr>
+            <tr><td>미니 GPT · 3000스텝</td><td>0.127</td><td>1.14</td><td>9.648</td><td>15,487</td><td>13.92</td></tr>
+          </tbody>
+        </table>
+        <p>학습을 오래 할수록 학습 문서의 PPL은 1에 다가가고, 검증 문서의 PPL은 폭등한다. 3000스텝 모델은 학습 문서에서 매 글자를 거의 확신하지만(평균 1.14개 후보) 처음 보는 문서에서는 평균 1만 5천 개 후보 중에서 헤맨다. 어휘가 495자뿐이니 “아무렇게나 찍기(495)”보다도 나쁘다. 틀린 글자에 강한 확신을 주기 때문이다. 이것이 <strong>과대적합(overfitting)</strong>이다.</p>
+        <p>학습 중에 50스텝마다 두 손실을 기록해 두면 과대적합이 시작되는 지점이 보인다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 560 230" role="img" aria-label="학습 손실과 검증 손실 곡선. 검증 손실 최저는 150스텝의 3.7757">
+    <line class="w09g-grid" x1="38" x2="548" y1="196" y2="196"/><text class="w09g-t" x="32" y="200" text-anchor="end">0</text><line class="w09g-grid" x1="38" x2="548" y1="159.6" y2="159.6"/><text class="w09g-t" x="32" y="163.6" text-anchor="end">2</text><line class="w09g-grid" x1="38" x2="548" y1="123.2" y2="123.2"/><text class="w09g-t" x="32" y="127.2" text-anchor="end">4</text><line class="w09g-grid" x1="38" x2="548" y1="86.8" y2="86.8"/><text class="w09g-t" x="32" y="90.8" text-anchor="end">6</text><line class="w09g-grid" x1="38" x2="548" y1="50.4" y2="50.4"/><text class="w09g-t" x="32" y="54.4" text-anchor="end">8</text><line class="w09g-grid" x1="38" x2="548" y1="14" y2="14"/><text class="w09g-t" x="32" y="18" text-anchor="end">10</text>
+    <text class="w09g-t" x="38" y="212" text-anchor="middle">0</text><text class="w09g-t" x="123" y="212" text-anchor="middle">500</text><text class="w09g-t" x="208" y="212" text-anchor="middle">1000</text><text class="w09g-t" x="293" y="212" text-anchor="middle">1500</text><text class="w09g-t" x="378" y="212" text-anchor="middle">2000</text><text class="w09g-t" x="463" y="212" text-anchor="middle">2500</text><text class="w09g-t" x="548" y="212" text-anchor="middle">3000</text>
+    <text class="w09g-t" x="548" y="226" text-anchor="end">학습 스텝 (기록: 3000스텝 체크포인트)</text>
+    <line class="w09g-snap" x1="89" x2="89" y1="14" y2="196"/><text class="w09g-t" x="92" y="24">300</text><line class="w09g-snap" x1="174" x2="174" y1="14" y2="196"/><text class="w09g-t" x="177" y="24">800</text><line class="w09g-snap" x1="548" x2="548" y1="14" y2="196"/><text class="w09g-t" x="518" y="24">3000</text>
+    <line class="w09g-base" x1="38" x2="548" y1="120.23585700000001" y2="120.23585700000001"/><text class="w09g-t" x="548" y="116.23585700000001" text-anchor="end">바이그램 검증 4.16</text>
+    <path class="w09g-train" d="M38.2 83.1L46.5 112.2L55.0 138.9L63.5 149.9L72.0 155.5L80.5 160.0L89.0 163.2L97.5 168.9L106.0 174.4L114.5 177.2L123.0 179.4L131.5 182.0L140.0 184.1L148.5 186.0L157.0 186.2L165.5 187.9L174.0 188.4L182.5 189.0L191.0 189.3L199.5 189.9L208.0 189.8L216.5 190.2L225.0 191.1L233.5 191.5L242.0 191.6L250.5 191.7L259.0 192.0L267.5 192.0L276.0 192.2L284.5 192.1L293.0 192.2L301.5 192.4L310.0 192.6L318.5 192.7L327.0 192.6L335.5 192.9L344.0 192.9L352.5 193.0L361.0 193.0L369.5 193.1L378.0 193.3L386.5 193.2L395.0 193.3L403.5 193.3L412.0 193.5L420.5 193.5L429.0 193.5L437.5 193.8L446.0 193.6L454.5 193.4L463.0 193.6L471.5 193.7L480.0 193.7L488.5 193.7L497.0 193.8L505.5 193.8L514.0 193.8L522.5 193.9L531.0 193.9L539.5 194.0L548.0 193.8"/>
+    <path class="w09g-val" d="M38.2 82.8L46.5 107.1L55.0 124.7L63.5 127.3L72.0 125.7L80.5 124.4L89.0 122.0L97.5 116.3L106.0 109.9L114.5 103.8L123.0 97.7L131.5 89.2L140.0 86.0L148.5 81.3L157.0 74.6L165.5 71.4L174.0 67.2L182.5 63.6L191.0 62.7L199.5 57.8L208.0 55.9L216.5 54.5L225.0 52.5L233.5 51.7L242.0 47.8L250.5 50.2L259.0 46.2L267.5 44.2L276.0 39.2L284.5 40.9L293.0 43.1L301.5 38.5L310.0 41.5L318.5 40.4L327.0 35.5L335.5 34.8L344.0 34.2L352.5 33.6L361.0 33.5L369.5 32.7L378.0 29.5L386.5 28.2L395.0 29.8L403.5 28.2L412.0 29.2L420.5 27.5L429.0 26.9L437.5 28.8L446.0 28.2L454.5 27.8L463.0 27.5L471.5 26.9L480.0 26.1L488.5 26.6L497.0 24.2L505.5 25.4L514.0 24.3L522.5 24.6L531.0 24.5L539.5 24.2L548.0 24.9"/>
+    <circle class="w09g-best" cx="63.5" cy="127.28226" r="5"/>
+    <text class="w09g-t strong" x="71.5" y="143.28226">검증 최저 3.78 @ 150스텝</text>
+    <g class="w09g-key"><line class="w09g-train" x1="48" x2="68" y1="222" y2="222"/><text class="w09g-t" x="72" y="226">학습</text>
+    <line class="w09g-val" x1="108" x2="128" y1="222" y2="222"/><text class="w09g-t" x="132" y="226">검증 (rag-vectordb)</text></g>
+  </svg>
+          <figcaption>mini-gpt-3000 체크포인트의 <code>meta.history</code>. 검증 손실은 150스텝에서 3.78로 가장 낮고 그 뒤로 계속 오른다. 학습 손실은 끝까지 내려간다. 점선 = 바이그램의 검증 손실(4.16).</figcaption>
+        </figure>
+        <p>검증 손실이 가장 낮은 지점의 가중치를 저장해 두고 쓰는 것을 <strong>조기 종료(early stopping)</strong>라 한다. 우리 모델이라면 150스텝이다. 그래프의 손실은 학습 도중 무작위 48글자 창 24개로 빠르게 잰 값이라 위 표(문서 전체를 48글자 창으로 잘라 잰 값)와 조금 다르다.</p>
+        <div class="callout callout--danger">
+          <span class="callout__title">낮은 퍼플렉서티 ≠ 참</span>
+          <p>퍼플렉서티는 “그럴듯한 글자 배열인가”를 잰다. “실습실은 … 평일 오후 <b>9시</b>까지 개방된다”(참)와 “<b>3시</b>까지”(거짓)의 바이그램 PPL은 32.8과 30.8이다. <b>거짓 문장이 더 낮다.</b> GPT-300도 5.73과 6.01로 거의 같다. 사실 여부를 가리려면 다른 평가(정답 비교, 근거 확인)가 필요하다. 12주차 환각과 RAG의 출발점이다.</p>
+        </div>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — 학습/검증 분할, 학습 곡선, 과대적합, 조기 종료는 <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 “모델 평가와 과대적합” 단원에서 본 것과 똑같다. 달라진 것은 정확도 대신 퍼플렉서티로 잰다는 것뿐이다.</p></div>
+
+        <h3>스케일링: 파라미터 N, 토큰 D, 계산량 C</h3>
+        <p>우리 모델이 외운 이유는 간단하다. 파라미터 106,959개에 비해 서로 다른 학습 글자가 6,470자뿐이다. 3,000스텝 × 배치 16 × 48글자 = 2,304,000글자를 봤으니 같은 글을 약 356번(epoch) 반복했다. 큰 LLM이 외우지 않고 일반화하는 가장 큰 이유는 <strong>데이터가 모델보다 훨씬 많기</strong> 때문이다.</p>
+        <p>모델 크기와 데이터 양, 학습 계산량 사이에는 자주 쓰는 어림식이 있다.</p>
+        <ul>
+          <li><strong>학습 계산량 C ≈ 6 · N · D</strong> FLOPs. N = 파라미터 수, D = 학습 토큰 수. 토큰 하나마다 순전파에 약 2N, 역전파에 약 4N번의 곱셈·덧셈이 든다(어텐션 계산은 무시한 근사).</li>
+          <li><strong>Chinchilla 어림: D ≈ 20 · N</strong>. 계산량이 정해져 있을 때 손실을 가장 낮추려면 파라미터 1개당 서로 다른 토큰 약 20개로 학습하라는 경험칙이다(2022년 Chinchilla 연구). 요즘 모델은 추론 비용을 줄이려고 이보다 훨씬 많은 토큰으로 작은 모델을 학습시키기도 한다.</li>
+        </ul>
+        <table class="w09-fig-table">
+          <thead><tr><th>크기</th><th>D = 20N</th><th>C = 6ND</th><th>A100급 1장 (추정)</th></tr></thead>
+          <tbody>
+            <tr><td>우리 미니 GPT (106,959)</td><td>214만</td><td>1.37 × 10¹²</td><td>0.01초</td></tr>
+            <tr><td>GPT-2 small (124M)</td><td>25억</td><td>1.85 × 10¹⁸</td><td>0.17일</td></tr>
+            <tr><td>1B</td><td>200억</td><td>1.20 × 10²⁰</td><td>11일</td></tr>
+            <tr><td>7B</td><td>1,400억</td><td>5.88 × 10²¹</td><td>545일</td></tr>
+            <tr><td>70B</td><td>1.4조</td><td>5.88 × 10²³</td><td>약 149년</td></tr>
+          </tbody>
+        </table>
+        <p class="w09-muted">A100급 GPU를 약 312 TFLOPS(16비트 행렬 연산)로 보고 실제 활용률을 40%로 가정한 추정이다. 70B를 몇 달 안에 학습하려면 GPU 수천 장이 필요하다. 참고로 우리 미니 GPT 3,000스텝(6ND ≈ 1.48 × 10¹² FLOPs)은 JavaScript 엔진으로 Node에서 약 25분 걸렸다(중간 평가 포함). 초당 약 10억(1 GFLOPS) 번 계산한 셈이다.</p>
+
+        <h3>메모리: 가중치 · KV 캐시 · 학습 상태</h3>
+        <p><strong>① 가중치</strong> = 파라미터 수 × 파라미터당 바이트. 정밀도를 낮추면(양자화, quantization) 줄어든다.</p>
+        <table class="w09-fig-table">
+          <thead><tr><th>모델</th><th>fp32 (4B)</th><th>fp16·bf16 (2B)</th><th>int8 (1B)</th><th>int4 (0.5B)</th></tr></thead>
+          <tbody>
+            <tr><td>우리 미니 GPT</td><td>428KB</td><td>214KB</td><td>107KB</td><td>53.5KB</td></tr>
+            <tr><td>1B</td><td>4GB</td><td>2GB</td><td>1GB</td><td>0.5GB</td></tr>
+            <tr><td>7B</td><td>28GB</td><td>14GB</td><td>7GB</td><td>3.5GB</td></tr>
+            <tr><td>70B</td><td>280GB</td><td><strong>140GB</strong></td><td>70GB</td><td>35GB</td></tr>
+          </tbody>
+        </table>
+        <p>70B 모델은 fp16으로 가중치만 140GB다. 현재 가장 큰 데이터센터 GPU 한 장(80GB)에 들어가지 않는다. 적어도 두 장에 나눠 싣거나 int8·int4로 줄여야 한다.</p>
+        <p><strong>② KV 캐시</strong>. 8주차에 한 글자씩 생성할 때 앞 토큰들의 키(K)와 값(V)을 매번 다시 계산하지 않고 저장해 둔다. 토큰마다, 층마다 K와 V가 쌓인다.</p>
+        <pre><code class="language-text">KV 캐시 = 2(K, V) × 층 수 × KV 헤드 수 × 헤드 차원 × 문맥 길이 × 바이트 × 배치</code></pre>
+        <p>7B 대표 설정(32층, 헤드 32개 × 128차원, fp16)이면 토큰 하나에 2 × 32 × 32 × 128 × 2 = 524KB다. 문맥 4,096토큰이면 2.15GB, 128K토큰이면 68.7GB로 <strong>가중치(14GB)보다 커진다</strong>. 동시 사용자(배치)만큼 또 곱해진다. 그래서 요즘 모델은 KV 헤드 수를 줄인다(GQA: 여러 쿼리 헤드가 K·V를 나눠 씀). 70B 대표 설정은 KV 헤드가 8개라 토큰당 328KB로 7B보다 오히려 작다.</p>
+        <p><strong>③ 학습 상태</strong>. 학습하려면 가중치 말고도 기울기와 Adam 옵티마이저 상태가 파라미터마다 따라다닌다. 혼합 정밀도(mixed precision) 학습에서 흔한 구성은 다음과 같다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 120" role="img" aria-labelledby="w09-fig3-t" style="width: 100%">
+            <title id="w09-fig3-t">파라미터 하나를 Adam으로 학습할 때 필요한 16바이트: fp16 가중치 2, fp16 기울기 2, fp32 원본 가중치 4, Adam 1차 모멘트 4, Adam 2차 모멘트 4</title>
+            <style>
+              .w09f3-a { fill: var(--color-accent); }
+              .w09f3-b { fill: var(--color-accent2); }
+              .w09f3-c { fill: var(--color-more); }
+              .w09f3-t { font: 600 12px var(--font-sans); fill: var(--color-accent-contrast); }
+              .w09f3-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+            </style>
+            <rect class="w09f3-a" x="0" y="10" width="76" height="44" rx="4"/><text class="w09f3-t" x="38" y="37" text-anchor="middle">가중치 2</text>
+            <rect class="w09f3-a" x="80" y="10" width="76" height="44" rx="4" opacity="0.75"/><text class="w09f3-t" x="118" y="37" text-anchor="middle">기울기 2</text>
+            <rect class="w09f3-b" x="160" y="10" width="156" height="44" rx="4"/><text class="w09f3-t" x="238" y="37" text-anchor="middle">fp32 원본 4</text>
+            <rect class="w09f3-c" x="320" y="10" width="156" height="44" rx="4"/><text class="w09f3-t" x="398" y="37" text-anchor="middle">Adam m 4</text>
+            <rect class="w09f3-c" x="480" y="10" width="156" height="44" rx="4" opacity="0.75"/><text class="w09f3-t" x="558" y="37" text-anchor="middle">Adam v 4</text>
+            <text class="w09f3-n" x="0" y="78">파라미터 1개 = 16바이트 (활성값 제외) → 7B는 112GB, 70B는 1.12TB</text>
+            <text class="w09f3-n" x="0" y="98">추론(fp16)은 2바이트면 되지만 학습은 8배가 든다. 여기에 배치·문장 길이에 비례하는 활성값이 더해진다.</text>
+          </svg>
+          <figcaption>Adam 혼합 정밀도 학습의 파라미터당 메모리(어림). 10주차 LoRA가 이 16바이트를 “학습할 파라미터”에만 쓰게 만드는 방법이다.</figcaption>
+        </figure>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <h3>① 퍼플렉서티 측정기</h3>
+        <p>모델과 글을 고르면 글자마다 모델이 얼마나 놀랐는지(−ln p)를 색으로 칠하고, 손실 · 퍼플렉서티 · bits/글자를 계산한다. 아래 표는 같은 글을 다른 모델로 잰 값이고, 그래프는 학습 곡선이다. 체크포인트 세 개(각 약 0.6MB)를 불러오므로 처음에 몇 초 걸린다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래).</p>
+        <div id="w09-perplexity"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 화면(오래 학습한 모델 · 검증 문서)의 PPL과 학습 문서 평균 PPL을 적는다. 몇 배 차이인가? 빨간 글자가 몰린 곳은 어디인가(영어 약어, 숫자, 처음 보는 단어)?</li>
+          <li>“외운 문서” 버튼을 누른다. 초록색이 대부분인 이유는? 이 PPL로 모델을 평가하면 왜 안 되는가?</li>
+          <li>검증 문서를 둔 채 모델을 바이그램 → 300 → 800 → 3000으로 바꾼다. 검증 PPL이 가장 낮은 모델은? 학습 곡선의 초록 동그라미(검증 최저)과 연결해 설명한다.</li>
+          <li>“참 vs 거짓 문장”을 누르고 네 모델의 표를 본다. 거짓 문장의 PPL이 참 문장보다 낮은 모델이 있는가? 오래 학습한 모델에서 차이가 커지는 것은 “이해”인가 “암기”인가?</li>
+          <li>“섞은 문장”과 “직접 입력”으로 자신만의 문장을 넣어 본다. 학과 문서에 나올 법한 문장과 전혀 다른 주제의 문장은 PPL이 어떻게 다른가?</li>
+        </ol>
+
+        <h3>② LLM 메모리 계산기</h3>
+        <p>파라미터 수, 정밀도, 문맥 길이, 배치를 바꾸면 가중치 · KV 캐시 · 학습 메모리를 로그 눈금 막대로 그리고 GPU 8 / 24 / 80GB와 비교한다. 아래에서 학습 토큰 수를 고르면 6ND 계산량과 GPU 시간을 어림한다. 모든 값은 추정치다(활성값·프레임워크 오버헤드 제외).</p>
+        <div id="w09-memory"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>처음 화면(7B · fp16 · 문맥 4K)은 어떤 GPU에 들어가는가? int8, int4로 바꾸면 어떻게 되는가?</li>
+          <li>“70B fp16” 버튼을 누른다. 추론에 80GB GPU가 몇 장 필요한가? 학습(Adam)에는?</li>
+          <li>“7B · 문맥 128K”를 누른다. KV 캐시가 가중치보다 커지는 문맥 길이는 대략 얼마부터인가? 배치를 8로 올리면?</li>
+          <li>프리셋을 “우리 미니 GPT”로 바꾼다. 토큰/파라미터는 Chinchilla 어림과 비슷한데 왜 과대적합했는가? 경고 문구를 읽고 설명한다.</li>
+          <li>7B를 D = 20N으로 학습할 때 A100급 1,000장이면 며칠 걸리는가? 활용률 40% 가정이 바뀌면 결과는 어떻게 달라지는가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 페이지와 분리된 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. <code>/assets/…</code> 경로는 사이트 루트 기준이다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 손실 · 퍼플렉서티 · bits/글자 바꾸기</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>세 단위를 서로 바꾸는 함수를 만들고 이번 주 모델들의 값을 표로 만든다. 균등 분포(495자 중 아무거나)의 손실도 직접 구한다. 기대 결과: 균등 분포 손실 6.2046 → PPL 495 → 8.951 bits, PPL 2인 모델은 정확히 1 bit/글자.</p>
+          <pre data-run="c1" data-title="C1 단위 바꾸기"><code class="language-javascript">// 손실(nats/글자) → 퍼플렉서티 → bits/글자
+const toPpl = (loss) =&gt; 0; // TODO: e^loss
+const toBpc = (loss) =&gt; 0; // TODO: loss / ln 2  (자연로그 단위 → 밑 2 단위)
+const fromPpl = (ppl) =&gt; 0; // TODO: 퍼플렉서티에서 손실로 되돌린다
+
+const V = 495; // 코퍼스의 글자 종류
+const rows = [
+  { 모델: '균등 분포 (495자 중 아무거나)', loss: 0 }, // TODO: 모든 글자에 1/V를 줄 때의 손실 −ln(1/V)
+  { 모델: '학습 전 미니 GPT (1스텝)', loss: 6.2018 },
+  { 모델: '바이그램 · 검증 문서', loss: 4.163 },
+  { 모델: 'GPT-300 · 학습 문서 평균', loss: 1.824 },
+  { 모델: 'GPT-3000 · 학습 문서 평균', loss: 0.1275 },
+];
+console.table(rows.map((r) =&gt; ({ ...r, ppl: +toPpl(r.loss).toFixed(2), bpc: +toBpc(r.loss).toFixed(3) })));
+console.log('PPL 2인 모델의 손실:', fromPpl(2)); // 이것은 몇 bits/글자인가?
+// TODO: 학습 전 모델의 손실이 균등 분포와 거의 같은 이유를 console.log로 적는다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 검증 문서의 퍼플렉서티 재기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>학습에서 뺀 <code>rag-vectordb</code> 문서로 바이그램과 미니 GPT(300스텝)의 퍼플렉서티를 잰다. GPT는 문서를 48글자(blockSize) 창으로 잘라 <code>forward</code>에 넣고, 행마다 실제 다음 글자의 −ln softmax를 더한다. 기대 결과: 바이그램 4.163(PPL 64.3), GPT-300 4.274(PPL 71.8). 처음 보는 문서에서는 신경망이 빈도표를 이기지 못한다.</p>
+          <pre data-run="c2" data-title="C2 검증 퍼플렉서티"><code class="language-javascript">import { countNgrams, nll } from '/assets/js/core/ngram.js';
+import { deserialize, forward } from '/assets/js/core/gpt.js';
+import { noGrad } from '/assets/js/core/tensor.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+const join = (docs) =&gt; docs.map((d) =&gt; d.text).join('\n\n');
+const trainText = join(corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb'));
+const valText = corpus.documents.find((d) =&gt; d.id === 'rag-vectordb').text; // 어떤 모델도 보지 못한 문서
+
+// ① 바이그램 (1주차 C5와 같은 모델)
+const bigram = countNgrams([...trainText], 2);
+const bigramLoss = 0; // TODO: nll(bigram, [...valText], { k: 0.1 }).nll
+console.log('바이그램 검증 손실', bigramLoss.toFixed(3), 'PPL', Math.exp(bigramLoss).toFixed(1));
+
+// ② 미니 GPT (300스텝 체크포인트)
+const { model, vocab } = deserialize(await (await fetch('/assets/data/models/mini-gpt-300.json')).json());
+const T = model.config.blockSize; // 48글자 창
+const ids = vocab.encode(valText);
+let sum = 0;
+let count = 0;
+noGrad(() =&gt; {
+  for (let start = 0; start &lt; ids.length - 1; start += T) {
+    const len = Math.min(T, ids.length - 1 - start);
+    const x = Int32Array.from(ids.slice(start, start + len));
+    const { logits } = forward(model, x, 1, len); // logits.data: len × V (행마다 다음 글자 점수)
+    const V = logits.shape[1];
+    for (let t = 0; t &lt; len; t++) {
+      const row = logits.data.subarray(t * V, (t + 1) * V);
+      const target = ids[start + t + 1]; // 실제 다음 글자
+      // TODO: −ln softmax(row)[target] = ln Σ exp(row) − row[target]
+      //       (넘침을 막으려면 row의 최댓값 mx를 빼고 계산한 뒤 mx를 더한다)
+      //       sum에 더하고 count를 1 늘린다
+    }
+  }
+});
+const gptLoss = count ? sum / count : 0;
+console.log('GPT-300 검증 손실', gptLoss.toFixed(3), 'PPL', Math.exp(gptLoss).toFixed(1), `(${count}글자)`);
+// TODO: 두 모델 중 어느 쪽이 처음 보는 문서를 더 잘 예측하는가? 이유를 console.log로 적는다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 학습 곡선에서 조기 종료 지점 찾기</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>체크포인트의 <code>meta.history</code>에서 검증 손실이 가장 낮은 스텝을 찾고, “검증 손실이 3번 연속 최저를 갱신하지 못하면 멈춘다”(patience 3) 규칙으로 멈추는 스텝을 구한다. 학습-검증 격차가 어떻게 벌어지는지도 표로 본다. 최저 스텝은 몇이고, 왜 그 뒤로 학습 손실만 내려가는가?</p>
+          <pre data-run="c3" data-title="C3 조기 종료"><code class="language-javascript">// 체크포인트에는 50스텝마다 잰 학습·검증 손실(meta.history)이 들어 있다
+let res = await fetch('/assets/data/models/mini-gpt-3000.json');
+if (!res.ok) res = await fetch('/assets/data/models/mini-gpt-800.json'); // 없으면 800스텝 기록
+const { meta } = await res.json();
+const hist = meta.history; // [{ step, train, val }, …]
+console.log('기록 수', hist.length, '마지막', hist.at(-1));
+
+// ① 검증 손실이 가장 낮은 기록
+let best = hist[0];
+// TODO: hist를 돌며 val이 가장 작은 기록을 best에 넣는다
+console.log('검증 최저', best);
+
+// ② 조기 종료(early stopping): 검증 손실이 patience번 연속으로 최저를 갱신하지 못하면 멈춘다
+function earlyStop(hist, patience) {
+  // TODO: 지금까지의 최저 val과 "갱신 못 한 횟수"를 세다가 patience에 닿는 기록의 step을 돌려준다
+  return null;
+}
+console.log('patience 3 → 멈추는 step', earlyStop(hist, 3));
+
+// ③ 학습-검증 격차(gap)가 벌어지는 모습
+console.table(hist.filter((h) =&gt; [150, 300, 800, 1500, 3000].includes(h.step))
+  .map((h) =&gt; ({ step: h.step, train: h.train, val: h.val, gap: 0 }))); // TODO: gap = val − train</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 가중치 + KV 캐시 메모리 계산기</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>대표 설정 예시 1B · 7B · 70B에 대해 가중치(fp16 · int4)와 KV 캐시(문맥 4K · 128K, fp16)를 GB로 계산한다. 그리고 ① 70B fp16 추론에 80GB GPU가 몇 장 필요한지 ② 7B fp16을 24GB GPU에 올렸을 때 남은 메모리로 문맥을 최대 몇 토큰까지 쓸 수 있는지 구한다. 위젯의 값과 맞는지 확인한다.</p>
+          <pre data-run="c4" data-title="C4 메모리 계산"><code class="language-javascript">// 메모리 계산기: 가중치 + KV 캐시 (1GB = 10⁹바이트 · 모두 추정치)
+const BYTES = { fp32: 4, fp16: 2, int8: 1, int4: 0.5 };
+// 대표 설정 예시 (실제 모델과 조금씩 다를 수 있다)
+const MODELS = [
+  { name: '1B', params: 1e9, layers: 16, kvHeads: 8, headDim: 64 },
+  { name: '7B', params: 7e9, layers: 32, kvHeads: 32, headDim: 128 },
+  { name: '70B', params: 70e9, layers: 80, kvHeads: 8, headDim: 128 },
+];
+const GB = 1e9;
+
+function weightBytes(params, prec) {
+  return 0; // TODO: 파라미터 수 × 파라미터당 바이트
+}
+function kvCacheBytes(m, ctx, batch, prec = 'fp16') {
+  return 0; // TODO: 2(K와 V) × 층 × KV 헤드 × 헤드 차원 × 문맥 길이 × 바이트 × 배치
+}
+
+console.table(MODELS.map((m) =&gt; ({
+  모델: m.name,
+  'fp16 GB': +(weightBytes(m.params, 'fp16') / GB).toFixed(1),
+  'int4 GB': +(weightBytes(m.params, 'int4') / GB).toFixed(1),
+  'KV 4K GB': +(kvCacheBytes(m, 4096, 1) / GB).toFixed(2),
+  'KV 128K GB': +(kvCacheBytes(m, 131072, 1) / GB).toFixed(2),
+})));
+// TODO: 70B를 fp16으로 추론할 때(문맥 4K) 80GB GPU가 몇 장 필요한지 Math.ceil로 구한다
+// TODO: 7B fp16을 24GB GPU에 올리면 KV 캐시로 쓸 수 있는 문맥은 최대 몇 토큰인가?</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 6ND와 Chinchilla로 본 우리 미니 GPT</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>크기별로 Chinchilla 어림 토큰 수(20N), 계산량(6ND), A100급 GPU 한 장으로 걸리는 일수를 추정한다. 그다음 우리 미니 GPT가 실제로 본 토큰 수와 epoch 수를 구하고, 서로 다른 학습 글자 6,470자에 맞는 파라미터 수를 역산한다. 이 숫자로 퍼플렉서티 측정기에서 본 과대적합을 설명한다.</p>
+          <pre data-run="c5" data-title="C5 스케일링 어림"><code class="language-javascript">// 학습 계산량 C ≈ 6·N·D FLOPs, Chinchilla 어림: D ≈ 20·N (모두 추정치)
+const GPU_FLOPS = 312e12 * 0.4; // A100급 약 312 TFLOPS × 활용률 40% (가정)
+const sizes = [
+  { name: '우리 미니 GPT', N: 106959 },
+  { name: 'GPT-2 small', N: 124e6 },
+  { name: '1B', N: 1e9 },
+  { name: '7B', N: 7e9 },
+  { name: '70B', N: 70e9 },
+];
+console.table(sizes.map(({ name, N }) =&gt; {
+  const D = 0; // TODO: Chinchilla 어림 토큰 수
+  const C = 0; // TODO: 6·N·D
+  const days = 0; // TODO: GPU 한 장으로 걸리는 일수 = C / GPU_FLOPS / 86400
+  return { name, N, D, C: C.toExponential(2), days: +days.toFixed(2) };
+}));
+
+// 우리 미니 GPT는 실제로 무엇을 했나
+const steps = 3000, batch = 16, block = 48, trainChars = 6470;
+const seen = 0; // TODO: 학습 중 본 토큰(글자) 수 = 스텝 × 배치 × 창 길이
+const epochs = 0; // TODO: 같은 학습 문서를 몇 번 반복해서 봤나
+console.log('본 토큰', seen, '· 토큰/파라미터', (seen / 106959).toFixed(1), '· epoch', epochs.toFixed(1));
+// TODO: 서로 다른 토큰 6,470개로 Chinchilla 어림을 맞추려면 파라미터가 몇 개여야 하나?
+//       이 결과로 퍼플렉서티 측정기의 과대적합을 설명한다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>퍼플렉서티 = e<sup>손실</sup> = “평균 몇 개 후보 중에서 고민하는가”. bits/글자 = 손실 / ln 2. 같은 토크나이저, 같은 평가 문서끼리만 비교한다.</li>
+          <li>학습 문서의 PPL은 암기를 잰다. 반드시 학습에서 뺀 검증 문서로 잰다. 검증 손실이 가장 낮은 지점에서 멈추는 것이 조기 종료다(우리 모델은 150스텝).</li>
+          <li>낮은 PPL은 “그럴듯함”이지 “사실”이 아니다. 거짓 문장도 PPL이 낮을 수 있다.</li>
+          <li>학습 계산량 ≈ 6·N·D, Chinchilla 어림 D ≈ 20N(서로 다른 토큰). 우리 모델은 비율은 맞았지만 같은 6,470자를 356번 반복해서 외웠다.</li>
+          <li>메모리 = 가중치(N × 바이트) + KV 캐시(문맥 × 배치에 비례). 학습은 파라미터당 약 16바이트. 70B는 fp16 가중치만 140GB라 80GB GPU 한 장에 들어가지 않는다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 과정과 연결</b> — <a href="https://samcho93.github.io/studyRAG/weeks/w09/" target="_blank" rel="noopener">RAG 9주차 “평가 데이터셋 &amp; 측정”</a>에서는 검색기를 Recall@k로 잰다(“정답 문서가 상위 k개 안에 들었나”). 퍼플렉서티가 “다음 글자를 얼마나 잘 맞히나”를 재듯, Recall@k는 “필요한 문서를 얼마나 잘 찾나”를 잰다. 둘 다 <b>정답을 아는 평가 세트</b>를 따로 떼어 두는 것에서 시작한다. 그리고 오늘 본 것처럼 PPL이 낮아도 사실을 보장하지 않기 때문에, RAG는 답의 근거가 되는 문서를 찾아 넣는다.</p></div>
+        <p><strong>다음 주(10주차 사전학습에서 챗봇까지)</strong>에는 “다음 글자 맞히기”만 배운 사전학습 모델을 질문에 답하는 챗봇으로 바꾸는 과정을 본다. 채팅 템플릿으로 대화를 한 줄의 글로 만들고, 오늘 계산한 16바이트/파라미터 문제를 LoRA로 줄이는 방법을 계산기로 확인한다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="9"> ✅ 9주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="9" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount as mountPpl } from '../../assets/js/widgets/w09-perplexity.js';
+    import { mount as mountMem } from '../../assets/js/widgets/w09-memory.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mountPpl(document.getElementById('w09-perplexity'));
+    mountMem(document.getElementById('w09-memory'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

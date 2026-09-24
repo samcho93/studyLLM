@@ -1,0 +1,94 @@
+{
+ "note": "Per-document mean surprise (nats/char) — same code as w09-perplexity.js scoreBigram/scoreGpt. Generated offline.",
+ "valId": "rag-vectordb",
+ "models": {
+  "300": {
+   "train": 1.82443,
+   "docs": {
+    "dept-overview": 1.921254,
+    "course-llm-syllabus": 1.457458,
+    "course-rag-syllabus": 1.628339,
+    "facility-rules": 1.87166,
+    "llm-lm": 1.763247,
+    "llm-tokenizer": 1.756289,
+    "llm-embedding": 1.724333,
+    "llm-attention": 1.858304,
+    "llm-transformer": 1.610996,
+    "llm-decoding": 1.970722,
+    "llm-training": 1.993324,
+    "rag-intro": 1.853642,
+    "rag-chunking": 1.967419,
+    "rag-embedding": 1.707746,
+    "rag-vectordb": 4.273538,
+    "rag-hybrid": 2.103042,
+    "rag-evaluation": 1.963109
+   }
+  },
+  "800": {
+   "train": 0.412435,
+   "docs": {
+    "dept-overview": 0.490689,
+    "course-llm-syllabus": 0.350334,
+    "course-rag-syllabus": 0.353704,
+    "facility-rules": 0.333386,
+    "llm-lm": 0.427063,
+    "llm-tokenizer": 0.353852,
+    "llm-embedding": 0.421217,
+    "llm-attention": 0.39649,
+    "llm-transformer": 0.378689,
+    "llm-decoding": 0.365215,
+    "llm-training": 0.462836,
+    "rag-intro": 0.398962,
+    "rag-chunking": 0.370756,
+    "rag-embedding": 0.414828,
+    "rag-vectordb": 7.15724,
+    "rag-hybrid": 0.484088,
+    "rag-evaluation": 0.575348
+   }
+  },
+  "3000": {
+   "train": 0.127487,
+   "docs": {
+    "dept-overview": 0.137315,
+    "course-llm-syllabus": 0.115297,
+    "course-rag-syllabus": 0.112651,
+    "facility-rules": 0.118208,
+    "llm-lm": 0.150082,
+    "llm-tokenizer": 0.121589,
+    "llm-embedding": 0.14294,
+    "llm-attention": 0.123337,
+    "llm-transformer": 0.162648,
+    "llm-decoding": 0.11552,
+    "llm-training": 0.118071,
+    "rag-intro": 0.142562,
+    "rag-chunking": 0.095747,
+    "rag-embedding": 0.106153,
+    "rag-vectordb": 9.647739,
+    "rag-hybrid": 0.151956,
+    "rag-evaluation": 0.137414
+   }
+  },
+  "bigram": {
+   "train": 3.123706,
+   "docs": {
+    "dept-overview": 3.343666,
+    "course-llm-syllabus": 3.113159,
+    "course-rag-syllabus": 3.045748,
+    "facility-rules": 3.366982,
+    "llm-lm": 3.004612,
+    "llm-tokenizer": 3.01009,
+    "llm-embedding": 2.989141,
+    "llm-attention": 3.137538,
+    "llm-transformer": 3.138856,
+    "llm-decoding": 3.101351,
+    "llm-training": 3.136555,
+    "rag-intro": 3.056787,
+    "rag-chunking": 3.168557,
+    "rag-embedding": 3.016127,
+    "rag-vectordb": 4.162865,
+    "rag-hybrid": 3.268877,
+    "rag-evaluation": 3.123625
+   }
+  }
+ }
+}

@@ -17,9 +17,9 @@ const lin = (key, name, group, din, dout) => ({ key, name, group, din, dout });
 export const PRESETS = {
   mini: {
     label: '우리 미니 GPT (D=48, L=2)',
-    note: '7주차 모델 · 어휘 495자 · 문맥 32',
+    note: '7주차 사전학습 모델 · 어휘 495자 · 문맥 48',
     L: 2,
-    other: 50895,
+    other: 51663,
     modules: [
       lin('q', 'q (qkv의 1/3)', 'q', 48, 48),
       lin('k', 'k (qkv의 1/3)', 'k', 48, 48),
