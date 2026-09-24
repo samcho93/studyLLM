@@ -6,6 +6,7 @@ export const PARTS = [
   { no: 2, title: '신경망과 트랜스포머', sub: '신경망 언어 모델 · 어텐션 · 트랜스포머 블록', weeks: [4, 5, 6] },
   { no: 3, title: '미니 GPT 만들기', sub: '학습 · 디코딩 · 평가와 스케일링', weeks: [7, 8, 9] },
   { no: 4, title: '실전 LLM으로', sub: '챗봇 만들기 · API 활용 · 한계와 RAG', weeks: [10, 11, 12] },
+  { no: 5, title: 'LLM 응용 실습', sub: '텍스트 처리 · 챗봇 · 에이전트 · 로컬 LLM', weeks: [13, 14, 15, 16] },
 ];
 
 export const WEEKS = [
@@ -21,6 +22,10 @@ export const WEEKS = [
   { no: 10, icon: '💬', title: '사전학습에서 챗봇까지', widget: '채팅 템플릿 · LoRA 계산기', llm: '—', ready: false },
   { no: 11, icon: '🔌', title: 'LLM API와 프롬프트', widget: 'API 플레이그라운드 (구조화 출력 · 도구 호출)', llm: '선택', ready: false },
   { no: 12, icon: '🌉', title: 'LLM의 한계와 RAG로', widget: '환각 해부 · 종합 프로젝트', llm: '선택', ready: false },
+  { no: 13, icon: '🗂️', title: '응용 ① 텍스트 처리 자동화', widget: '문서 일괄 처리기 (요약 · 분류 · 추출)', llm: '선택', ready: false, applied: true },
+  { no: 14, icon: '🤖', title: '응용 ② 대화형 챗봇 만들기', widget: '챗봇 빌더 (페르소나 · 메모리 · 스트리밍)', llm: '선택', ready: false, applied: true },
+  { no: 15, icon: '🕹️', title: '응용 ③ AI 에이전트', widget: '에이전트 루프 추적기 (계획 · 도구 · 관찰)', llm: '선택', ready: false, applied: true },
+  { no: 16, icon: '💻', title: '응용 ④ 브라우저 로컬 LLM', widget: '온디바이스 LLM 실행기', llm: '—', ready: false, applied: true },
 ];
 
 // The learning path this course belongs to: MLBasic → ML Node Studio → (this) → studyRAG.

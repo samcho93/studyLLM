@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>LLM 원리와 활용 · LLM Lab</title>
-  <meta name="description" content="대규모 언어 모델(LLM) 원리와 활용 — 다음 토큰 예측부터 브라우저에서 직접 학습하는 미니 GPT까지, 만들어 보며 배우는 12주 과정">
+  <meta name="description" content="대규모 언어 모델(LLM) 원리와 활용 — 다음 토큰 예측부터 브라우저에서 직접 학습하는 미니 GPT까지, 만들어 보며 배우는 12주 과정 + 응용 실습 4주">
   <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
   <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
@@ -77,12 +77,20 @@
             <a class="card" href="weeks/w12/"><span class="ci">🌉</span><span class="cn">12주차 · ▶ 체험 · LLM 키 선택</span><span class="ct">LLM의 한계와 RAG로</span><span class="cs">환각 해부 · 종합 프로젝트 — 모델이 모르는 것을 어떻게 알려 줄까</span><span class="cp"><i data-week-progress="12"></i></span></a>
           </div>
 
+          <h2 class="part-title">Part 5. LLM 응용 실습 <small>텍스트 처리 · 챗봇 · 에이전트 · 로컬 LLM — 정규 12주 뒤 심화·보충</small></h2>
+          <div class="cards">
+            <a class="card" href="weeks/w13/"><span class="ci">🗂️</span><span class="cn">13주차 · 응용 · LLM 키 선택</span><span class="ct">텍스트 처리 자동화</span><span class="cs">문서 일괄 처리기 — 학과 문서를 요약 · 분류 · 정보 추출하고 결과를 검증한다</span><span class="cp"><i data-week-progress="13"></i></span></a>
+            <a class="card" href="weeks/w14/"><span class="ci">🤖</span><span class="cn">14주차 · 응용 · LLM 키 선택</span><span class="ct">대화형 챗봇 만들기</span><span class="cs">챗봇 빌더 — 페르소나 · 대화 메모리 · 컨텍스트 창 관리 · 스트리밍</span><span class="cp"><i data-week-progress="14"></i></span></a>
+            <a class="card" href="weeks/w15/"><span class="ci">🕹️</span><span class="cn">15주차 · 응용 · LLM 키 선택</span><span class="ct">AI 에이전트</span><span class="cs">에이전트 루프 추적기 — 계획 · 도구 호출 · 관찰을 반복하며 여러 단계 문제를 푼다</span><span class="cp"><i data-week-progress="15"></i></span></a>
+            <a class="card" href="weeks/w16/"><span class="ci">💻</span><span class="cn">16주차 · 응용 · 키 불필요</span><span class="ct">브라우저 로컬 LLM</span><span class="cs">온디바이스 LLM 실행기 — 서버 없이 내 컴퓨터에서 작은 LLM을 돌리고 양자화를 비교한다</span><span class="cp"><i data-week-progress="16"></i></span></a>
+          </div>
+
           <h2>시작하기 전에</h2>
           <ol class="steps">
             <li><b>최신 크롬·엣지를 쓴다.</b> 모든 실습은 브라우저 안에서 돌아간다. 설치할 것이 없다.</li>
             <li><b>화면 구성:</b> 왼쪽 강의 목록 · 가운데 강의 내용 · 오른쪽 실행 결과. 경계선을 끌어 너비를 바꿀 수 있다.</li>
             <li><b>선수 지식:</b> 파이썬이나 JavaScript 기초 문법, 그리고 머신러닝 기초 과정의 <em>신경망 · 소프트맥스 · 경사하강법</em>. 기억이 흐리면 4주차 전에 <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 신경망 단원을 다시 본다.</li>
-            <li><b>LLM API 키는 11·12주차에만 선택으로 쓴다.</b> 키는 이 탭의 <code>sessionStorage</code>에만 저장되고 탭을 닫으면 사라진다. 키가 없어도 모든 실습을 진행할 수 있다.</li>
+            <li><b>LLM API 키는 11주차 이후 응용 실습에서 선택으로 쓴다.</b> 키는 이 탭의 <code>sessionStorage</code>에만 저장되고 탭을 닫으면 사라진다. 키가 없어도 모든 실습을 진행할 수 있다.</li>
             <li><b>모든 실습은 같은 문서셋을 쓴다.</b> RAG 과정과 같은 학과 안내문에 이 과정의 교안을 더했다. 내가 학습시킨 모델이 무엇을 외웠고 무엇을 지어내는지 정답을 알고 판단할 수 있다.</li>
           </ol>
         </article>
