@@ -10,7 +10,7 @@ export const PARTS = [
 ];
 
 export const WEEKS = [
-  { no: 1, icon: '🎲', title: '언어 모델: 다음 토큰 예측', widget: '바이그램 언어 모델 (빈도표 · 확률 · 생성)', llm: '—', ready: false },
+  { no: 1, icon: '🎲', title: '언어 모델: 다음 토큰 예측', widget: '바이그램 언어 모델 (빈도표 · 확률 · 생성)', llm: '—', ready: true },
   { no: 2, icon: '✂️', title: '토큰화와 BPE', widget: 'BPE 병합 스텝퍼', llm: '—', ready: false, core: true },
   { no: 3, icon: '🧭', title: '임베딩: 단어를 벡터로', widget: '임베딩 공간 탐색기 (최근접 · 벡터 산술)', llm: '—', ready: false },
   { no: 4, icon: '🧮', title: '신경망 언어 모델과 학습', widget: '소프트맥스 · 교차 엔트로피 · 자동 미분', llm: '—', ready: false },
@@ -25,7 +25,7 @@ export const WEEKS = [
   { no: 13, icon: '🗂️', title: '응용 ① 텍스트 처리 자동화', widget: '문서 일괄 처리기 (요약 · 분류 · 추출)', llm: '선택', ready: false, applied: true },
   { no: 14, icon: '🤖', title: '응용 ② 대화형 챗봇 만들기', widget: '챗봇 빌더 (페르소나 · 메모리 · 스트리밍)', llm: '선택', ready: false, applied: true },
   { no: 15, icon: '🕹️', title: '응용 ③ AI 에이전트', widget: '에이전트 루프 추적기 (계획 · 도구 · 관찰)', llm: '선택', ready: false, applied: true },
-  { no: 16, icon: '💻', title: '응용 ④ 브라우저 로컬 LLM', widget: '온디바이스 LLM 실행기', llm: '—', ready: false, applied: true },
+  { no: 16, icon: '💻', title: '응용 ④ 브라우저 로컬 LLM', widget: '온디바이스 LLM 실행기', llm: '—', ready: true, applied: true },
 ];
 
 // The learning path this course belongs to: MLBasic → ML Node Studio → (this) → studyRAG.
