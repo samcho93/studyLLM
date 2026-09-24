@@ -178,16 +178,16 @@ console.log(out[0].generated_text.at(-1).content);</code></pre>
             <aside class="notes"><p>캐시되어 있어야 10초 안에 끝난다(워커 제한). 캐시가 없으면 시간 초과가 나는 것 자체가 “첫 사용 비용”의 시연이 된다. 두 번째 실행에서 성공한다.</p></aside>
           </section>
 
-          <section class="slide" data-title="과정 정리">
-            <h2>16주를 돌아보며</h2>
+          <section class="slide" data-title="정리 & 다음 주">
+            <h2>지금까지 걸어온 길</h2>
             <ol>
               <li>빈도표 → BPE → 임베딩 → 신경망 LM → 어텐션 → 트랜스포머</li>
               <li>미니 GPT 학습 · 디코딩 · 평가 · 스케일링</li>
               <li>챗봇 만들기 · API · 한계와 RAG</li>
               <li>응용: 텍스트 처리 · 챗봇 · 에이전트 · <strong>로컬 LLM</strong></li>
             </ol>
-            <h3>다음 과정 · studyRAG</h3>
-            <p class="muted">135M 모델도 근거를 주면 12시간을 찾았다 → 그 근거를 자동으로 찾는 법</p>
+            <h3>다음 주 · 대표 LLM과 오픈소스 sLLM</h3>
+            <p class="muted">어떤 모델을 쓸 것인가 — 크기 · 라이선스 · 한국어로 고르고 Ollama · Python으로 돌린다 → 이후 studyRAG</p>
             <aside class="notes"><p>C5를 과제로 낸다. studyRAG 1주차가 이 과정 12주차와 같은 질문(“GPU 서버 최대 몇 시간?”)으로 시작한다는 점을 알려 준다.</p></aside>
           </section>
 

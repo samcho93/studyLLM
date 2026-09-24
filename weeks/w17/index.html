@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>17주차 응용 ⑤ 대표 LLM과 오픈소스 sLLM · LLM Lab</title>
+  <meta name="description" content="2026년 9월 기준 대표 LLM(GPT · Claude · Gemini · Grok · DeepSeek · 국내 모델)을 비교하고, 작은 LLM(sLLM)의 원리와 오픈소스 · 오픈 웨이트 라이선스 차이를 따져 조건에 맞는 모델을 고른 뒤, 브라우저 · Ollama · transformers · llama.cpp · OpenAI 호환 서버로 실행하는 법을 익힌다.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w17.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="17" data-crumb="PART 5 · LLM 응용 실습 › <b>17주차 · 응용 ⑤ 대표 LLM과 오픈소스 sLLM</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🗺️ 17주차 · 응용 ⑤ 대표 LLM과 오픈소스 sLLM</span>
+      <h1>어떤 LLM을 쓸 것인가</h1>
+      <p class="lead">허깅페이스에는 수십만 개의 모델이 있고, 순위표는 몇 주마다 바뀐다. 그래서 이번 주는 “가장 좋은 모델”을 외우지 않는다. 대신 <strong>조건으로 모델을 거르는 법</strong>을 익힌다. 가중치를 받을 수 있는가, 상업적으로 써도 되는가, 한국어를 하는가, 내 노트북에 들어가는가. 그리고 고른 작은 모델(sLLM)을 다섯 가지 방법으로 실제로 돌린다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: LLM 비교표 · sLLM 사용법 스니펫</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+        <span class="chip">🧩 응용 실습</span>
+      </div>
+      <div class="flow" aria-label="LLM을 쓰는 방법에서 이번 주의 위치">
+        <div>미니 GPT 직접 학습 <b>7</b></div><div>API 호출 <b>11</b></div><div>브라우저 로컬 <b>16</b></div><div><b>모델 고르기 · 실행</b></div>
+      </div>
+      <div class="callout callout--danger">
+        <span class="callout__title">📅 기준일 2026-09-24 · 빠르게 바뀌므로 공식 문서를 확인한다</span>
+        <p>이 페이지의 모델 이름 · 크기 · 컨텍스트 · 라이선스는 모두 공식 모델 카드와 공식 문서에서 옮겼고, 출처와 확인일을 <a href="../../assets/data/w17/models.json" target="_blank" rel="noopener">models.json</a>의 행마다 적어 두었다. 확인하지 못한 값은 “확인 필요”로 남겼다. 벤치마크 점수는 싣지 않는다. 점수는 평가 방법에 따라 크게 달라지고(9주차), 몇 달이면 낡는다.</p>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>대표 LLM을 공급자 · 가중치 공개 여부 · 컨텍스트 · 입력 형태 · 라이선스 · 한국어 지원으로 비교할 수 있다.</li>
+          <li>작은 LLM(sLLM)이 왜 쓸 만해졌는지(증류 · 데이터 · 양자화 · 어텐션 절약) 설명하고, 파라미터 × 비트로 필요한 메모리를 계산할 수 있다.</li>
+          <li>오픈소스와 오픈 웨이트를 구분해 조건에 맞는 sLLM을 고르고, Ollama · transformers · llama.cpp · OpenAI 호환 서버로 실행할 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>학과에서 “학생 상담 기록을 요약하는 도우미”를 만든다고 하자. 11주차 방식으로 가장 똑똑한 API를 부르면 상담 기록이 외부 서버로 나간다. 16주차 방식으로 브라우저에 135M 모델을 올리면 한국어를 못한다. 그 사이 어딘가에 답이 있다. 한국어를 하는 3B 안팎의 공개 모델을 학과 PC에서 돌리는 것이다.</p>
+        <p>그런데 여기서 흔히 세 가지를 틀린다.</p>
+        <ul>
+          <li><strong>“허깅페이스에 있으니 오픈소스다”</strong> — 가중치를 받을 수 있어도 라이선스가 상업 이용을 금지하거나(비상업 NC), 사용자 수 · 매출에 조건을 걸 수 있다.</li>
+          <li><strong>“컨텍스트가 1M이니 긴 문서에 쓰면 된다”</strong> — 그 모델이 수백 B라면 내 기기에서는 아예 못 돌린다.</li>
+          <li><strong>“4B니까 4GB면 된다”</strong> — 몇 비트로 저장했는지, 실행할 때 KV 캐시가 얼마나 드는지에 따라 다르다.</li>
+        </ul>
+        <p>이번 주는 이 세 가지를 표와 계산으로 확인한다. 모델 이름은 곧 바뀌지만, 거르는 기준은 오래 간다.</p>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>“공개”에는 단계가 있다</h3>
+        <figure class="figure">
+          <svg viewBox="0 0 640 210" role="img" aria-labelledby="w17-fig1-t" style="width: 100%">
+            <title id="w17-fig1-t">LLM 공개 정도의 네 단계: 비공개 API, 오픈 웨이트(맞춤 약관), 오픈소스 라이선스 가중치, 완전 공개(데이터와 학습 레시피까지). 오른쪽으로 갈수록 할 수 있는 일이 늘어난다.</title>
+            <style>
+              .w17f-l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+              .w17f-n { font: 11.5px var(--font-sans); fill: var(--color-text-muted); }
+              .w17f-b0 { fill: var(--color-more-soft); stroke: var(--color-more); }
+              .w17f-b1 { fill: var(--color-warning-soft); stroke: var(--color-warning); }
+              .w17f-b2 { fill: var(--color-success-soft); stroke: var(--color-success); }
+              .w17f-b3 { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+              .w17f-arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; marker-end: url(#w17-a); }
+            </style>
+            <defs><marker id="w17-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <rect class="w17f-b0" x="0" y="10" width="150" height="150" rx="10"/>
+            <text class="w17f-l" x="12" y="34">① 비공개 API</text>
+            <text class="w17f-n" x="12" y="56">GPT-6 · Claude · Gemini</text>
+            <text class="w17f-n" x="12" y="74">Grok · HCX-007</text>
+            <text class="w17f-n" x="12" y="104">가중치 ✗</text>
+            <text class="w17f-n" x="12" y="122">내 서버에서 실행 ✗</text>
+            <text class="w17f-n" x="12" y="140">데이터가 공급자에게 감</text>
+            <rect class="w17f-b1" x="162" y="10" width="150" height="150" rx="10"/>
+            <text class="w17f-l" x="174" y="34">② 오픈 웨이트</text>
+            <text class="w17f-n" x="174" y="52">(맞춤 약관)</text>
+            <text class="w17f-n" x="174" y="72">Llama · Gemma 3 · EXAONE</text>
+            <text class="w17f-n" x="174" y="90">Kanana-2 · HyperCLOVA X SEED</text>
+            <text class="w17f-n" x="174" y="118">가중치 ✓ 로컬 실행 ✓</text>
+            <text class="w17f-n" x="174" y="136">상업 이용은 약관 따라</text>
+            <text class="w17f-n" x="174" y="152">(금지 · 조건부)</text>
+            <rect class="w17f-b2" x="324" y="10" width="150" height="150" rx="10"/>
+            <text class="w17f-l" x="336" y="34">③ 오픈소스 라이선스</text>
+            <text class="w17f-n" x="336" y="56">Apache-2.0 · MIT</text>
+            <text class="w17f-n" x="336" y="74">Qwen3.5 · Gemma 4 · Phi-4</text>
+            <text class="w17f-n" x="336" y="92">Ministral 3 · Kanana 1.5</text>
+            <text class="w17f-n" x="336" y="118">가중치 ✓ 수정 · 재배포 ✓</text>
+            <text class="w17f-n" x="336" y="136">상업 이용 ✓ (고지 의무)</text>
+            <rect class="w17f-b3" x="486" y="10" width="150" height="150" rx="10"/>
+            <text class="w17f-l" x="498" y="34">④ 완전 공개</text>
+            <text class="w17f-n" x="498" y="56">SmolLM3 등</text>
+            <text class="w17f-n" x="498" y="84">③ + 학습 데이터</text>
+            <text class="w17f-n" x="498" y="102">+ 학습 레시피 · 체크포인트</text>
+            <text class="w17f-n" x="498" y="130">다시 학습해 재현 가능</text>
+            <path class="w17f-arr" d="M10 186 H630"/>
+            <text class="w17f-n" x="10" y="204">왼쪽 → 오른쪽: 내가 할 수 있는 일(내려받기 · 수정 · 판매 · 재현)이 늘어난다</text>
+          </svg>
+          <figcaption>“오픈소스”는 원래 OSI(Open Source Initiative)가 승인한 라이선스를 말한다. 가중치만 공개하고 쓰임새를 맞춤 약관으로 제한하면 “오픈 웨이트”라고 부르는 것이 정확하다.</figcaption>
+        </figure>
+
+        <h3>대표 LLM 한눈에 (2026-09-24 기준)</h3>
+        <p>공급자마다 “가장 강한 모델”과 “싸고 빠른 모델”을 함께 낸다. 최근에는 큰 회사도 API와 별도로 가중치를 공개한 모델을 내놓는다는 점이 눈에 띈다.</p>
+        <table>
+          <thead><tr><th>공급자</th><th>API 플래그십 · 경량</th><th>컨텍스트 (API)</th><th>같은 회사의 오픈 웨이트</th></tr></thead>
+          <tbody>
+            <tr><td>OpenAI</td><td>GPT-6 Astra · Sol · Luna</td><td>1.05M</td><td>gpt-oss-120b · 20b (Apache-2.0, 2025-08)</td></tr>
+            <tr><td>Anthropic</td><td>Claude Fable 5.1 · Opus 5.5 · Sonnet 5 · Haiku 4.5</td><td>1M (Haiku 200K)</td><td>—</td></tr>
+            <tr><td>Google</td><td>Gemini 3.1 Pro (미리보기) · 3.8 Flash · 3.1 Flash-Lite</td><td>1,048,576</td><td>Gemma 4 E2B~31B (Apache-2.0)</td></tr>
+            <tr><td>xAI</td><td>Grok 4.7</td><td>500K</td><td>(Grok 2 가중치 공개, 이 표에서는 제외)</td></tr>
+            <tr><td>Meta</td><td>Muse Spark (2026-04, 비공개 · 제한 미리보기)</td><td>확인 필요</td><td>Llama 4 · Llama 3.2 (맞춤 커뮤니티 라이선스)</td></tr>
+            <tr><td>DeepSeek</td><td>deepseek-v4-pro · deepseek-flash</td><td>1M</td><td>같은 모델의 가중치를 MIT로 공개</td></tr>
+            <tr><td>Mistral AI</td><td>—</td><td>—</td><td>Mistral Medium 3.5 (수정 MIT) · Ministral 3 (Apache-2.0)</td></tr>
+            <tr><td>NAVER</td><td>HyperCLOVA X HCX-007 · HCX-DASH-002</td><td>128K · 32K</td><td>HyperCLOVA X SEED 0.5B~32B (조건부 라이선스)</td></tr>
+            <tr><td>LG AI연구원</td><td>—</td><td>—</td><td>K-EXAONE 2.0 (Apache-2.0) · EXAONE 4.x (비상업)</td></tr>
+            <tr><td>Upstage</td><td>Solar Pro 4 (사양 확인 필요)</td><td>확인 필요</td><td>Solar Open 2 250B (Upstage Solar License)</td></tr>
+            <tr><td>Kakao</td><td>—</td><td>—</td><td>Kanana 1.5 (Apache-2.0) · Kanana-2 (Kanana Open License)</td></tr>
+          </tbody>
+        </table>
+        <p>API 모델은 파라미터 수를 공개하지 않는다. 그래서 비교는 컨텍스트 · 입력 형태(텍스트 · 이미지 · 음성) · 가격 · 약관으로 한다. 가격은 수시로 바뀌므로 표에 넣지 않았다. 11주차에서 보았듯 같은 코드로 여러 공급자를 부를 수 있으니 직접 불러 보고 고르는 것이 가장 정확하다.</p>
+
+        <h3>sLLM: 작은 언어 모델</h3>
+        <p>sLLM(small LLM, 영어권에서는 SLM)에 정해진 기준은 없다. 이 과정에서는 <strong>대략 0.5B~15B, 소비자용 GPU 한 장이나 노트북에 들어가는 모델</strong>을 가리킨다. 16주차의 135M 모델은 그보다 더 작은 “초소형”이다.</p>
+        <table>
+          <thead><tr><th>왜 작은 모델인가</th><th>대가는 무엇인가</th></tr></thead>
+          <tbody>
+            <tr><td><strong>비용</strong>: 토큰 요금 없음, 하드웨어 한 번</td><td><strong>지식</strong>: 파라미터에 담긴 사실이 적다 → 환각이 늘어난다(12주차)</td></tr>
+            <tr><td><strong>개인정보</strong>: 데이터가 기관 밖으로 나가지 않는다</td><td><strong>추론</strong>: 여러 단계 추론 · 복잡한 지시에서 먼저 무너진다</td></tr>
+            <tr><td><strong>지연 · 오프라인</strong>: 네트워크 왕복이 없다</td><td><strong>언어</strong>: 한국어 데이터가 적은 모델은 토큰도 많이 쓰고 품질도 낮다(16주차)</td></tr>
+            <tr><td><strong>미세조정</strong>: LoRA로 우리 업무에 맞출 수 있다(10주차)</td><td><strong>긴 문맥</strong>: 창이 길어도 멀리 있는 정보를 잘 쓰는지는 따로 확인해야 한다</td></tr>
+          </tbody>
+        </table>
+        <p>몇 년 전의 수십 B 모델이 하던 일을 지금은 수 B 모델이 한다. 비결은 한 가지가 아니다.</p>
+        <ul>
+          <li><strong>지식 증류</strong>(distillation): 큰 모델의 답을 작은 모델이 따라 배운다. DeepSeek-R1-Distill-Qwen은 큰 추론 모델 R1이 만든 추론 데이터로 Qwen2.5 기반 1.5B · 7B 모델을 미세조정했다. Kanana-2 1.3B는 3B 모델을 가지치기(pruning)한 뒤 증류했다(모델 카드).</li>
+          <li><strong>데이터 품질</strong>: 같은 크기라도 무엇을 읽혔는지가 성능을 가른다. Phi-4-mini는 합성 데이터와 걸러 낸 웹 문서를, SmolLM2-1.7B는 교육용으로 거른 웹 데이터(FineWeb-Edu) 등 11조 토큰으로 학습했다(모델 카드). 9주차의 스케일링 법칙에서 “데이터”가 한 축이었던 이유다.</li>
+          <li><strong>양자화</strong>: 16주차에서 직접 구현했다. 4비트면 16비트 대비 가중치가 4분의 1이다.</li>
+          <li><strong>어텐션 절약</strong>: k · v 헤드를 공유하는 GQA(6주차 · 16주차 C1), 가까운 토큰만 보는 슬라이딩 윈도 어텐션. Kanana-2 1.3B는 슬라이딩 윈도와 전체 어텐션을 3:1로 섞어 32K 컨텍스트에서 KV 캐시를 최대 약 72.7% 줄였다고 밝힌다(모델 카드).</li>
+          <li><strong>파라미터를 다 쓰지 않기</strong>: 전문가 혼합(MoE)은 토큰마다 일부 전문가만 쓴다. gpt-oss-20b는 전체 21B 중 3.6B만 활성화한다. Gemma 4 E2B의 E는 “유효(effective)” 파라미터로, 층별 임베딩 표를 빼면 2.3B이지만 파일에는 5.1B가 들어 있다.</li>
+        </ul>
+        <div class="callout">
+          <span class="callout__title">메모리는 파라미터 × 비트 ÷ 8</span>
+          <p>4B 모델의 가중치는 16비트 8GB, 8비트 4GB, 4비트 2GB다. 실제 파일(GGUF)은 32개 가중치마다 16비트 scale을 하나씩 두므로(16주차 C3의 묶음 양자화) Q8_0은 가중치당 8.5비트, Q4_0은 4.5비트다. 여기에 실행 중 KV 캐시(9주차)가 컨텍스트 길이에 비례해 더 든다. Challenge C2에서 10개 모델의 계산값과 실제 파일 크기를 비교한다.</p>
+        </div>
+
+        <h3>오픈소스 vs 오픈 웨이트: 라이선스가 정한다</h3>
+        <p>모델을 고를 때 가장 먼저 읽어야 하는 것은 벤치마크가 아니라 LICENSE 파일이다. 이번 주 표에 나오는 라이선스를 정리하면 다음과 같다(각 저장소의 LICENSE 원문 기준 요약, 법률 자문이 아니다).</p>
+        <table>
+          <thead><tr><th>라이선스</th><th>구분</th><th>상업 이용</th><th>핵심 조건</th><th>예</th></tr></thead>
+          <tbody>
+            <tr><td>Apache-2.0 · MIT</td><td>OSI 오픈소스</td><td>가능</td><td>저작권 · 라이선스 고지</td><td>Qwen3.5 · Gemma 4 · Ministral 3 · Phi-4 · gpt-oss · Kanana 1.5 · K-EXAONE 2.0</td></tr>
+            <tr><td>Gemma Terms of Use</td><td>오픈 웨이트</td><td>가능</td><td>금지 용도 정책 준수, 재배포 시 제한 전달</td><td>Gemma 3 (Gemma 4는 Apache-2.0으로 바뀌었다)</td></tr>
+            <tr><td>Llama Community License</td><td>오픈 웨이트</td><td>조건부</td><td>월간 활성 사용자 7억 명 초과 기업은 별도 허가</td><td>Llama 3.2 · Llama 4</td></tr>
+            <tr><td>HyperCLOVA X SEED</td><td>오픈 웨이트</td><td>조건부</td><td>월간 활성 사용자 1천만 명 초과 또는 네이버와 경쟁하는 서비스는 별도 허가</td><td>SEED 0.5B~32B</td></tr>
+            <tr><td>Kanana Open License</td><td>오픈 웨이트</td><td>조건부</td><td>자기 서비스는 가능, 제3자에게 API · SI · 온디바이스로 재판매하면 별도 계약 · “Powered by Kanana” 표기</td><td>Kanana-2 1.3B · 3B</td></tr>
+            <tr><td>Modified MIT (Mistral)</td><td>오픈 웨이트</td><td>조건부</td><td>회사 월 매출 2천만 달러 초과면 사용 불가</td><td>Mistral Medium 3.5</td></tr>
+            <tr><td>Upstage Solar License</td><td>오픈 웨이트</td><td>가능</td><td>Apache-2.0 기반 + 파생 모델에 “Solar” 표기</td><td>Solar Open 2</td></tr>
+            <tr><td>EXAONE AI Model License - NC</td><td>오픈 웨이트</td><td><strong>불가</strong></td><td>모델 · 파생 모델 · 출력물의 상업 이용 금지</td><td>EXAONE 4.0 1.2B · EXAONE 4.5</td></tr>
+          </tbody>
+        </table>
+        <p>같은 회사 안에서도 모델마다 라이선스가 다르다. LG의 EXAONE 4.x는 비상업 전용이지만 K-EXAONE 2.0은 Apache-2.0이다. 카카오의 Kanana 1.5는 Apache-2.0, Kanana-2는 자체 약관이다. 그래서 “회사 이름”이 아니라 “저장소마다” LICENSE를 확인해야 한다.</p>
+
+        <h3>대표 오픈 sLLM 비교</h3>
+        <table>
+          <thead><tr><th>계열 (공개)</th><th>크기</th><th>컨텍스트</th><th>라이선스</th><th>한국어</th><th>특징</th></tr></thead>
+          <tbody>
+            <tr><td>Qwen3.5 (알리바바)</td><td>0.8B · 2B · 4B · 9B</td><td>262,144</td><td>Apache-2.0</td><td>201개 언어</td><td>이미지 · 영상 입력, 기본 비추론 모드(0.8B)</td></tr>
+            <tr><td>Gemma 4 (구글)</td><td>E2B · E4B · 12B</td><td>128K · 128K · 256K</td><td>Apache-2.0</td><td>140+ 언어 학습</td><td>음성 입력까지, 온디바이스 설계, E = 유효 파라미터</td></tr>
+            <tr><td>Ministral 3 (Mistral)</td><td>3B · 8B · 14B</td><td>256k</td><td>Apache-2.0</td><td>목록에 명시</td><td>비전 입력, 엣지용</td></tr>
+            <tr><td>Phi-4-mini (MS)</td><td>3.8B</td><td>128K</td><td>MIT</td><td>목록에 명시</td><td>합성 데이터 · 함수 호출</td></tr>
+            <tr><td>Llama 3.2 (메타)</td><td>1B · 3B</td><td>128k</td><td>Llama 3.2 커뮤니티</td><td>공식 8개 언어에 없음</td><td>모바일 요약 · 글쓰기, 허브 동의 필요</td></tr>
+            <tr><td>SmolLM2 · SmolLM3 (HF)</td><td>135M · 1.7B · 3B</td><td>8K · 8K · 64K</td><td>Apache-2.0</td><td>없음 (영어 중심)</td><td>SmolLM3는 데이터 · 레시피까지 공개</td></tr>
+            <tr><td>DeepSeek-R1-Distill-Qwen</td><td>1.5B · 7B</td><td>128K</td><td>MIT</td><td>명시 없음</td><td>증류로 만든 추론 모델</td></tr>
+            <tr><td>EXAONE 4.0 (LG)</td><td>1.2B</td><td>64K</td><td>비상업(NC)</td><td>특화</td><td>영 · 한 · 스페인어, 추론 모드</td></tr>
+            <tr><td>Kanana 1.5 (카카오)</td><td>2.1B · 8B</td><td>32K (YaRN 128K)</td><td>Apache-2.0</td><td>특화</td><td>상업 이용이 가장 자유로운 한국어 특화 sLLM</td></tr>
+            <tr><td>Kanana-2 (카카오)</td><td>1.3B · 3B</td><td>32K</td><td>Kanana Open</td><td>특화</td><td>한국어 토큰화 효율 30% 이상 개선(카드)</td></tr>
+            <tr><td>HyperCLOVA X SEED (네이버)</td><td>0.5B · 1.5B · 14B</td><td>4K · 16K · 32K</td><td>SEED 라이선스</td><td>특화</td><td>한국어 · 한국 문화 이해 강조</td></tr>
+          </tbody>
+        </table>
+        <p>“한국어” 칸은 품질 점수가 아니라 <strong>공식 문서가 무엇을 약속하는가</strong>다. 실제 품질은 우리 데이터로 직접 재야 한다(C5의 한계).</p>
+
+        <h3>sLLM을 실행하는 다섯 가지 방법</h3>
+        <table>
+          <thead><tr><th>방법</th><th>어디서</th><th>파일 형식</th><th>가장 짧은 시작</th></tr></thead>
+          <tbody>
+            <tr><td>Transformers.js</td><td>브라우저</td><td>ONNX</td><td>16주차 실행기 (<code>pipeline('text-generation', …)</code>)</td></tr>
+            <tr><td>Ollama</td><td>내 PC (Windows · macOS · Linux)</td><td>GGUF (자동 관리)</td><td><code>ollama run qwen3.5:0.8b</code></td></tr>
+            <tr><td>Python transformers</td><td>Python · Colab</td><td>safetensors</td><td><code>pipeline("text-generation", model=…)</code></td></tr>
+            <tr><td>llama.cpp</td><td>내 PC, CPU만으로도</td><td>GGUF</td><td><code>llama-cli -hf ggml-org/Qwen3.5-0.8B-GGUF</code></td></tr>
+            <tr><td>vLLM (OpenAI 호환 서버)</td><td>NVIDIA GPU 서버</td><td>safetensors</td><td><code>vllm serve Qwen/Qwen3.5-0.8B</code></td></tr>
+          </tbody>
+        </table>
+        <p>Ollama · llama.cpp 서버 · vLLM은 모두 <strong>OpenAI 호환 주소</strong>(<code>/v1/chat/completions</code>)를 연다. 11주차에서 쓴 클라이언트 코드는 <code>base_url</code>만 바꾸면 그대로 로컬 모델에 붙는다.</p>
+        <pre><code class="language-python">from openai import OpenAI
+# Ollama: http://localhost:11434/v1 · llama-server: http://localhost:8080/v1 · vLLM: http://localhost:8000/v1
+client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")  # 키는 아무 값(무시된다)
+resp = client.chat.completions.create(
+    model="qwen3.5:0.8b",
+    messages=[{"role": "user", "content": "대규모 언어 모델을 한 문장으로 설명해 줘."}],
+)
+print(resp.choices[0].message.content)</code></pre>
+        <div class="callout callout--more">
+          <span class="callout__title">왜 이 페이지에서 Ollama를 바로 부르지 않는가</span>
+          <p>이 사이트는 <code>https://samcho93.github.io</code>에서 열린다. 여기서 <code>http://localhost:11434</code>를 부르면 브라우저의 혼합 콘텐츠 · 사설망 접근 정책(브라우저마다 다르다)과 Ollama의 CORS 설정에 막힐 수 있다. Ollama는 기본적으로 <code>127.0.0.1</code> · <code>0.0.0.0</code> 출처만 허용하고, 다른 출처는 환경 변수 <code>OLLAMA_ORIGINS</code>로 추가해야 한다(Ollama FAQ). 예: <code>OLLAMA_ORIGINS=https://samcho93.github.io ollama serve</code>. 그래서 Ollama · llama.cpp · vLLM 코드는 <strong>내 터미널 · Colab에서</strong> 실행하고, 이 페이지 안에서 실제로 돌아가는 데모는 16주차와 같은 브라우저 전용(Transformers.js)으로 둔다.</p>
+        </div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <h3>실습 1 · LLM 비교표 탐색기</h3>
+        <p>55개 모델(API 13 · 오픈 웨이트 42)의 표와 “파라미터 × 컨텍스트” 산점도(로그 눈금)다. 필터로 좁히고, 아래 <b>용도로 고르기</b>에서 조건을 켜고 끈다. 처음에는 “외부 전송 불가 + GPU 없음 + 한국어 + 상업 이용”이 켜져 있다. 결과는 오른쪽 <b>실행 결과</b> 창에 나온다.</p>
+        <div id="w17-model-map"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>네 조건이 모두 켜진 상태에서 후보는 몇 개인가? “아깝게 탈락”에 EXAONE 4.0 1.2B가 있다. 한국어 특화 모델인데 왜 떨어졌는가?</li>
+          <li>“상업 서비스에 쓴다”만 끄면 무엇이 후보에 들어오는가? 수업 과제와 창업 서비스에서 고를 수 있는 모델이 달라지는 이유를 한 문장으로 쓴다.</li>
+          <li>산점도에서 컨텍스트가 1M인 점들은 어디에 모여 있는가? “노트북 영역”(초록 띠) 안에 1M짜리 점이 있는가? 긴 문맥이 필요할 때의 선택지를 정리한다.</li>
+          <li>라이선스 필터를 “OSI 오픈소스만”으로 바꾼다. 결과 창의 “오픈 웨이트” 수와 “그중 OSI 오픈소스” 수의 차이는 무엇을 뜻하는가?</li>
+          <li>한국어 필터를 “특화만”으로 두고 파라미터 순으로 본다. 1~4B 한국어 특화 모델 중 상업적으로 가장 제약이 적은 것은?</li>
+        </ol>
+
+        <h3>실습 2 · sLLM 사용법 스니펫</h3>
+        <p>실행 방식 · 모델 · 작업(채팅 · 요약 · JSON 추출) · 양자화를 고르면 그대로 복사해 쓸 수 있는 코드와 가중치 메모리 어림이 나온다. 작업의 입력은 코퍼스의 “실습실 이용 규정” 문서다(12주차 · studyRAG 1주차와 같은 문서). <b>▶ 브라우저에서 지금 실행</b>은 16주차의 SmolLM2-135M(137MB)으로 고른 작업을 이 탭에서 실제로 돌린다.</p>
+        <div id="w17-usage"></div>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>모델을 Kanana 1.5 2.1B로 두고 실행 방식을 다섯 가지 모두 바꿔 본다. 어떤 방식에서 ✗가 뜨는가? “좋은 모델”이어도 배포 형식이 없으면 무엇을 해야 하는가?</li>
+          <li>Gemma 4 E2B를 고르고 16 · 8 · 4비트를 차례로 본다. 계산값과 “실제 GGUF” 크기가 다른 이유를 모델 카드의 “유효 2.3B · 전체 5.1B” 설명과 연결한다.</li>
+          <li>EXAONE 4.0 1.2B를 고르면 어떤 경고가 모든 실행 방식에 붙는가? 이 모델로 학과 공식 챗봇을 만들어도 되는가?</li>
+          <li>작업을 “JSON 추출”로 두고 ▶ 브라우저 실행을 누른다. JSON.parse는 성공하는가? Ollama 스니펫의 <code>format</code>과 vLLM 스니펫의 <code>response_format</code>은 이 문제를 어떻게 푸는가?</li>
+          <li>vLLM 스니펫의 클라이언트 코드와 11주차 API 플레이그라운드의 코드를 비교한다. 무엇이 같고 무엇이 다른가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 모두 이 사이트의 <code>models.json</code>만 읽으며 외부 네트워크를 쓰지 않는다. C4도 요청을 보내지 않고 요청 본문 JSON만 만든다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. 조건으로 거르고 정렬하기</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>models.json에서 “가중치를 받을 수 있고 4B 이하이며 한국어가 특화 · 명시인” 모델을 파라미터 순으로 뽑는다. 완성하면 4B 이하 오픈 웨이트 18개 중 9개가 남고, 그중 상업 이용 불가 모델이 하나 보인다.</p>
+          <pre data-run="c1" data-title="C1 조건 거르기"><code class="language-javascript">const data = await (await fetch('/assets/data/w17/models.json')).json();
+const { models, licenses } = data;
+console.log('모델 수:', models.length, '· 기준일', data.asOf);
+
+// TODO 1: 가중치를 내려받을 수 있고(licenses[m.license].weights) paramsB가 4 이하인 모델만 남긴다
+const small = models;
+// TODO 2: 한국어가 '특화' 또는 '명시'인 모델만 남긴다
+const korean = small;
+// TODO 3: paramsB 오름차순으로 정렬한다 (원본 배열은 건드리지 않는다)
+const sorted = korean;
+
+console.table(sorted.map((m) =&gt; ({ name: m.name, paramsB: m.paramsB, ctx: m.ctx, license: licenses[m.license].label, korean: m.korean })));
+// TODO 4: 이 중 상업 이용이 '불가'(licenses[..].commercial === 'no')인 모델 이름을 출력한다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 양자화별 메모리와 실제 파일</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>GGUF 파일 크기를 아는 10개 모델에 대해 16 · 8 · 4비트 가중치 크기를 계산하고, 실제 Q8_0 파일과 비교한다. 비율이 1.0 근처인 모델과 멀리 떨어진 모델(0.9 · 1.3)이 있다. 왜 그런지 모델 카드의 설명(비전 인코더 · 임베딩)으로 해석한다. 마지막으로 16GB 노트북에서 4비트로 돌릴 수 있는 최대 크기를 구한다.</p>
+          <pre data-run="c2" data-title="C2 메모리 어림"><code class="language-javascript">const { models } = await (await fetch('/assets/data/w17/models.json')).json();
+const withGguf = models.filter((m) =&gt; m.runtimes?.gguf);
+console.log('GGUF 파일 크기를 아는 모델:', withGguf.length);
+
+// GGUF 블록 형식: 32개 가중치가 fp16 scale 하나(16비트)를 나눠 쓴다 (16주차 C3의 묶음 양자화)
+const BITS = { F16: 16, BF16: 16, Q8_0: 8 + 16 / 32, Q4_0: 4 + 16 / 32 };
+
+function weightGB(paramsB, bits) {
+  // TODO: 파라미터(십억) × 비트 ÷ 8 → GB
+  return 0;
+}
+
+const rows = [];
+for (const m of withGguf) {
+  const g = m.runtimes.gguf;
+  const params = g.lmParamsB ?? m.paramsB; // 멀티모달 모델은 GGUF에 언어 모델 부분만 들어 있다
+  const row = { name: m.name, paramsB: params, fp16: weightGB(params, 16), int8: weightGB(params, 8), int4: weightGB(params, 4) };
+  // TODO: g.files의 Q8_0 파일이 있으면 실제 GB(바이트 ÷ 1e9)와, BITS.Q8_0으로 어림한 값의 비율(real ÷ 어림)을 row에 넣는다
+  rows.push(row);
+}
+console.table(rows);
+// TODO: 16GB 램 노트북에서 "가중치가 램의 절반(8GB) 이하"라는 기준으로 4비트 실행이 가능한 최대 파라미터 수는?</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 라이선스 판별기</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>서비스 조건(상업 여부 · 월간 활성 사용자 · 월 매출 · 재판매)을 받아 라이선스마다 “가능 · 불가 · 별도 허가 필요”를 판정한다. 기본 조건(MAU 1,500만)에서는 HyperCLOVA X SEED가 “별도 허가 필요”로 바뀐다. 조건을 바꿔 가며 Kanana Open License와 Mistral 수정 MIT가 걸리는 경우를 찾는다. 마지막으로 오픈 웨이트인데 OSI 오픈소스가 아닌 모델 수를 센다.</p>
+          <pre data-run="c3" data-title="C3 라이선스 판별"><code class="language-javascript">const { models, licenses } = await (await fetch('/assets/data/w17/models.json')).json();
+
+// 우리 서비스의 조건 (바꿔 가며 실행한다)
+const service = { commercial: true, mau: 15_000_000, monthlyRevenueUSD: 5_000_000, resellToOthers: false };
+
+function kindOf(lic) {
+  // TODO: 'OSI 오픈소스'(lic.osi) · '오픈 웨이트(맞춤 약관)'(lic.weights &amp;&amp; !lic.osi) · '비공개'
+  return '?';
+}
+
+function verdict(lic, s) {
+  // TODO: 규칙을 순서대로 적용한다
+  //  1) lic.commercial === 'api'  → 'API 약관'
+  //  2) s.commercial &amp;&amp; lic.commercial === 'no' → '불가'
+  //  3) lic.mauLimit가 있고 s.mau &gt; lic.mauLimit → '별도 허가 필요'
+  //  4) lic.revenueLimitUSDPerMonth가 있고 s.monthlyRevenueUSD &gt; 그 값 → '불가(이 라이선스로는)'
+  //  5) Kanana Open License이고 s.resellToOthers → '별도 허가 필요'
+  //  6) 나머지 → '가능'
+  return '?';
+}
+
+const rows = Object.entries(licenses).map(([key, lic]) =&gt; ({
+  license: lic.label,
+  kind: kindOf(lic),
+  models: models.filter((m) =&gt; m.license === key).length,
+  verdict: verdict(lic, service),
+}));
+console.table(rows);
+// TODO: 오픈 웨이트 모델 중 OSI 오픈소스가 아닌 모델은 몇 개인가?</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 같은 대화, 두 가지 요청 형식</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>같은 messages를 Ollama 고유 API(<code>/api/chat</code>)와 OpenAI 호환 API(<code>/v1/chat/completions</code>) 본문으로 만든다. 요청은 보내지 않는다. 두 본문에서 한쪽에만 있는 키를 찾으면, 온도를 넣는 위치와 JSON 출력을 강제하는 키 이름이 다르다는 것이 드러난다. <code>messages</code> 배열은 완전히 같다. 10주차 채팅 형식이 공통어인 셈이다.</p>
+          <pre data-run="c4" data-title="C4 요청 본문"><code class="language-javascript">// 같은 대화를 두 가지 API 형식으로 보낸다. 요청은 보내지 않고 JSON만 만든다 (fetch 없음).
+const messages = [
+  { role: 'system', content: '규정에서 정보를 뽑아 JSON 객체 하나만 출력한다.' },
+  { role: 'user', content: '실습실은 평일 오후 9시까지 개방된다. GPU 서버는 한 사람이 최대 12시간 연속 사용한다.' },
+];
+const opts = { model: 'qwen3.5:0.8b', temperature: 0, json: true, stream: false };
+
+function toOllama(messages, o) {
+  // TODO: POST http://localhost:11434/api/chat 본문
+  //  { model, messages, stream, options: { temperature }, format: 'json'(o.json일 때) }
+  return {};
+}
+function toOpenAI(messages, o) {
+  // TODO: POST http://localhost:11434/v1/chat/completions 본문 (OpenAI 호환)
+  //  { model, messages, temperature, stream, response_format: { type: 'json_object' }(o.json일 때) }
+  return {};
+}
+
+const a = toOllama(messages, opts);
+const b = toOpenAI(messages, opts);
+console.log('Ollama /api/chat', JSON.stringify(a, null, 2));
+console.log('OpenAI 호환 /v1/chat/completions', JSON.stringify(b, null, 2));
+// TODO: 두 본문의 최상위 키를 비교해 "한쪽에만 있는 키"를 출력한다
+// TODO: stream 키를 빼면 각 API의 기본값은 무엇인가? (문서: Ollama는 스트리밍이 기본)</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 용도에 맞는 모델 추천 점수</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>“반드시 지킬 조건(hard)”으로 거른 뒤 “점수(soft)”로 순위를 매기는 추천기를 만든다. 한국어 · 컨텍스트 · 작은 크기 · OSI 라이선스를 0~1로 바꿔 가중합한다. 두 사용자(학과 챗봇 · 영어 논문 요약)의 상위 5개를 비교하고, 학과 챗봇의 한국어 가중치를 0으로 바꾸었을 때 1위가 무엇이 되는지 본다. 그 결과가 왜 이상한지, 이 점수에 무엇이 빠졌는지(품질!) 설명한다.</p>
+          <pre data-run="c5" data-title="C5 추천 점수"><code class="language-javascript">const { models, licenses } = await (await fetch('/assets/data/w17/models.json')).json();
+
+// 1) 반드시 지켜야 하는 조건(hard) — 하나라도 어기면 탈락
+function passes(m, need) {
+  const lic = licenses[m.license];
+  if (need.local &amp;&amp; !lic.weights) return false;
+  if (need.commercial &amp;&amp; lic.commercial === 'no') return false;
+  if (need.maxParamsB &amp;&amp; (m.paramsB === null || m.paramsB &gt; need.maxParamsB)) return false;
+  return true;
+}
+
+// 2) 점수(soft) — 각 항목을 0~1로 바꾼 뒤 가중합
+const KOREAN = { 특화: 1, 명시: 0.8, 다국어: 0.4, '확인 필요': 0.2, '영어 중심': 0 };
+const clip = (x) =&gt; Math.max(0, Math.min(1, x));
+function features(m) {
+  return {
+    korean: KOREAN[m.korean] ?? 0,
+    ctx: 0, // TODO: log2(ctx / 4096) / log2(1048576 / 4096) 를 0~1로 자른다 (ctx가 null이면 0)
+    small: 0, // TODO: 작을수록 1 — 1 - log10(paramsB / 0.1) / log10(150) 을 0~1로 자른다
+    oss: licenses[m.license].osi ? 1 : 0,
+  };
+}
+function score(m, w) {
+  const f = features(m);
+  // TODO: Σ w[k] × f[k] ÷ Σ w[k]
+  return 0;
+}
+
+const personas = {
+  '학과 안내 챗봇 (한국어 · 상업 · 노트북)': { need: { local: true, commercial: true, maxParamsB: 8 }, w: { korean: 3, ctx: 1, small: 2, oss: 1 } },
+  '긴 논문 요약 연구 (영어 · 로컬 서버)': { need: { local: true, maxParamsB: 40 }, w: { korean: 0, ctx: 3, small: 1, oss: 1 } },
+};
+for (const [name, p] of Object.entries(personas)) {
+  const ranked = models.filter((m) =&gt; passes(m, p.need)).map((m) =&gt; ({ name: m.name, score: score(m, p.w) })).sort((a, b) =&gt; b.score - a.score);
+  console.log(`▶ ${name} · 후보 ${ranked.length}개`);
+  console.table(ranked.slice(0, 5));
+}
+// TODO: 학과 챗봇 가중치에서 korean을 3 → 0으로 바꾸면 1위가 어떻게 바뀌는가? 한 줄로 설명한다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 과정을 마치며</h2>
+        <ul>
+          <li>대표 LLM은 비공개 API(GPT-6 · Claude · Gemini · Grok · HyperCLOVA X)와 오픈 웨이트(gpt-oss · Gemma 4 · Qwen3.5 · DeepSeek-V4 · K-EXAONE · Solar Open · Kanana · SEED)로 나뉜다. 같은 회사도 두 가지를 함께 낸다.</li>
+          <li>sLLM은 증류 · 데이터 품질 · 양자화 · 어텐션 절약 · MoE로 작아졌다. 필요한 메모리는 파라미터 × 비트 ÷ 8에 KV 캐시를 더해 어림한다.</li>
+          <li>가중치 공개와 오픈소스는 다르다. Apache-2.0 · MIT는 상업 이용이 자유롭고, 맞춤 약관은 사용자 수 · 매출 · 재판매 · 비상업 조건을 건다. 저장소마다 LICENSE를 확인한다.</li>
+          <li>모델 고르기는 순서가 있다. 먼저 조건(개인정보 · 라이선스 · 하드웨어 · 언어)으로 거르고, 남은 후보를 우리 데이터로 직접 평가한다. 점수표에 품질이 빠지면 가장 작은 모델이 1위가 된다(C5).</li>
+          <li>같은 messages가 브라우저 · Ollama · transformers · llama.cpp · vLLM에서 모두 통한다. OpenAI 호환 주소 덕분에 11주차 코드가 로컬 모델에도 그대로 붙는다.</li>
+        </ul>
+        <div class="bridge"><span class="bi">🔗</span><p><b>이 과정 안에서 다시 보기</b> — 로컬 실행과 양자화는 <a href="../w16/">16주차</a>, API 호출과 구조화 출력은 <a href="../w11/">11주차</a>, 오픈 모델을 우리 업무에 맞추는 LoRA 미세조정은 <a href="../w10/">10주차</a>, KV 캐시와 메모리 계산은 <a href="../w09/">9주차</a>에서 다뤘다.</p></div>
+        <div class="bridge"><span class="bi">🔎</span><p><b>studyRAG로 이어서</b> — 기관 안에서 가장 흔한 구성은 <strong>오픈 sLLM + RAG</strong>다. 문서와 질문이 밖으로 나가지 않고, 작은 모델이 모르는 사실은 검색한 근거로 채운다. <a href="https://samcho93.github.io/studyRAG/weeks/w10/" target="_blank" rel="noopener">RAG 10주차 프레임워크 리팩터링</a>에서는 LangChain 같은 프레임워크가 LLM 호출부를 추상화하는데, 이번 주의 OpenAI 호환 주소가 바로 그 연결 지점이다. <code>base_url</code>을 Ollama나 vLLM으로 바꾸면 <a href="https://samcho93.github.io/studyRAG/" target="_blank" rel="noopener">RAG 시스템 구축</a> 과정의 파이프라인 전체를 온프레미스로 옮길 수 있다.</p></div>
+        <p>1주차의 빈도표에서 출발해 BPE · 임베딩 · 어텐션 · 트랜스포머를 직접 만들고, 미니 GPT를 학습시키고, 실제 LLM을 API · 브라우저 · 내 PC에서 부려 보았다. 이제 모델을 고를 때 무엇을 물어야 하는지 안다. 다음 과정에서는 그 모델이 모르는 것을 찾아서 알려 주는 방법을 만든다.</p>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="17"> ✅ 17주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="17" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount as mountMap } from '../../assets/js/widgets/w17-model-map.js';
+    import { mount as mountUsage } from '../../assets/js/widgets/w17-usage.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mountMap(document.getElementById('w17-model-map'));
+    mountUsage(document.getElementById('w17-usage'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

@@ -26,7 +26,7 @@ export const WEEKS = [
   { no: 14, icon: '🤖', title: '응용 ② 대화형 챗봇 만들기', widget: '챗봇 빌더 (페르소나 · 메모리 · 스트리밍)', llm: '선택', ready: true, applied: true },
   { no: 15, icon: '🕹️', title: '응용 ③ AI 에이전트', widget: '에이전트 루프 추적기 (계획 · 도구 · 관찰)', llm: '선택', ready: true, applied: true },
   { no: 16, icon: '💻', title: '응용 ④ 브라우저 로컬 LLM', widget: '온디바이스 LLM 실행기', llm: '—', ready: true, applied: true },
-  { no: 17, icon: '🗺️', title: '응용 ⑤ 대표 LLM과 오픈소스 sLLM', widget: 'LLM 비교표 · sLLM 사용법 스니펫', llm: '—', ready: false, applied: true },
+  { no: 17, icon: '🗺️', title: '응용 ⑤ 대표 LLM과 오픈소스 sLLM', widget: 'LLM 비교표 · sLLM 사용법 스니펫', llm: '—', ready: true, applied: true },
 ];
 
 // The learning path this course belongs to: MLBasic → ML Node Studio → (this) → studyRAG.
