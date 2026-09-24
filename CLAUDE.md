@@ -70,12 +70,17 @@ studyLLM/
 │   │   │   ├── gpt.js        # 미니 GPT 모델 · 학습 · 생성 · 직렬화
 │   │   │   ├── gpt-worker.js # 학습을 Web Worker에서 돌린다 (7주차)
 │   │   │   ├── sampling.js   # 소프트맥스 · 온도 · top-k · top-p
-│   │   │   └── llm.js        # 사용자 API 키로 LLM 호출 (11·12주차, 선택)
+│   │   │   ├── cooc.js       # 동시 출현 · PPMI · SVD 단어 벡터 (3주차)
+│   │   │   ├── llm.js        # 사용자 API 키로 LLM 호출 (11주차 이후, 선택)
+│   │   │   ├── llm-tools.js  # 공급자별 도구 호출 요청·응답 정규화 (11주차)
+│   │   │   ├── chat.js       # 대화 기록 · 토큰 예산 · 요약 · SSE 스트리밍 (14주차)
+│   │   │   ├── agent.js      # 에이전트 루프 · 도구 레지스트리 · 가드 (15주차)
+│   │   │   └── local-llm-worker.js # Transformers.js로 브라우저 로컬 LLM 실행 (16·17주차)
 │   │   ├── widgets/    # 주차별 실습 위젯 (위젯 하나 = 파일 하나)
 │   │   └── site/       # site.js(틀·목차·진도·테마) · weeks.js(주차 메타) · slides.js · ink.js · result.js · runner.js
 │   └── data/
 │       ├── corpus/     # 전 과정 공통 문서셋 (studyRAG 학과 문서 + LLM 교안)
-│       ├── models/     # 미리 학습한 미니 GPT 체크포인트 (tools/로 생성)
+│       ├── models/     # 미리 학습한 미니 GPT 체크포인트 mini-gpt-{300,800,3000}.json (tools/train-checkpoint.mjs)
 │       └── wNN/        # 주차별 보조 데이터
 ├── weeks/wNN/index.html · teacher.html   # 학생용 문서 / 교사용 슬라이드
 ├── teacher/index.html                    # 교수자용 허브
@@ -163,5 +168,6 @@ studyLLM/
 
 - 새 주차: **학생용 → 위젯 → 교수자용** 순서
 - 로컬 확인: `python -m http.server 8766` (ES Module·fetch는 `file://`에서 안 됨)
-- 새 주차가 완성되면 `weeks.js`의 `ready: true`로 바꾼다
+- 새 주차가 완성되면 `node tools/set-ready.mjs N`으로 `weeks.js`의 `ready: true`를 켠다
+- 체크포인트를 다시 학습하면 7·8·9·12주차 본문의 실측 수치(손실·PPL·생성 예시)를 다시 확인한다
 - 커밋 메시지: `feat(w04): 자동 미분 위젯 추가` 형식
