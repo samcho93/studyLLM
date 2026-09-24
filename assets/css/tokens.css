@@ -1,0 +1,236 @@
+/* Design tokens — the only place colors, type and spacing are defined.
+   Palette and type follow the sibling course sites (studyMLBasic) so the
+   courses look like one series. Change the theme here only. */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --color-bg: #f4f6f9;
+  --color-pane: #ffffff;
+  --color-surface: #ffffff;
+  --color-surface-2: #f7f9fc;
+  --color-border: #e1e6ee;
+  --color-border-strong: #c9d1dd;
+  --color-text: #1d2433;
+  --color-text-muted: #6b7587;
+
+  /* Accents: indigo (primary) + amber (secondary / teacher) */
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-contrast: #ffffff;
+  --color-accent-soft: #eceefe;
+  --color-accent2: #a16207;
+  --color-accent2-soft: #fef6dc;
+  --color-success: #1f7a45;
+  --color-success-soft: #e3f6ec;
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fff6d9;
+  --color-danger: #c0392b;
+  --color-danger-soft: #fdeaea;
+  --color-more: #7b4fd1;
+  --color-more-soft: #f1ebfd;
+  --color-code-bg: #f6f8fb;
+  --color-code-fg: #24292f;
+  --color-code-def: #953800;
+  --color-focus: #4f46e5;
+  --gradient-brand: linear-gradient(135deg, #4f46e5, #f0a04b);
+  --gradient-progress: linear-gradient(90deg, #4f46e5, #f5b041);
+  --gradient-hero: radial-gradient(circle at 85% 20%, rgb(255 255 255 / 0.18), transparent 40%),
+    linear-gradient(135deg, #3f3cbb 0%, #2b5b84 55%, #c48a00 100%);
+  --hero-fg: #ffffff;
+
+  /* Terminal (results pane is always dark, in both themes) */
+  --term-bg: #0f1419;
+  --term-head: #161b22;
+  --term-tools: #12171e;
+  --term-line: #262c36;
+  --term-border: #30363d;
+  --term-fg: #d7dde8;
+  --term-title: #e6edf3;
+  --term-muted: #7d8799;
+  --term-err: #ff7b72;
+  --term-ok: #4cc983;
+  --term-sys: #79c0ff;
+  --term-warn: #f2c14e;
+  --term-dot-1: #ff5f57;
+  --term-dot-2: #febc2e;
+  --term-dot-3: #28c840;
+  --term-ok-bg: #0f3a22;
+  --term-err-bg: #3d1614;
+  --term-done-bg: #13283f;
+
+  /* Slides (stage keeps its own palette) */
+  --s-bg: #ffffff;
+  --s-fg: #1b2230;
+  --s-muted: #6a7486;
+  --s-line: #e3e8ef;
+  --s-card: #f5f7fb;
+  --s-accent: #4f46e5;
+  --s-accent2: #a16207;
+  --s-title-glow: radial-gradient(circle at 88% 12%, rgb(231 111 0 / 0.16), transparent 38%),
+    radial-gradient(circle at 10% 95%, rgb(47 111 179 / 0.16), transparent 40%);
+  --stage-shadow: 0 10px 40px rgb(15 25 45 / 0.18);
+  --fullscreen-bg: #0b0e13;
+
+  /* Whiteboard ink (slides) */
+  --ink-1: #e53935;
+  --ink-2: #1e63d6;
+  --ink-3: #1f9d55;
+  --ink-4: #ffb300;
+  --ink-5: #1d2433;
+  --ink-laser: #ff3b30;
+
+  /* Chunk highlight palette (w04) */
+  --chunk-1: #d9dcff;
+  --chunk-2: #ffe1c7;
+  --chunk-3: #d4f2dc;
+  --chunk-4: #f6d6ef;
+  --chunk-5: #fff1b8;
+  --chunk-6: #d2f0f4;
+  --chunk-overlap: #c9b8f5;
+
+  /* Typography */
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI", "Malgun Gothic", sans-serif;
+  --font-mono: "JetBrains Mono", "D2Coding", Consolas, "Courier New", monospace;
+  --text-xs: 12px;
+  --text-sm: 13.5px;
+  --text-md: 15px;
+  --text-lg: 16.5px;
+  --text-xl: 22px;
+  --text-2xl: 30px;
+  --text-3xl: 32px;
+  --leading-tight: 1.3;
+  --leading-body: 1.65;
+  --weight-regular: 400;
+  --weight-medium: 600;
+  --weight-bold: 700;
+  --weight-heavy: 800;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+  --gutter: 16px;
+
+  /* Layout */
+  --measure: 72ch;
+  --doc-w: 920px;
+  --nav-w: 290px;
+  --out-w: 430px;
+  --topbar-h: 46px;
+
+  /* Shape */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgb(20 30 50 / 0.06), 0 4px 16px rgb(20 30 50 / 0.06);
+  --shadow-md: 0 8px 24px rgb(20 30 50 / 0.14);
+  --focus-ring: 0 0 0 3px var(--color-focus);
+
+  /* Motion */
+  --dur-fast: 120ms;
+  --dur-med: 220ms;
+}
+
+/* Dark: by OS preference unless the user forced light, or by manual toggle */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: #0e1116;
+    --color-pane: #151a21;
+    --color-surface: #1a2029;
+    --color-surface-2: #1f2631;
+    --color-border: #2a323e;
+    --color-border-strong: #3a4452;
+    --color-text: #e3e8f0;
+    --color-text-muted: #95a0b2;
+    --color-accent: #8b95fa;
+    --color-accent-hover: #a5adfb;
+    --color-accent-contrast: #10132a;
+    --color-accent-soft: #23284a;
+    --color-accent2: #f2c14e;
+    --color-accent2-soft: #33290f;
+    --color-success: #4cc983;
+    --color-success-soft: #132e20;
+    --color-warning: #f2c14e;
+    --color-warning-soft: #33290f;
+    --color-danger: #ff7b72;
+    --color-danger-soft: #3a1a18;
+    --color-more: #b695ff;
+    --color-more-soft: #271d3d;
+    --color-code-bg: #11161d;
+    --color-code-fg: #d6deeb;
+    --color-code-def: #ffa657;
+    --color-focus: #8b95fa;
+    --s-bg: #161b23;
+    --s-fg: #e7ecf3;
+    --s-muted: #95a0b2;
+    --s-line: #2b3340;
+    --s-card: #1d2430;
+    --s-accent: #8b95fa;
+    --s-accent2: #f2c14e;
+    --chunk-1: #2c3272;
+    --chunk-2: #5a3517;
+    --chunk-3: #1d4a2c;
+    --chunk-4: #4f2346;
+    --chunk-5: #4d4312;
+    --chunk-6: #184a52;
+    --chunk-overlap: #4a3a86;
+    --ink-5: #f2f4f8;
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px rgb(0 0 0 / 0.25);
+    --shadow-md: 0 8px 24px rgb(0 0 0 / 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #0e1116;
+  --color-pane: #151a21;
+  --color-surface: #1a2029;
+  --color-surface-2: #1f2631;
+  --color-border: #2a323e;
+  --color-border-strong: #3a4452;
+  --color-text: #e3e8f0;
+  --color-text-muted: #95a0b2;
+  --color-accent: #8b95fa;
+  --color-accent-hover: #a5adfb;
+  --color-accent-contrast: #10132a;
+  --color-accent-soft: #23284a;
+  --color-accent2: #f2c14e;
+  --color-accent2-soft: #33290f;
+  --color-success: #4cc983;
+  --color-success-soft: #132e20;
+  --color-warning: #f2c14e;
+  --color-warning-soft: #33290f;
+  --color-danger: #ff7b72;
+  --color-danger-soft: #3a1a18;
+  --color-more: #b695ff;
+  --color-more-soft: #271d3d;
+  --color-code-bg: #11161d;
+  --color-code-fg: #d6deeb;
+  --color-code-def: #ffa657;
+  --color-focus: #8b95fa;
+  --s-bg: #161b23;
+  --s-fg: #e7ecf3;
+  --s-muted: #95a0b2;
+  --s-line: #2b3340;
+  --s-card: #1d2430;
+  --s-accent: #8b95fa;
+  --s-accent2: #f2c14e;
+  --chunk-1: #2c3272;
+  --chunk-2: #5a3517;
+  --chunk-3: #1d4a2c;
+  --chunk-4: #4f2346;
+  --chunk-5: #4d4312;
+  --chunk-6: #184a52;
+  --chunk-overlap: #4a3a86;
+  --ink-5: #f2f4f8;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3), 0 6px 20px rgb(0 0 0 / 0.25);
+  --shadow-md: 0 8px 24px rgb(0 0 0 / 0.45);
+}

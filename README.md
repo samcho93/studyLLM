@@ -1,0 +1,50 @@
+# LLM Lab — 대규모 언어 모델(LLM) 원리와 활용
+
+다음 토큰 예측부터 미니 GPT까지, **브라우저에서 직접 만들어 보며** LLM의 원리를 배우는 12주 웹 강좌입니다.
+같은 콘텐츠를 **학생용(문서 + 실습)**과 **교사용(PPT 슬라이드 + 교사 노트)** 두 화면으로 제공합니다.
+
+- 🌐 사이트: https://samcho93.github.io/studyLLM/
+- 🎓 학생용: https://samcho93.github.io/studyLLM/student.html
+- 🧑‍🏫 교사용: https://samcho93.github.io/studyLLM/teacher.html
+
+## 학습 경로
+
+| ① | ② | ③ | ④ |
+|---|---|---|---|
+| [머신러닝 기초](https://samcho93.github.io/studyMLBasic/) | [ML Node Studio](https://samcho93.github.io/MLStudio/) | **LLM 원리와 활용 (이 과정)** | [RAG 시스템 구축](https://samcho93.github.io/studyRAG/) |
+
+studyRAG와 **같은 학과 문서 코퍼스**를 학습 데이터로 씁니다. 12주차에 내가 만든 미니 GPT의 환각을 해부하고 RAG로 넘어갑니다.
+
+## 커리큘럼 (12주)
+
+| 주차 | 주제 | 실습 위젯 (▶ 체험) |
+|---|---|---|
+| 01 | 언어 모델: 다음 토큰 예측 | 바이그램 언어 모델 |
+| 02 | 토큰화와 BPE | **BPE 병합 스텝퍼** |
+| 03 | 임베딩: 단어를 벡터로 | 임베딩 공간 탐색기 |
+| 04 | 신경망 언어 모델과 학습 | 소프트맥스 · 교차 엔트로피 · 자동 미분 |
+| 05 | 어텐션 | **어텐션 계산기** |
+| 06 | 트랜스포머 블록 | 트랜스포머 해부도 |
+| 07 | 미니 GPT 학습 | **브라우저 GPT 학습기** |
+| 08 | 디코딩 전략 | **샘플링 조절판** |
+| 09 | 평가와 스케일링 | 퍼플렉서티 · 메모리 계산기 |
+| 10 | 사전학습에서 챗봇까지 | 채팅 템플릿 · LoRA 계산기 |
+| 11 | LLM API와 프롬프트 | API 플레이그라운드 (키 선택) |
+| 12 | LLM의 한계와 RAG로 | 환각 해부 · 종합 프로젝트 (키 선택) |
+
+## 화면 구성
+
+studyRAG · studyMLBasic과 같은 3단 화면(왼쪽 목차 · 가운데 강의 · 오른쪽 실행 결과 터미널)입니다.
+교사용 슬라이드 단축키: `←` `→` 이동 · `F` 전체 화면 · `N` 교사 노트 · `B` 화면 가리기 · `T` 타이머 · `P` 발표자 창 · 판서 `D` `H` `L` `E` `Z` `C`
+
+## 로컬에서 보기
+
+```bash
+python -m http.server 8766
+```
+
+→ http://localhost:8766
+
+## 배포
+
+빌드 과정이 없습니다. `main` 브랜치에 push하면 GitHub Pages(Settings → Pages → Branch `main` / root)가 그대로 배포합니다.

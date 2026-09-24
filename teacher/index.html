@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>교사용 · LLM 원리와 활용 · LLM Lab</title>
+  <meta name="description" content="LLM Lab 교사용: 주차별 PPT 슬라이드, 교사 노트, Challenge 정답, 평가 루브릭.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../assets/css/tokens.css">
+  <link rel="stylesheet" href="../assets/css/base.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="teacher" data-crumb="🧑‍🏫 <b>교사용 안내</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+          <section class="hero">
+            <h1>🧑‍🏫 교사용 — PPT 슬라이드 + 교사 노트</h1>
+            <p>주차마다 <b>16:9 슬라이드</b>와 슬라이드별 <b>교사 노트</b>를 제공한다. 데모 슬라이드에서는 실습 위젯이 그대로 동작하고, 코드 슬라이드는 ▶ 실행하면 오른쪽 실행 결과 창에 결과가 나온다.</p>
+            <p>덱 끝의 <b>부록</b>에 강의안(시간 배분) · Challenge 정답 · 자주 막히는 지점 · 토론 주제 · 평가 루브릭이 있다.</p>
+            <div class="hero-actions">
+              <a class="btn" href="../weeks/w01/teacher.html">▶ 1주차 슬라이드부터 열기</a>
+              <a class="btn outline" href="../">🎓 학생용 화면으로</a>
+            </div>
+            <div class="deco" aria-hidden="true">🖼️</div>
+          </section>
+
+          <h2>슬라이드 화면 사용법</h2>
+          <div class="cards">
+            <div class="card"><span class="ci">⌨️</span><span class="ct">단축키</span><span class="cs"><kbd>←</kbd> <kbd>→</kbd> 이동 · <kbd>F</kbd> 전체 화면 · <kbd>N</kbd> 교사 노트 · <kbd>B</kbd> 화면 가리기 · <kbd>T</kbd> 타이머 · <kbd>P</kbd> 발표자 창</span></div>
+            <div class="card"><span class="ci">🖥</span><span class="ct">발표자 창</span><span class="cs"><kbd>P</kbd>로 연 두 번째 창에는 슬라이드와 노트가 크게 나오고, 원래 창과 쪽이 같이 넘어간다. 프로젝터에는 원래 창을 <kbd>F</kbd>로 전체 화면.</span></div>
+            <div class="card"><span class="ci">✏️</span><span class="ct">판서</span><span class="cs">도구 막대 둘째 줄 · <kbd>D</kbd> 펜 · <kbd>H</kbd> 형광펜 · <kbd>L</kbd> 레이저 · <kbd>E</kbd> 지우개 · <kbd>Z</kbd> 되돌리기 · <kbd>C</kbd> 지우기 · <kbd>Esc</kbd> 끄기. 슬라이드마다 따로 남고 발표자 창과 함께 보인다.</span></div>
+            <div class="card"><span class="ci">📑</span><span class="ct">왼쪽 목록</span><span class="cs">현재 주차의 슬라이드 제목이 나열된다. 눌러서 바로 이동한다. 부록 슬라이드는 제목이 “부록”으로 시작한다.</span></div>
+          </div>
+
+          <h2 class="part-title">주차별 슬라이드 <small>각 덱 끝에 부록 A 강의안 · B 정답 · C 막히는 지점 · D 토론 · E 루브릭</small></h2>
+          <div class="cards">
+            <a class="card" href="../weeks/w01/teacher.html"><span class="ci">🎲</span><span class="cn">01주차 슬라이드</span><span class="ct">언어 모델: 다음 토큰 예측</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w02/teacher.html"><span class="ci">✂️</span><span class="cn">02주차 슬라이드 · 핵심</span><span class="ct">토큰화와 BPE</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w03/teacher.html"><span class="ci">🧭</span><span class="cn">03주차 슬라이드</span><span class="ct">임베딩: 단어를 벡터로</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w04/teacher.html"><span class="ci">🧮</span><span class="cn">04주차 슬라이드</span><span class="ct">신경망 언어 모델과 학습</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w05/teacher.html"><span class="ci">👀</span><span class="cn">05주차 슬라이드 · 핵심</span><span class="ct">어텐션</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w06/teacher.html"><span class="ci">🧱</span><span class="cn">06주차 슬라이드</span><span class="ct">트랜스포머 블록</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w07/teacher.html"><span class="ci">🏋️</span><span class="cn">07주차 슬라이드 · 핵심</span><span class="ct">미니 GPT 학습</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w08/teacher.html"><span class="ci">🎛️</span><span class="cn">08주차 슬라이드 · 핵심</span><span class="ct">디코딩 전략</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w09/teacher.html"><span class="ci">📏</span><span class="cn">09주차 슬라이드</span><span class="ct">평가와 스케일링</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w10/teacher.html"><span class="ci">💬</span><span class="cn">10주차 슬라이드</span><span class="ct">사전학습에서 챗봇까지</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w11/teacher.html"><span class="ci">🔌</span><span class="cn">11주차 슬라이드</span><span class="ct">LLM API와 프롬프트</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+            <a class="card" href="../weeks/w12/teacher.html"><span class="ci">🌉</span><span class="cn">12주차 슬라이드</span><span class="ct">LLM의 한계와 RAG로</span><span class="cs">180분 · 데모 슬라이드 + 코드 슬라이드 + 부록</span></a>
+          </div>
+
+          <div class="callout">
+            <span class="callout__title">정답 공개 범위</span>
+            <p>이 사이트는 공개 저장소에서 배포되므로 교사용 페이지도 누구나 열 수 있다. 정답을 비공개로 두어야 하는 과제는 부록 대신 별도 채널로 배포한다.</p>
+          </div>
+        </article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

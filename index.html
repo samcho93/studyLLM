@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LLM 원리와 활용 · LLM Lab</title>
+  <meta name="description" content="대규모 언어 모델(LLM) 원리와 활용 — 다음 토큰 예측부터 브라우저에서 직접 학습하는 미니 GPT까지, 만들어 보며 배우는 12주 과정">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="assets/css/tokens.css">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-crumb="<b>강좌 소개</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+          <section class="hero">
+            <h1>🧠 대규모 언어 모델(LLM) 원리와 활용</h1>
+            <p>ChatGPT는 “다음에 올 토큰”을 하나씩 고르는 기계다. 이 과정에서는 그 기계를 <b>바닥부터 직접 만든다</b>. 글자 빈도표로 시작해 토크나이저·임베딩·어텐션을 손으로 계산하고, 마지막에는 <b>이 페이지 안에서 미니 GPT를 학습</b>시켜 글을 쓰게 한다.</p>
+            <p>12주 · 주 1회 3시간 · 한국폴리텍대학 분당융합기술교육원 AI응용소프트웨어과</p>
+            <div class="hero-actions">
+              <a class="btn" href="weeks/w01/">▶ 처음부터 시작 (1주차)</a>
+              <a class="btn outline" href="teacher/">🧑‍🏫 교사용(PPT) 화면으로</a>
+            </div>
+            <div class="deco" aria-hidden="true">✨</div>
+          </section>
+
+          <h2>학습 경로</h2>
+          <p>이 과정은 네 과정으로 이어지는 시리즈의 세 번째다. 머신러닝 기초에서 배운 <b>신경망·소프트맥스·역전파</b>를 언어에 적용하고, 여기서 만든 LLM 이해를 바탕으로 다음 과정에서 <b>검색증강생성(RAG)</b> 시스템을 만든다.</p>
+          <div class="pathway">
+            <a class="card" href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener"><span class="cn">① 선수 과정 ↗</span><span class="ci">🤖</span><span class="ct">머신러닝 기초</span><span class="cs">회귀 · 분류 · 평가 · 신경망 · 역전파 · 텍스트 분류</span></a>
+            <a class="card" href="https://samcho93.github.io/MLStudio/" target="_blank" rel="noopener"><span class="cn">② 선수 과정 ↗</span><span class="ci">🧩</span><span class="ct">ML Node Studio</span><span class="cs">노드를 연결해 데이터 → 모델 → 평가 흐름을 눈으로 조립</span></a>
+            <div class="card is-here"><span class="cn">③ 지금 이 과정</span><span class="ci">🧠</span><span class="ct">LLM 원리와 활용</span><span class="cs">토큰 · 임베딩 · 어텐션 · 트랜스포머 · 미니 GPT · API</span></div>
+            <a class="card" href="https://samcho93.github.io/studyRAG/" target="_blank" rel="noopener"><span class="cn">④ 다음 과정 ↗</span><span class="ci">🔎</span><span class="ct">RAG 시스템 구축</span><span class="cs">청킹 · 임베딩 검색 · 하이브리드 · 평가 · 인용</span></a>
+          </div>
+
+          <h2>이 과정이 다른 점</h2>
+          <div class="cards">
+            <div class="card"><span class="ci">🛠️</span><span class="ct">블랙박스를 열어 본다</span><span class="cs">라이브러리 호출 대신 빈도표·BPE·어텐션·역전파를 JavaScript 몇십 줄로 직접 구현한다.</span></div>
+            <div class="card"><span class="ci">🏋️</span><span class="ct">브라우저에서 GPT를 학습한다</span><span class="cs">설치도 GPU도 필요 없다. 7주차에 손실 곡선이 내려가며 글이 점점 말이 되는 순간을 본다.</span></div>
+            <div class="card"><span class="ci">🌉</span><span class="ct">RAG까지 이어진다</span><span class="cs">RAG 과정과 같은 학과 문서를 학습 데이터로 쓴다. 내가 만든 모델의 환각이 곧 RAG가 필요한 이유가 된다.</span></div>
+          </div>
+
+          <div class="flow" aria-label="LLM이 글을 만드는 흐름과 주차">
+            <div>토큰화 <b>2</b></div><div>임베딩 <b>3</b></div><div>어텐션 <b>5</b></div><div>트랜스포머 <b>6</b></div><div>다음 토큰 확률 <b>1·4</b></div><div>디코딩 <b>8</b></div><div>학습·평가 <b>7·9</b></div>
+          </div>
+
+          <h2 class="part-title">Part 1. 언어를 숫자로 <small>다음 토큰 예측 · 토큰화 · 임베딩</small></h2>
+          <div class="cards">
+            <a class="card" href="weeks/w01/"><span class="ci">🎲</span><span class="cn">01주차 · ▶ 체험</span><span class="ct">언어 모델: 다음 토큰 예측</span><span class="cs">바이그램 언어 모델 — 빈도표 하나로 “그럴듯한” 문장을 만들고, 그 한계를 본다</span><span class="cp"><i data-week-progress="1"></i></span></a>
+            <a class="card" href="weeks/w02/"><span class="ci">✂️</span><span class="cn">02주차 · 핵심 · ▶ 체험</span><span class="ct">토큰화와 BPE</span><span class="cs">BPE 병합 스텝퍼 — 자주 붙어 나오는 조각을 합치며 어휘를 직접 만든다</span><span class="cp"><i data-week-progress="2"></i></span></a>
+            <a class="card" href="weeks/w03/"><span class="ci">🧭</span><span class="cn">03주차 · ▶ 체험</span><span class="ct">임베딩: 단어를 벡터로</span><span class="cs">임베딩 공간 탐색기 — 함께 쓰이는 단어가 가까워지는 원리</span><span class="cp"><i data-week-progress="3"></i></span></a>
+          </div>
+
+          <h2 class="part-title">Part 2. 신경망과 트랜스포머 <small>신경망 언어 모델 · 어텐션 · 트랜스포머 블록</small></h2>
+          <div class="cards">
+            <a class="card" href="weeks/w04/"><span class="ci">🧮</span><span class="cn">04주차 · ▶ 체험</span><span class="ct">신경망 언어 모델과 학습</span><span class="cs">소프트맥스 · 교차 엔트로피 · 자동 미분 — 틀린 만큼 가중치가 움직인다</span><span class="cp"><i data-week-progress="4"></i></span></a>
+            <a class="card" href="weeks/w05/"><span class="ci">👀</span><span class="cn">05주차 · 핵심 · ▶ 체험</span><span class="ct">어텐션</span><span class="cs">어텐션 계산기 — Q·K·V와 인과 마스크를 숫자로 따라간다</span><span class="cp"><i data-week-progress="5"></i></span></a>
+            <a class="card" href="weeks/w06/"><span class="ci">🧱</span><span class="cn">06주차 · ▶ 체험</span><span class="ct">트랜스포머 블록</span><span class="cs">트랜스포머 해부도 — 위치 인코딩 · 잔차 · 정규화 · 파라미터 수</span><span class="cp"><i data-week-progress="6"></i></span></a>
+          </div>
+
+          <h2 class="part-title">Part 3. 미니 GPT 만들기 <small>학습 · 디코딩 · 평가와 스케일링</small></h2>
+          <div class="cards">
+            <a class="card" href="weeks/w07/"><span class="ci">🏋️</span><span class="cn">07주차 · 핵심 · ▶ 체험</span><span class="ct">미니 GPT 학습</span><span class="cs">브라우저 GPT 학습기 — 손실이 내려가며 글이 말이 되어 가는 과정</span><span class="cp"><i data-week-progress="7"></i></span></a>
+            <a class="card" href="weeks/w08/"><span class="ci">🎛️</span><span class="cn">08주차 · 핵심 · ▶ 체험</span><span class="ct">디코딩 전략</span><span class="cs">샘플링 조절판 — 온도 · top-k · top-p가 창의성과 헛소리 사이를 오간다</span><span class="cp"><i data-week-progress="8"></i></span></a>
+            <a class="card" href="weeks/w09/"><span class="ci">📏</span><span class="cn">09주차 · ▶ 체험</span><span class="ct">평가와 스케일링</span><span class="cs">퍼플렉서티 · 메모리 계산기 — 70B 모델은 왜 GPU 한 장에 안 들어가나</span><span class="cp"><i data-week-progress="9"></i></span></a>
+          </div>
+
+          <h2 class="part-title">Part 4. 실전 LLM으로 <small>챗봇 만들기 · API 활용 · 한계와 RAG</small></h2>
+          <div class="cards">
+            <a class="card" href="weeks/w10/"><span class="ci">💬</span><span class="cn">10주차 · ▶ 체험</span><span class="ct">사전학습에서 챗봇까지</span><span class="cs">채팅 템플릿 · LoRA 계산기 — 문서 이어쓰기 모델이 대화 상대가 되는 과정</span><span class="cp"><i data-week-progress="10"></i></span></a>
+            <a class="card" href="weeks/w11/"><span class="ci">🔌</span><span class="cn">11주차 · ▶ 체험 · LLM 키 선택</span><span class="ct">LLM API와 프롬프트</span><span class="cs">API 플레이그라운드 — 메시지 · 구조화 출력 · 도구 호출</span><span class="cp"><i data-week-progress="11"></i></span></a>
+            <a class="card" href="weeks/w12/"><span class="ci">🌉</span><span class="cn">12주차 · ▶ 체험 · LLM 키 선택</span><span class="ct">LLM의 한계와 RAG로</span><span class="cs">환각 해부 · 종합 프로젝트 — 모델이 모르는 것을 어떻게 알려 줄까</span><span class="cp"><i data-week-progress="12"></i></span></a>
+          </div>
+
+          <h2>시작하기 전에</h2>
+          <ol class="steps">
+            <li><b>최신 크롬·엣지를 쓴다.</b> 모든 실습은 브라우저 안에서 돌아간다. 설치할 것이 없다.</li>
+            <li><b>화면 구성:</b> 왼쪽 강의 목록 · 가운데 강의 내용 · 오른쪽 실행 결과. 경계선을 끌어 너비를 바꿀 수 있다.</li>
+            <li><b>선수 지식:</b> 파이썬이나 JavaScript 기초 문법, 그리고 머신러닝 기초 과정의 <em>신경망 · 소프트맥스 · 경사하강법</em>. 기억이 흐리면 4주차 전에 <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 신경망 단원을 다시 본다.</li>
+            <li><b>LLM API 키는 11·12주차에만 선택으로 쓴다.</b> 키는 이 탭의 <code>sessionStorage</code>에만 저장되고 탭을 닫으면 사라진다. 키가 없어도 모든 실습을 진행할 수 있다.</li>
+            <li><b>모든 실습은 같은 문서셋을 쓴다.</b> RAG 과정과 같은 학과 안내문에 이 과정의 교안을 더했다. 내가 학습시킨 모델이 무엇을 외웠고 무엇을 지어내는지 정답을 알고 판단할 수 있다.</li>
+          </ol>
+        </article>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
