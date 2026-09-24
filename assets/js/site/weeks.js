@@ -20,11 +20,11 @@ export const WEEKS = [
   { no: 8, icon: '🎛️', title: '디코딩 전략', widget: '샘플링 조절판 (온도 · top-k · top-p)', llm: '—', ready: false, core: true },
   { no: 9, icon: '📏', title: '평가와 스케일링', widget: '퍼플렉서티 · 메모리 계산기', llm: '—', ready: false },
   { no: 10, icon: '💬', title: '사전학습에서 챗봇까지', widget: '채팅 템플릿 · LoRA 계산기', llm: '—', ready: true },
-  { no: 11, icon: '🔌', title: 'LLM API와 프롬프트', widget: 'API 플레이그라운드 (구조화 출력 · 도구 호출)', llm: '선택', ready: false },
+  { no: 11, icon: '🔌', title: 'LLM API와 프롬프트', widget: 'API 플레이그라운드 (구조화 출력 · 도구 호출)', llm: '선택', ready: true },
   { no: 12, icon: '🌉', title: 'LLM의 한계와 RAG로', widget: '환각 해부 · 종합 프로젝트', llm: '선택', ready: false },
   { no: 13, icon: '🗂️', title: '응용 ① 텍스트 처리 자동화', widget: '문서 일괄 처리기 (요약 · 분류 · 추출)', llm: '선택', ready: false, applied: true },
   { no: 14, icon: '🤖', title: '응용 ② 대화형 챗봇 만들기', widget: '챗봇 빌더 (페르소나 · 메모리 · 스트리밍)', llm: '선택', ready: false, applied: true },
-  { no: 15, icon: '🕹️', title: '응용 ③ AI 에이전트', widget: '에이전트 루프 추적기 (계획 · 도구 · 관찰)', llm: '선택', ready: false, applied: true },
+  { no: 15, icon: '🕹️', title: '응용 ③ AI 에이전트', widget: '에이전트 루프 추적기 (계획 · 도구 · 관찰)', llm: '선택', ready: true, applied: true },
   { no: 16, icon: '💻', title: '응용 ④ 브라우저 로컬 LLM', widget: '온디바이스 LLM 실행기', llm: '—', ready: true, applied: true },
 ];
 

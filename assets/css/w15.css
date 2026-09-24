@@ -1,0 +1,371 @@
+/* Week 15: agent loop tracer widget + concept figures. Tokens from tokens.css only. */
+
+.w15-muted {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+}
+
+/* ---------------------------------------------------------------- controls */
+.w15-mode {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 8px;
+  margin-bottom: var(--space-3);
+}
+
+.w15-mode label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  cursor: pointer;
+}
+
+.w15-mode label:has(input:checked) {
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.w15-mode small {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: 11.5px;
+  font-weight: var(--weight-regular);
+}
+
+.w15-mode input {
+  accent-color: var(--color-accent);
+}
+
+.w15-ag .w15-wide {
+  margin-bottom: var(--space-3);
+}
+
+.w15-ag .field textarea {
+  min-height: 56px;
+}
+
+.w15-ag textarea[readonly] {
+  color: var(--color-text-muted);
+}
+
+.w15-llm {
+  margin-bottom: var(--space-3);
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+}
+
+.w15-llm .widget__controls {
+  margin-bottom: 8px;
+}
+
+.w15-set {
+  margin: 0 0 var(--space-3);
+  padding: 8px 12px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.w15-set legend {
+  padding: 0 6px;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.w15-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+}
+
+.w15-checks label {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  min-height: 28px;
+  cursor: pointer;
+}
+
+.w15-checks input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+}
+
+.w15-checks input:focus-visible,
+.w15-mode input:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+.w15-checks small {
+  color: var(--color-text-muted);
+}
+
+.w15-checks .w15-danger {
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-weight: var(--weight-bold);
+}
+
+.w15-quick {
+  align-items: center;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+/* ---------------------------------------------------------------- output */
+.w15-out .callout {
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.w15-task {
+  margin: 8px 0;
+  padding: 6px 10px;
+  border-left: 3px solid var(--color-accent);
+  background: var(--color-surface-2);
+  font-size: 13.5px;
+}
+
+.w15-tl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.w15-empty {
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.w15-step {
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-bg);
+}
+
+.w15-step__h {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+  font: var(--weight-bold) 12px var(--font-mono);
+  color: var(--color-text-muted);
+}
+
+.w15-row {
+  display: grid;
+  grid-template-columns: 3.2em 1fr;
+  gap: 8px;
+  align-items: start;
+  padding: 3px 0;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.w15-row p {
+  margin: 0;
+}
+
+.w15-row > div,
+.w15-row > p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.w15-k {
+  padding: 1px 0;
+  border-radius: 5px;
+  font-size: 11.5px;
+  font-weight: var(--weight-bold);
+  text-align: center;
+}
+
+.w15-row.th .w15-k { background: var(--color-surface-2); color: var(--color-text-muted); }
+.w15-row.ac .w15-k { background: var(--color-accent-soft); color: var(--color-accent); }
+.w15-row.ob .w15-k { background: var(--color-success-soft); color: var(--color-success); }
+.w15-row.ob.err .w15-k { background: var(--color-danger-soft); color: var(--color-danger); }
+.w15-row.gd .w15-k { background: var(--color-more-soft); color: var(--color-more); }
+.w15-row.fi .w15-k { background: var(--color-accent2-soft); color: var(--color-accent2); }
+
+.w15-row.th p {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.w15-call {
+  font-weight: var(--weight-bold);
+  overflow-wrap: anywhere;
+}
+
+.w15-json {
+  display: block;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.w15-err {
+  color: var(--color-danger);
+}
+
+.w15-hits {
+  margin: 0;
+  padding-left: 1.3em;
+}
+
+.w15-hits li {
+  margin: 0 0 4px;
+}
+
+.w15-snip {
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+}
+
+.w15-row details {
+  margin: 0;
+}
+
+.w15-doc {
+  margin: 4px 0 0;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-2);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+}
+
+.w15-inj {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+}
+
+.w15-tag {
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font: var(--weight-bold) 11px var(--font-sans);
+}
+
+.w15-tag.bad {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+.w15-tag.warn {
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+
+.w15-checklist {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+}
+
+.w15-checklist .ok { color: var(--color-success); }
+.w15-checklist .no { color: var(--color-danger); font-weight: var(--weight-bold); }
+.w15-yes { color: var(--color-success); }
+.w15-no { color: var(--color-danger); }
+
+.w15-confirm {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 2px solid var(--color-warning);
+  border-radius: 10px;
+  background: var(--color-warning-soft);
+  font-size: 13px;
+}
+
+.w15-confirm p {
+  margin: 6px 0;
+}
+
+.w15-confirm .btn-row {
+  margin-top: 8px;
+}
+
+.w15-final {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--color-accent2);
+  border-radius: 10px;
+  background: var(--color-accent2-soft);
+  font-size: 13.5px;
+}
+
+.w15-final p {
+  margin: 4px 0 0;
+}
+
+.w15-final__t {
+  font-size: 12px;
+  font-weight: var(--weight-bold);
+  color: var(--color-accent2);
+}
+
+.w15-final.is-cut {
+  border-color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+
+.w15-final.is-cut .w15-final__t {
+  color: var(--color-danger);
+}
+
+.w15-env {
+  margin-top: 10px;
+  color: var(--color-text-muted);
+  font-size: 12.5px;
+  line-height: 1.8;
+}
+
+.w15-bk {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--color-success-soft);
+  color: var(--color-success);
+  font-weight: var(--weight-bold);
+}
+
+.w15-bk.bad {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
+/* ---------------------------------------------------------------- concept figures */
+.w15-fig .l { font: 600 13px var(--font-sans); fill: var(--color-text); }
+.w15-fig .n { font: 12px var(--font-sans); fill: var(--color-text-muted); }
+.w15-fig .m { font: 600 12px var(--font-mono); fill: var(--color-text); }
+.w15-fig .box { fill: var(--color-surface-2); stroke: var(--color-border-strong); }
+.w15-fig .hi { fill: var(--color-accent-soft); stroke: var(--color-accent); }
+.w15-fig .hi2 { fill: var(--color-accent2-soft); stroke: var(--color-accent2); }
+.w15-fig .ok { fill: var(--color-success-soft); stroke: var(--color-success); }
+.w15-fig .warn { fill: var(--color-warning-soft); stroke: var(--color-warning); }
+.w15-fig .bad { fill: var(--color-danger-soft); stroke: var(--color-danger); }
+.w15-fig .arr { stroke: var(--color-text-muted); stroke-width: 2; fill: none; }
+.w15-fig .arr-a { stroke: var(--color-accent); stroke-width: 2; fill: none; }
