@@ -101,7 +101,7 @@ export function getBatch(data, B, T, rand) {
   return { x, y };
 }
 
-/** A trainer that owns the optimizer. step() returns { loss, gradNorm, lr }. */
+/** A trainer that owns the optimizer. step() runs one update and returns { loss, gradNorm, lr }; `steps` counts them. */
 export function createTrainer(model, data, { batchSize = 16, lr = 3e-3, warmup = 50, totalSteps = 2000, minLrRatio = 0.1, seed = 7 } = {}) {
   const params = namedParams(model).map(([, t]) => t);
   const opt = new AdamW(params, { lr });
@@ -114,7 +114,8 @@ export function createTrainer(model, data, { batchSize = 16, lr = 3e-3, warmup =
     return lr * (minLrRatio + (1 - minLrRatio) * 0.5 * (1 + Math.cos(Math.PI * progress)));
   };
   return {
-    get step() {
+    /** Number of optimisation steps taken so far. */
+    get steps() {
       return stepNo;
     },
     step() {

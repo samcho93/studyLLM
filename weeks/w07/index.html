@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>7주차 미니 GPT 학습 · LLM Lab</title>
+  <meta name="description" content="미니 GPT를 브라우저에서 처음부터 학습시킨다: 학습 창 만들기, 학습 루프, 손실 곡선 읽기, 학습률, 과대적합과 원문 외우기.">
+  <script>try{var t=JSON.parse(localStorage.getItem('llmlab:theme'));if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+  <link rel="stylesheet" crossorigin="anonymous" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap">
+  <link rel="stylesheet" href="../../assets/css/tokens.css">
+  <link rel="stylesheet" href="../../assets/css/base.css">
+  <link rel="stylesheet" href="../../assets/css/components.css">
+  <link rel="stylesheet" href="../../assets/css/w07.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <script type="module" src="../../assets/js/site/site.js"></script>
+</head>
+<body>
+  <div class="layout" data-layout data-role="student" data-week="7" data-crumb="PART 3 · 미니 GPT 만들기 › <b>7주차 · 미니 GPT 학습</b>">
+    <main class="pane center" id="main">
+      <div class="content" tabindex="-1">
+        <article class="doc">
+      <span class="chapter-badge">🏋️ 7주차 · 미니 GPT 학습</span>
+      <h1>글자 수프가 문장이 될 때까지</h1>
+      <p class="lead">4~6주차에 소프트맥스와 역전파, 어텐션, 트랜스포머 블록을 하나씩 만들었다. 이번 주는 그 부품으로 조립한 미니 GPT(파라미터 약 6만 개)를 <strong>브라우저에서 처음부터 학습</strong>시킨다. 무작위 글자 수프가 몇 분 만에 한국어처럼 보이는 문장으로 바뀌는 과정을 손실 곡선과 샘플로 지켜보고, 너무 오래 학습한 모델은 문서를 통째로 외워 버린다는 것도 직접 확인한다.</p>
+      <div class="meta-row">
+        <span class="chip">⏱ 180분</span>
+        <span class="chip accent">▶ 체험: 브라우저 GPT 학습기</span>
+        <span class="chip">🧪 Challenge 5개</span>
+        <span class="chip">🔑 LLM API 키 불필요</span>
+      </div>
+      <div class="flow" aria-label="LLM이 글을 만드는 흐름에서 이번 주의 위치">
+        <div>토큰화</div><div>임베딩</div><div>어텐션</div><div>트랜스포머</div><div>다음 토큰 확률</div><div>뽑기</div><div><b>학습</b>·평가</div>
+      </div>
+
+      <section id="goals">
+        <h2><span class="section-num">1</span>학습 목표</h2>
+        <div class="goals">
+        <b>이번 주가 끝나면</b>
+        <ul>
+          <li>문자열을 (입력, 정답) 학습 창으로 바꾸고, “배치 → 순전파 → 손실 → 역전파 → 업데이트” 학습 루프를 직접 작성할 수 있다.</li>
+          <li>손실 곡선을 보고 학습이 잘 되는지, 학습률이 너무 크거나 작은지 판단할 수 있다.</li>
+          <li>학습 손실과 검증 손실이 갈라지는 과대적합을 알아보고, 생성 결과에서 원문을 베낀 부분을 찾아낼 수 있다.</li>
+        </ul>
+        </div>
+      </section>
+
+      <section id="why">
+        <h2><span class="section-num">2</span>왜 필요한가</h2>
+        <p>6주차에 조립한 미니 GPT는 GPT-2와 구조가 같다. 임베딩, 어텐션, MLP, 잔차 연결, 층 정규화가 다 들어 있다. 그런데 “실습실은” 뒤에 60글자를 쓰게 하면 이렇게 된다.</p>
+        <pre><code class="language-text">실습실은을7목O점반배견네석귀R을바짓탕두원니예불초색+타도학종릿은건략이↵(바쿼싱용즉스숫O랩뿐축를…</code></pre>
+        <p>구조가 아무리 좋아도 가중치 58,671개가 무작위 수이면 모델은 아무것도 모른다. 1주차 n-gram은 글자 쌍을 <em>세기만</em> 하면 학습이 끝났다. 신경망은 셀 수가 없다. 대신 “지금 가중치로 다음 글자를 맞혀 보고, 틀린 만큼 가중치를 조금 고친다”를 수천 번 반복한다. 이것이 <strong>학습</strong>이다. 같은 모델을 약 2분(1,000스텝) 학습시키면 샘플이 이렇게 바뀐다.</p>
+        <pre><code class="language-text">실습실은 12주차에 API.↵↵선안에는 두 선호하 안 진행을 답해야 된 질의응답에는 것이다.↵↵↵바이그래서가 표는</code></pre>
+        <p>뜻은 없지만 어절, 띄어쓰기, “~다.”로 끝나는 문장, 코퍼스에 나오는 단어가 제자리를 찾았다. 아무도 한국어 문법을 알려 주지 않았다. 모델이 알게 된 것은 오직 “다음 글자를 더 잘 맞히는 방향”뿐이다.</p>
+        <div class="callout">
+          <span class="callout__title">학습은 새로운 것이 아니다</span>
+          <p>머신러닝 기초 과정에서 신경망을 학습시킬 때 쓴 말이 그대로 나온다. 에폭(epoch), 배치(batch), 학습률(learning rate), 옵티마이저(optimizer), 손실 곡선. 달라진 것은 두 가지다. 정답 레이블이 따로 없고 <b>다음 글자 자체가 정답</b>이라는 것(자기 지도 학습), 그리고 분류할 클래스가 2~10개가 아니라 <b>글자 495종</b>이라는 것이다.</p>
+        </div>
+      </section>
+
+      <section id="concept">
+        <h2><span class="section-num">3</span>개념</h2>
+
+        <h3>① 학습 데이터: 창 하나에 문제 T개</h3>
+        <p>언어 모델의 학습 데이터는 따로 만들 필요가 없다. 코퍼스에서 길이 T인 창(window)을 하나 잘라 입력 x로 쓰고, 그 창을 한 칸 민 것을 정답 y로 쓴다. 인과 마스크(5주차) 덕분에 위치 t는 x₀…x<sub>t</sub>만 볼 수 있으므로, 창 하나에 “다음 글자 맞히기” 문제가 <strong>T개</strong> 들어 있다.</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 214" role="img" aria-labelledby="w07-fig1-t" style="width: 100%">
+            <title id="w07-fig1-t">“실습실은 본관 ”을 입력 x로, 한 칸 민 “습실은 본관 3”을 정답 y로 쓰는 학습 창. 위치마다 앞의 글자만 보고 아래 칸의 글자를 맞힌다.</title>
+            <defs><marker id="w07-a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <text class="w07f-l" x="0" y="52">입력 x</text>
+            <text class="w07f-l" x="0" y="140">정답 y</text>
+            <text class="w07f-n" x="0" y="68">(창)</text>
+            <text class="w07f-n" x="0" y="156">(한 칸 민 창)</text>
+            <g>
+              <rect class="w07f-x" x="96" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="124" y="56" text-anchor="middle">실</text>
+              <rect class="w07f-x" x="160" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="188" y="56" text-anchor="middle">습</text>
+              <rect class="w07f-x" x="224" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="252" y="56" text-anchor="middle">실</text>
+              <rect class="w07f-x" x="288" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="316" y="56" text-anchor="middle">은</text>
+              <rect class="w07f-box" x="352" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="380" y="56" text-anchor="middle">␣</text>
+              <rect class="w07f-box" x="416" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="444" y="56" text-anchor="middle">본</text>
+              <rect class="w07f-box" x="480" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="508" y="56" text-anchor="middle">관</text>
+              <rect class="w07f-box" x="544" y="30" width="56" height="40" rx="7"/><text class="w07f-m" x="572" y="56" text-anchor="middle">␣</text>
+            </g>
+            <g>
+              <rect class="w07f-box" x="96" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="124" y="144" text-anchor="middle">습</text>
+              <rect class="w07f-box" x="160" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="188" y="144" text-anchor="middle">실</text>
+              <rect class="w07f-box" x="224" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="252" y="144" text-anchor="middle">은</text>
+              <rect class="w07f-y" x="288" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="316" y="144" text-anchor="middle">␣</text>
+              <rect class="w07f-box" x="352" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="380" y="144" text-anchor="middle">본</text>
+              <rect class="w07f-box" x="416" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="444" y="144" text-anchor="middle">관</text>
+              <rect class="w07f-box" x="480" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="508" y="144" text-anchor="middle">␣</text>
+              <rect class="w07f-box" x="544" y="118" width="56" height="40" rx="7"/><text class="w07f-m" x="572" y="144" text-anchor="middle">3</text>
+            </g>
+            <path class="w07f-arr" d="M124 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M188 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M252 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M316 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M380 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M444 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M508 74 V112" marker-end="url(#w07-a1)"/>
+            <path class="w07f-arr" d="M572 74 V112" marker-end="url(#w07-a1)"/>
+            <text class="w07f-n" x="96" y="20">t = 0</text>
+            <text class="w07f-n" x="288" y="20">t = 3: 문맥 “실습실은”(파란 칸) → 정답 “␣”(노란 칸)</text>
+            <text class="w07f-n" x="0" y="186">창 하나(T = 8)에 문제 8개: “실→습”, “실습→실”, “실습실→은”, … , “실습실은␣본관␣→3”.</text>
+            <text class="w07f-n" x="0" y="204">배치는 코퍼스의 무작위 위치에서 창 B개를 자른 것이다. B = 8, T = 32면 한 스텝에 문제 256개를 푼다.</text>
+          </svg>
+          <figcaption>(x, y) 학습 창. 정답을 따로 달 필요가 없다. 글 자체가 문제이자 정답이다.</figcaption>
+        </figure>
+        <p>학습에 쓰는 글은 코퍼스 17문서 중 16문서, <strong>6,470자</strong>다. “벡터 데이터베이스와 인덱스” 문서(<code>rag-vectordb</code>, 356자)는 떼어 두고 <strong>검증(validation)</strong>에만 쓴다. 모델이 한 번도 보지 않은 글을 얼마나 잘 맞히는지가 “진짜 실력”이다.</p>
+
+        <h3>② 학습 루프: 다섯 줄의 반복</h3>
+        <figure class="figure">
+          <svg viewBox="0 0 640 196" role="img" aria-labelledby="w07-fig2-t" style="width: 100%">
+            <title id="w07-fig2-t">학습 루프: 배치 뽑기, 순전파, 손실 계산, 역전파, AdamW 업데이트를 차례로 하고 처음으로 돌아가 반복한다.</title>
+            <defs><marker id="w07-a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--color-text-muted)"/></marker></defs>
+            <rect class="w07f-box" x="0" y="40" width="112" height="64" rx="10"/>
+            <text class="w07f-l" x="56" y="66" text-anchor="middle">① 배치 뽑기</text><text class="w07f-n" x="56" y="86" text-anchor="middle">getBatch → x, y</text>
+            <rect class="w07f-hi" x="132" y="40" width="112" height="64" rx="10"/>
+            <text class="w07f-l" x="188" y="66" text-anchor="middle">② 순전파</text><text class="w07f-n" x="188" y="86" text-anchor="middle">6주차 블록 → logits</text>
+            <rect class="w07f-hi" x="264" y="40" width="112" height="64" rx="10"/>
+            <text class="w07f-l" x="320" y="66" text-anchor="middle">③ 손실</text><text class="w07f-n" x="320" y="86" text-anchor="middle">교차 엔트로피</text>
+            <rect class="w07f-hi" x="396" y="40" width="112" height="64" rx="10"/>
+            <text class="w07f-l" x="452" y="66" text-anchor="middle">④ 역전파</text><text class="w07f-n" x="452" y="86" text-anchor="middle">4주차 · 기울기</text>
+            <rect class="w07f-y" x="528" y="40" width="112" height="64" rx="10"/>
+            <text class="w07f-l" x="584" y="66" text-anchor="middle">⑤ 업데이트</text><text class="w07f-n" x="584" y="86" text-anchor="middle">자르기 → AdamW</text>
+            <path class="w07f-arr" d="M113 72 H130" marker-end="url(#w07-a2)"/>
+            <path class="w07f-arr" d="M245 72 H262" marker-end="url(#w07-a2)"/>
+            <path class="w07f-arr" d="M377 72 H394" marker-end="url(#w07-a2)"/>
+            <path class="w07f-arr" d="M509 72 H526" marker-end="url(#w07-a2)"/>
+            <path class="w07f-arr" d="M584 106 V138 H56 V108" marker-end="url(#w07-a2)"/>
+            <text class="w07f-n" x="320" y="156" text-anchor="middle">한 바퀴 = 1스텝. 기본 설정에서 약 0.1초, 2,000바퀴를 돈다</text>
+            <text class="w07f-n" x="0" y="24">파란 칸: 5·6주차와 4주차에 만든 것 그대로</text>
+            <text class="w07f-n" x="0" y="186">가중치를 바꾸는 곳은 ⑤뿐이다. ①~④는 “어느 쪽으로 얼마나 바꿀지”를 알아내는 과정이다.</text>
+          </svg>
+          <figcaption>학습 루프. 머신러닝 기초 과정의 신경망 학습과 같은 네 단계에 “배치 뽑기”가 앞에 붙었을 뿐이다.</figcaption>
+        </figure>
+        <pre><code class="language-javascript">for (let step = 1; step &lt;= 2000; step++) {
+  const { x, y } = getBatch(train, B, T, rand);   // ① 무작위 위치에서 창 B개
+  opt.zeroGrad();                                 //    지난 스텝의 기울기 지우기
+  const { loss } = forward(model, x, B, T, y);    // ②③ 순전파 → 교차 엔트로피
+  backward(loss);                                 // ④ 모든 파라미터의 .grad 채우기
+  opt.clip(1);                                    // ⑤ 기울기 노름이 1보다 크면 줄이기
+  opt.step(lrAt(step));                           //    AdamW로 한 걸음
+}</code></pre>
+        <ul>
+          <li><strong>AdamW</strong>: 4주차의 경사 하강법은 모든 가중치를 같은 학습률로 옮겼다. AdamW는 가중치마다 최근 기울기의 평균(방향)과 크기(흔들림)를 기억해, 자주 크게 흔들리는 가중치는 조심스럽게, 꾸준한 가중치는 과감하게 옮긴다. 이름의 W는 가중치를 조금씩 0 쪽으로 당기는 가중치 감쇠(weight decay)다.</li>
+          <li><strong>기울기 자르기(gradient clipping)</strong>: 모든 기울기를 한 벡터로 본 길이(노름)가 1을 넘으면 길이 1로 줄인다. 가끔 나오는 거대한 기울기 하나가 학습을 망치는 것을 막는다. 위젯의 “기울기 노름”이 이 값이다.</li>
+        </ul>
+
+        <h3>③ 손실 읽는 법: 출발점은 ln 495</h3>
+        <p>학습 전 모델은 가중치가 0에 가까운 작은 수라 모든 글자에 거의 같은 확률 1/495를 준다. 정답 글자의 확률이 1/495면 교차 엔트로피는 −ln(1/495) = <strong>ln 495 ≈ 6.20</strong>이다. 실제로 재 보면 6.20~6.21이 나온다(C2, 위젯의 첫 화면). 초기 손실이 이 값과 크게 다르면 초기화나 코드에 문제가 있다는 뜻이다.</p>
+        <p>손실 L은 “매번 약 e<sup>L</sup>개 후보 중에서 고르는 정도로 헷갈린다”로 읽을 수 있다. 6.2면 495개 전부, 4.16(1주차 바이그램의 검증 NLL)이면 약 64개, 2면 약 7개, 1이면 약 3개다. 9주차에 이 값을 <em>퍼플렉서티</em>라는 이름으로 다시 만난다.</p>
+        <table class="w07-samples-static">
+          <thead><tr><th>스텝</th><th>학습 손실</th><th>검증 손실</th><th>“실습실은” 뒤 샘플 (온도 0.8, seed 3)</th></tr></thead>
+          <tbody>
+            <tr><td>0</td><td>6.21</td><td>6.22</td><td>을7목O점반배견네석귀R을바짓탕두원니예불…</td></tr>
+            <tr><td>100</td><td>3.33</td><td>4.01</td><td>1수 정이 과 설라 임베딩이 이 의 코벡 토큰이다. 곱생성 .↵상이 준다.</td></tr>
+            <tr><td>300</td><td>2.33</td><td>4.06</td><td>9시간에는 구아가 같은 주차별도 위에서는 토큰이다. 금지  12학습보도 시…</td></tr>
+            <tr><td>500</td><td>2.19</td><td>4.05</td><td>120%, 2시간 12시수업 수 사용한다. 개지능 위에 위 12학습시스템…</td></tr>
+            <tr><td>1,000</td><td>1.32</td><td>4.85</td><td>12주차에 API.↵↵선안에는 두 선호하 안 진행을 답해야 된 질의응답에는 것이다.</td></tr>
+            <tr><td>2,000</td><td>0.68</td><td>6.43</td><td>1본 전 전 가 전략이 진행되아이다. te번으로 생성능이 RAG의 모범   답변 쌍으로 추가 학습한다.</td></tr>
+          </tbody>
+        </table>
+        <p class="w07-muted">기본 설정(D32 · 2층 · 문맥 32 · 배치 8 · 학습률 0.005)을 실제로 학습시킨 기록이다. 위젯에서 같은 설정으로 학습하면 같은 샘플이 나온다(브라우저마다 수학 함수의 마지막 자릿수가 달라 조금 다를 수는 있다). 손실은 고정된 창 12개로 잰 값이다.</p>
+        <p>표를 위에서부터 읽으면 모델이 배우는 <strong>순서</strong>가 보인다. 먼저 자주 나오는 글자(공백, “다”, “.”)를 배우고, 다음에 “토큰”, “임베딩” 같은 글자 묶음을, 그다음에 어절 길이와 “~다.”로 끝나는 문장 모양을 배운다. 그런데 표의 오른쪽 두 열을 보면 이상한 점이 있다. 학습 손실은 끝까지 내려가는데 검증 손실은 4 근처에서 멈췄다가 다시 올라간다. ⑤에서 이 문제를 다룬다.</p>
+
+        <h3>④ 학습률: 한 걸음의 크기</h3>
+        <p>학습률은 ⑤에서 가중치를 얼마나 멀리 옮길지 정한다. 이번 주 엔진은 학습률을 고정하지 않고 <strong>워밍업(warmup) + 코사인 감소</strong> 스케줄을 쓴다. 처음 30스텝은 0에서 최대값까지 천천히 올리고(무작위 가중치에서 나오는 큰 기울기로 크게 움직이지 않도록), 그 뒤 2,000스텝까지 코사인 곡선을 따라 최대값의 10%로 줄인다(끝에서는 미세 조정).</p>
+        <figure class="figure">
+          <svg viewBox="0 0 640 214" role="img" aria-labelledby="w07-fig3-t" style="width: 100%">
+            <title id="w07-fig3-t">학습률 스케줄: 30스텝 동안 0.005까지 올라간 뒤 코사인 곡선을 따라 2,000스텝에서 0.0005로 내려간다.</title>
+            <line class="w07f-grid" x1="50" x2="600" y1="30" y2="30"/><line class="w07f-grid" x1="50" x2="600" y1="105" y2="105"/><line class="w07f-grid" x1="50" x2="600" y1="180" y2="180"/>
+            <text class="w07f-n" x="44" y="34" text-anchor="end">0.005</text><text class="w07f-n" x="44" y="109" text-anchor="end">0.0025</text><text class="w07f-n" x="44" y="184" text-anchor="end">0</text>
+            <polyline class="w07f-lr" points="50.0,175.0 50.5,165.0 51.1,155.0 51.6,145.0 52.2,135.0 52.8,125.0 53.3,115.0 53.9,105.0 54.4,95.0 55.0,85.0 55.5,75.0 56.0,65.0 56.6,55.0 57.1,45.0 57.7,35.0 58.3,30.0 66.5,30.1 72.0,30.2 77.5,30.4 83.0,30.7 88.5,31.0 94.0,31.4 99.5,31.9 105.0,32.5 116.0,33.7 127.0,35.3 138.0,37.1 149.0,39.1 160.0,41.4 171.0,43.9 182.0,46.6 193.0,49.6 204.0,52.7 215.0,56.0 226.0,59.5 237.0,63.1 248.0,66.9 259.0,70.8 270.0,74.8 281.0,78.9 292.0,83.1 303.0,87.3 314.0,91.6 325.0,95.9 336.0,100.2 347.0,104.5 358.0,108.7 369.0,113.0 380.0,117.1 391.0,121.2 402.0,125.2 413.0,129.1 424.0,132.8 435.0,136.4 446.0,139.8 457.0,143.1 468.0,146.2 479.0,149.1 490.0,151.7 501.0,154.2 512.0,156.4 523.0,158.4 534.0,160.1 545.0,161.6 556.0,162.8 567.0,163.8 578.0,164.5 589.0,164.9 600.0,165.0"/>
+            <text class="w07f-n" x="50" y="200" text-anchor="middle">0</text><text class="w07f-n" x="187.5" y="200" text-anchor="middle">500</text><text class="w07f-n" x="325" y="200" text-anchor="middle">1,000</text><text class="w07f-n" x="462.5" y="200" text-anchor="middle">1,500</text><text class="w07f-n" x="600" y="200" text-anchor="middle">2,000 스텝</text>
+            <text class="w07f-l" x="66" y="22">워밍업 30스텝 → 최대 0.005</text>
+            <text class="w07f-n" x="330" y="90">1,000스텝: 0.0028</text>
+            <text class="w07f-n" x="596" y="155" text-anchor="end">끝: 0.0005 (최대의 10%)</text>
+          </svg>
+          <figcaption>기본 설정의 학습률 스케줄. 위젯의 “학습률”은 지금 스텝에서 실제로 쓰는 값이다.</figcaption>
+        </figure>
+        <p>최대 학습률만 바꿔 기본 모델을 500스텝씩 학습시킨 결과다.</p>
+        <table>
+          <thead><tr><th>최대 학습률</th><th>손실 @200</th><th>손실 @500</th><th>검증 손실 @500</th><th>한 줄 평</th></tr></thead>
+          <tbody>
+            <tr><td>0.001</td><td>3.67</td><td>2.72</td><td>3.71</td><td>안전하지만 느리다</td></tr>
+            <tr><td>0.003</td><td>2.92</td><td>2.17</td><td>3.94</td><td>무난하다</td></tr>
+            <tr><td><b>0.005 (기본)</b></td><td><b>2.76</b></td><td><b>2.13</b></td><td>4.05</td><td>가장 빨리 내려간다</td></tr>
+            <tr><td>0.03</td><td>2.97</td><td>2.44</td><td>4.28</td><td>처음엔 빠르다가 더 못 내려간다</td></tr>
+            <tr><td>0.1</td><td>4.27</td><td>4.21</td><td>4.92</td><td><b>정체</b>: 글자 빈도 수준에서 멈춘다</td></tr>
+          </tbody>
+        </table>
+        <p>학습률 0.1은 손실이 4.2 근처에서 500스텝 내내 제자리다. 한 걸음이 너무 커서 골짜기 바닥으로 내려가지 못하고 양쪽 벽 사이를 튕겨 다닌다. 기울기 자르기와 AdamW 덕분에 폭발(NaN)까지 가지는 않았지만 모델은 “공백과 ‘다’가 자주 나온다” 이상을 배우지 못한다. 반대로 0.001은 느리지만 500스텝에서 검증 손실이 가장 낮다. 느리게 배우는 모델은 <em>아직 외우기 전</em>이기 때문이다. 다음 절이 그 이야기다.</p>
+
+        <h3>⑤ 과대적합: 학습 손실만 보면 속는다</h3>
+        <figure class="figure">
+          <svg viewBox="0 0 640 234" role="img" aria-labelledby="w07-fig4-t" style="width: 100%">
+            <title id="w07-fig4-t">기본 설정으로 2,000스텝 학습한 손실 곡선. 학습 손실은 6.21에서 0.68까지 계속 내려가지만, 검증 손실은 125스텝에서 3.88로 가장 낮았다가 6.43까지 올라간다.</title>
+            <line class="w07f-grid" x1="50" x2="600" y1="200" y2="200"/><line class="w07f-grid" x1="50" x2="600" y1="148.6" y2="148.6"/><line class="w07f-grid" x1="50" x2="600" y1="97.1" y2="97.1"/><line class="w07f-grid" x1="50" x2="600" y1="45.7" y2="45.7"/>
+            <text class="w07f-n" x="44" y="204" text-anchor="end">0</text><text class="w07f-n" x="44" y="152.6" text-anchor="end">2</text><text class="w07f-n" x="44" y="101.1" text-anchor="end">4</text><text class="w07f-n" x="44" y="49.7" text-anchor="end">6</text>
+            <line class="w07f-dash" x1="50" x2="600" y1="41.1" y2="41.1"/><text class="w07f-n" x="600" y="36" text-anchor="end">찍기 수준 ln 495 = 6.20</text>
+            <line class="w07f-more" x1="84.4" x2="84.4" y1="20" y2="200"/><text class="w07f-more-t" x="90" y="118">검증 최저 3.88 (125스텝)</text>
+            <polyline class="w07f-train" points="50.0,40.4 50.3,40.6 56.9,70.7 63.8,93.2 70.6,105.9 77.5,114.3 84.4,121.1 91.3,122.4 98.1,126.3 105.0,129.3 111.9,132.7 118.8,134.0 125.6,136.6 132.5,140.2 139.4,138.7 146.3,139.2 153.1,141.3 160.0,142.1 166.9,145.3 173.8,144.5 180.6,145.9 187.5,143.6 194.4,145.4 201.3,144.3 208.1,147.3 215.0,146.9 221.9,148.9 228.8,153.9 235.6,152.5 242.5,154.6 249.4,157.5 256.3,158.6 263.1,160.3 270.0,162.2 276.9,163.0 283.8,162.1 290.6,162.8 297.5,164.4 304.4,164.5 311.3,165.3 318.1,165.0 325.0,166.0 331.9,169.1 338.8,169.3 345.6,169.6 352.5,170.6 359.4,170.5 366.3,170.5 373.1,172.7 380.0,173.4 386.9,173.2 393.8,172.8 400.6,174.3 407.5,176.3 414.4,176.2 421.3,174.7 428.1,176.3 435.0,176.2 441.9,177.7 448.8,178.5 455.6,178.5 462.5,178.9 469.4,178.7 476.3,179.6 483.1,179.6 490.0,179.7 496.9,179.8 503.8,180.6 510.6,181.4 517.5,181.1 524.4,181.7 531.3,181.4 538.1,181.1 545.0,181.2 551.9,182.2 558.8,181.7 565.6,182.1 572.5,182.0 579.4,182.2 586.3,183.0 593.1,183.0 600.0,182.6"/>
+            <polyline class="w07f-val" points="50.0,40.1 50.3,40.2 56.9,68.7 63.8,82.2 70.6,93.2 77.5,96.9 84.4,100.3 91.3,96.7 98.1,97.3 105.0,99.2 111.9,93.2 118.8,97.9 125.6,96.0 132.5,95.6 139.4,95.7 146.3,99.3 153.1,92.6 160.0,93.1 166.9,94.7 173.8,95.9 180.6,95.1 187.5,95.8 194.4,95.9 201.3,94.9 208.1,96.4 215.0,91.9 221.9,90.9 228.8,90.2 235.6,89.6 242.5,86.6 249.4,88.3 256.3,86.2 263.1,83.1 270.0,81.7 276.9,82.7 283.8,79.7 290.6,78.7 297.5,79.7 304.4,76.9 311.3,72.4 318.1,72.9 325.0,75.3 331.9,72.1 338.8,66.6 345.6,67.8 352.5,66.1 359.4,65.0 366.3,61.4 373.1,62.4 380.0,62.5 386.9,64.1 393.8,61.0 400.6,61.1 407.5,58.0 414.4,57.4 421.3,54.3 428.1,52.2 435.0,51.7 441.9,53.5 448.8,51.7 455.6,50.8 462.5,50.1 469.4,50.9 476.3,49.1 483.1,48.3 490.0,45.2 496.9,46.4 503.8,43.8 510.6,43.8 517.5,44.1 524.4,42.4 531.3,41.6 538.1,39.9 545.0,39.8 551.9,39.0 558.8,39.3 565.6,38.5 572.5,36.6 579.4,36.7 586.3,36.5 593.1,35.2 600.0,34.7"/>
+            <text class="w07f-n" x="50" y="218" text-anchor="middle">0</text><text class="w07f-n" x="187.5" y="218" text-anchor="middle">500</text><text class="w07f-n" x="325" y="218" text-anchor="middle">1,000</text><text class="w07f-n" x="462.5" y="218" text-anchor="middle">1,500</text><text class="w07f-n" x="600" y="218" text-anchor="middle">2,000 스텝</text>
+            <rect class="w07f-acc" x="380" y="170" width="18" height="4" rx="2"/><text class="w07f-n" x="404" y="175">학습 손실 → 0.68</text>
+            <rect class="w07f-acc2" x="380" y="186" width="18" height="4" rx="2"/><text class="w07f-n" x="404" y="191">검증 손실 → 6.43</text>
+          </svg>
+          <figcaption>기본 설정 2,000스텝(약 79에폭). 125스텝 뒤부터 검증 손실은 더 좋아지지 않는다.</figcaption>
+        </figure>
+        <p>학습 손실은 끝까지 내려간다. 그러나 학습에 쓰지 않은 문서의 손실은 125스텝에서 3.88로 가장 낮았고, 그 뒤로는 제자리를 지키다 600스텝쯤부터 올라가 2,000스텝에서는 6.43이 된다. 처음 모델(6.22)보다도 나쁘다. 모델이 “한국어 글의 규칙”이 아니라 “이 16개 문서 자체”를 외우고 있다는 뜻이다. 이것이 <strong>과대적합(overfitting)</strong>이다.</p>
+        <p>이유는 데이터 크기다. 한 스텝에 256글자를 보므로 6,470자짜리 코퍼스는 약 25스텝마다 한 번씩 다시 본다. 2,000스텝이면 같은 글을 79번 반복해서 본 셈이다. 미리 학습해 둔 “완성 모델”(D48 · 2층 · 문맥 48, 3,000스텝, 약 356에폭)은 더 극단적이다. 학습 손실 0.12, 검증 손실 9.40이고, “실습실은”을 주면 코퍼스 문장을 한 글자도 틀리지 않고 베낀다.</p>
+        <pre><code class="language-text">실습실은 본관 3층 305호와 306호를 사용하며, 각 실습실에는 GPU가 장착된 PC 30대가 있다.↵↵수료 요건</code></pre>
+        <p>잘 쓴 문장처럼 보이지만 새로 만든 문장이 아니다. 1주차에 n = 5인 n-gram이 문서를 베끼던 것과 같은 현상이 신경망에서도 일어난다. 참고로 기본 모델의 검증 손실 최저값 3.88은 1주차 바이그램의 검증 NLL 4.16보다 낮다. 외우기 전의 신경망은 빈도표보다 처음 보는 글을 잘 맞힌다. 검증 손실이 가장 낮을 때 멈추는 <em>조기 종료(early stopping)</em>와 평가 지표는 9주차에 다룬다.</p>
+
+        <h3>⑥ 모델 크기와 속도</h3>
+        <p>위젯에서 바꿀 수 있는 세 가지 크기와 파라미터 수다(문맥 32 기준). 흥미롭게도 기본 모델은 파라미터의 절반 이상(57%)이 트랜스포머 블록이 아니라 <strong>임베딩 표와 출력층</strong>에 있다. 글자 495종마다 D차원 벡터가 입구와 출구에 하나씩 필요하기 때문이다.</p>
+        <table>
+          <thead><tr><th>설정</th><th>1층</th><th>2층</th><th>3층</th><th>그중 임베딩 + 출력층</th></tr></thead>
+          <tbody>
+            <tr><td>D32</td><td>45,967</td><td><b>58,671</b> (기본)</td><td>71,375</td><td>33,199</td></tr>
+            <tr><td>D48</td><td>77,919</td><td>106,191</td><td>134,463</td><td>49,551</td></tr>
+          </tbody>
+        </table>
+        <p>한 스텝의 계산량은 대략 “파라미터 수 × 한 스텝의 글자 수”에 비례한다. 이 과정의 엔진(순수 JavaScript, CPU 한 코어)에서 기본 설정은 한 스텝에 약 0.1초, 완성 모델 설정(D48 · 문맥 48 · 배치 16)은 약 0.45초가 걸린다. GPT-2 작은 모델(1억 2천만 파라미터)은 이 모델의 약 2,000배이고, 학습 글은 수백만 배 많다. 그래서 진짜 LLM은 GPU 수천 장으로 몇 주씩 학습한다.</p>
+        <div class="bridge"><span class="bi">🤖</span><p><b>머신러닝 기초와 연결</b> — <a href="https://samcho93.github.io/studyMLBasic/" target="_blank" rel="noopener">머신러닝 기초</a>의 신경망 단원에서 본 “에폭 · 배치 · 학습률 · 학습/검증 곡선”이 그대로 나온다. 차이는 규모와 정답의 출처뿐이다. 거기서 검증 정확도가 떨어지기 시작하면 학습을 멈췄던 것처럼, 여기서도 검증 손실이 올라가기 시작하는 지점이 멈출 때다.</p></div>
+      </section>
+
+      <section id="lab">
+        <h2><span class="section-num">4</span>실습</h2>
+        <p>미니 GPT가 이 페이지의 백그라운드 워커(Web Worker)에서 학습한다. 학습하는 동안에도 스크롤과 다른 조작이 멈추지 않는다. 손실 곡선, 스텝당 시간, 샘플 변천사는 오른쪽 <b>실행 결과</b> 창에 나온다(휴대폰에서는 위젯 바로 아래). 샘플은 50스텝마다 같은 시작 글자·같은 seed로 뽑으므로 달라지는 것은 모델뿐이다. 물결 밑줄은 코퍼스에 그대로 있는 10자 이상의 구간(외운 부분)이다.</p>
+        <div id="w07-trainer"></div>
+        <p class="w07-muted">기본 설정 2,000스텝은 컴퓨터에 따라 3~5분 걸린다. 탭을 다른 곳으로 옮기면 브라우저가 워커를 느리게 돌릴 수 있다. 설정을 바꾸면 ⟲ 처음부터로 새 모델을 만들고, 이전 곡선은 회색 점선으로 남는다.</p>
+        <h4>관찰 질문</h4>
+        <ol>
+          <li>학습 전 상태의 손실과 샘플을 본다. 손실이 ln 495 ≈ 6.20에 가까운 이유를 “모든 글자에 같은 확률”로 설명한다.</li>
+          <li>▶ 학습을 누르고 100, 300, 500스텝의 샘플을 비교한다. 공백과 마침표가 제자리를 찾는 것은 언제인가? 코퍼스의 단어(“토큰”, “임베딩”, “실습”)가 처음 나오는 것은 언제인가?</li>
+          <li>검증 손실(주황 점)이 가장 낮은 스텝은 언제인가? 그 뒤 학습 손실(파란 선)과 검증 손실은 각각 어떻게 움직이는가? “과대적합” 안내가 뜨는 스텝과 그때의 에폭을 기록한다.</li>
+          <li>“학습률 너무 큼 (0.1)”을 누르고 300스텝까지 학습한다. 회색 점선(기본 설정)과 비교해 손실은 어디서 멈추는가? 샘플에는 어떤 글자가 많은가?</li>
+          <li>“작은 모델 (1층 · 문맥 16)”로 학습한다. ms/스텝은 얼마나 빨라지는가? 1,000스텝에서 학습 손실과 검증 손실을 기본 설정과 비교한다. 작은 모델은 덜 외우는가?</li>
+          <li>📦 완성 모델을 불러온다. 원문 복사율은 얼마인가? 시작 글자를 “임베딩은”, “수료 요건은”으로 바꿔 ✍ 샘플을 누른다. 이 모델은 글을 “쓰는” 것인가, “외운 것을 꺼내는” 것인가?</li>
+        </ol>
+      </section>
+
+      <section id="challenge">
+        <h2><span class="section-num">5</span>Challenge</h2>
+        <p>난이도 순서다. 코드 상자는 직접 고칠 수 있고, <strong>▶ 실행</strong>(또는 Ctrl+Enter)을 누르면 결과가 오른쪽 <b>실행 결과</b> 창에 나온다. 코드는 워커에서 돌아가므로 10초가 넘으면 자동으로 멈춘다. 학습이 들어가는 C3·C4는 몇 초 걸리도록 아주 작은 모델(D16 · 1층 · 문맥 16)을 쓴다.</p>
+
+        <div class="practice">
+          <div class="practice-head"><b>C1. (x, y) 학습 창 만들기</b><span class="level" aria-label="난이도 1">★</span></div>
+          <div class="practice-body">
+          <p>코퍼스를 토큰 번호 배열로 바꾸고, 시작 위치 <code>start</code>에서 길이 T인 창 x와 한 칸 민 y를 자른다. y가 정말 x를 한 칸 민 것인지 검사하고, 창 하나에 들어 있는 T개의 (문맥 → 정답) 문제를 표로 출력한다. 기대 결과: x = “실습실은␣본관␣”, y = “습실은␣본관␣3”, 표의 첫 줄은 “실 → 습”이다.</p>
+          <pre data-run="c1" data-title="C1 학습 창"><code class="language-javascript">import { loadCorpus, corpusText, charVocab, showWs } from '/assets/js/core/text.js';
+const corpus = await loadCorpus();
+const text = corpusText(corpus);
+const vocab = charVocab(text); // 글자 하나 = 토큰 하나 (495종)
+const data = vocab.encode(text); // 코퍼스 전체를 토큰 번호 배열로
+console.log('토큰 수:', data.length, '어휘 크기:', vocab.size);
+
+/** 학습 창 하나: x는 start부터 T개, y는 x를 한 칸 민 것 */
+function getWindow(data, start, T) {
+  // TODO: x = data[start … start+T−1], y = data[start+1 … start+T]  (힌트: slice)
+  return { x: [], y: [] };
+}
+
+const T = 8;
+const start = text.indexOf('실습실은');
+const { x, y } = getWindow(data, start, T);
+console.log('x =', showWs(vocab.decode(x)));
+console.log('y =', showWs(vocab.decode(y)));
+
+// TODO: t = 0 … T−2 에서 y[t] === x[t+1] 인지 모두 검사해 true/false를 출력한다
+console.log('y는 x를 한 칸 민 것인가?', null);
+
+// TODO: 이 창 하나에 들어 있는 T개의 “다음 글자 맞히기” 문제를 { 문맥, 정답 } 표로 만든다
+//       t번째 문제: 문맥 = x[0..t], 정답 = y[t]  (showWs로 공백을 ␣로 보이게)
+const rows = [];
+console.table(rows);
+
+// TODO: 시작 위치를 0 … data.length−T−1 중 아무 곳이나 고를 수 있다. 서로 다른 창은 몇 개인가?
+console.log('만들 수 있는 창의 수:', null);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C2. 학습 전 손실은 왜 6.2인가</b><span class="level" aria-label="난이도 2">★★</span></div>
+          <div class="practice-body">
+          <p>학습하지 않은 모델로 배치 하나의 손실을 재고 ln V와 비교한다. 첫 위치의 확률 분포가 1/V에 얼마나 가까운지도 본다. 마지막으로 출력층 가중치를 일부러 30배로 키워 “초기화를 잘못한 모델”의 초기 손실을 잰다. 기대 결과: 손실 ≈ 6.20, ×30 후에는 ln V보다 훨씬 크다.</p>
+          <pre data-run="c2" data-title="C2 초기 손실"><code class="language-javascript">import { loadCorpus, corpusText, charVocab } from '/assets/js/core/text.js';
+import { createModel, forward, getBatch, paramCount } from '/assets/js/core/gpt.js';
+import { mulberry32 } from '/assets/js/core/rng.js';
+const corpus = await loadCorpus();
+const vocab = charVocab(corpusText(corpus));
+const data = Int32Array.from(vocab.encode(corpusText(corpus)));
+
+const config = { vocabSize: vocab.size, blockSize: 32, nLayer: 2, nHead: 4, nEmbd: 32 };
+const model = createModel(config, 1337); // 학습 전: 가중치가 작은 무작위 수
+console.log('파라미터 수:', paramCount(model));
+const B = 8;
+const T = config.blockSize;
+const { x, y } = getBatch(data, B, T, mulberry32(1)); // 창 8개 = 예측 문제 256개
+
+// TODO ①: forward(model, x, B, T, y)는 { logits, loss }를 돌려준다. 손실 값은 loss.data[0]
+let loss0 = 0;
+// TODO ②: 모든 글자에 똑같은 확률 1/V를 주는 모델의 손실 = −ln(1/V) = ln V
+const lnV = 0;
+console.log('학습 전 손실:', loss0, ' ln V:', lnV);
+
+// TODO ③: logits.data의 첫 행(길이 V)에 소프트맥스를 적용해 가장 큰 확률, 가장 작은 확률을 구하고 1/V와 비교한다
+console.log('첫 위치 확률 최대/최소:', null, null, ' 1/V =', 1 / vocab.size);
+
+// TODO ④: 초기화를 잘못하면? model.params.headW.data의 모든 값에 30을 곱한 뒤 같은 배치로 손실을 다시 잰다
+console.log('출력층 가중치 ×30 후 손실:', null);</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C3. 학습 루프를 직접 쓴다</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p><code>createTrainer</code> 없이 모델·옵티마이저·배치 함수만으로 학습 루프를 완성한다. 개념 ②의 다섯 줄을 TODO 자리에 넣으면 된다. 150스텝 동안 25스텝마다 평균 손실을 출력하고, 끝에 샘플을 뽑는다. 기대 결과: 평균 손실이 5.5 → 3.5 근처로 내려가고 샘플에 띄어쓰기가 생긴다. TODO를 채우기 전에는 손실이 NaN으로 나오고 샘플은 글자 수프다.</p>
+          <pre data-run="c3" data-title="C3 학습 루프"><code class="language-javascript">import { loadCorpus, corpusText, charVocab } from '/assets/js/core/text.js';
+import { createModel, namedParams, forward, getBatch, generate } from '/assets/js/core/gpt.js';
+import { backward, AdamW } from '/assets/js/core/tensor.js';
+import { mulberry32 } from '/assets/js/core/rng.js';
+const corpus = await loadCorpus();
+const vocab = charVocab(corpusText(corpus));
+const data = Int32Array.from(vocab.encode(corpusText(corpus)));
+
+// 아주 작은 설정 (워커에서 150스텝이 몇 초 안에 끝난다)
+const config = { vocabSize: vocab.size, blockSize: 16, nLayer: 1, nHead: 4, nEmbd: 16 };
+const model = createModel(config, 1337);
+const params = namedParams(model).map(([, t]) =&gt; t); // 학습할 텐서 전부
+const opt = new AdamW(params, { lr: 5e-3 });
+const rand = mulberry32(7);
+const B = 8;
+const T = config.blockSize;
+
+let avg = 0; // 최근 25스텝 평균 손실
+for (let step = 1; step &lt;= 150; step++) {
+  const { x, y } = getBatch(data, B, T, rand);
+  // TODO ① opt.zeroGrad()          — 지난 스텝의 기울기를 지운다
+  // TODO ② forward(model, x, B, T, y)로 loss를 구한다
+  // TODO ③ backward(loss)          — 모든 파라미터의 .grad를 채운다
+  // TODO ④ opt.clip(1)             — 기울기가 너무 크면 줄인다 (반환값 = 줄이기 전 노름)
+  // TODO ⑤ opt.step()              — 파라미터를 기울기 반대 방향으로 옮긴다
+  const lossValue = NaN; // TODO: loss.data[0]
+  avg += lossValue / 25;
+  if (step % 25 === 0) {
+    console.log(`step ${step}  평균 손실 ${avg.toFixed(3)}`);
+    avg = 0;
+  }
+}
+const out = generate(model, vocab.encode('실습실은'), 40, { temperature: 0.8, seed: 3 });
+console.log('샘플:', vocab.decode(out.ids));</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C4. 학습률 실험</b><span class="level" aria-label="난이도 3">★★★</span></div>
+          <div class="practice-body">
+          <p>학습률 0.001, 0.01, 0.3으로 같은 모델을 100스텝씩 학습시키고 표로 비교한다. 공정한 비교를 위해 모델 seed와 나머지 설정은 모두 같게 둔다. “최대 손실” 열이 무엇을 보여 주는지 생각한다. 여유가 있으면 학습률을 더 넣어 “학습률 – 검증 손실” 관계가 U자인지 확인한다.</p>
+          <pre data-run="c4" data-title="C4 학습률 실험"><code class="language-javascript">import { loadCorpus, corpusText, charVocab } from '/assets/js/core/text.js';
+import { createModel, createTrainer, evaluate } from '/assets/js/core/gpt.js';
+const corpus = await loadCorpus();
+const vocab = charVocab(corpusText(corpus));
+const trainIds = corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb').map((d) =&gt; d.id);
+const train = Int32Array.from(vocab.encode(corpusText(corpus, trainIds)));
+const val = Int32Array.from(vocab.encode(corpusText(corpus, ['rag-vectordb']))); // 학습에 안 쓴 문서
+const config = { vocabSize: vocab.size, blockSize: 16, nLayer: 1, nHead: 4, nEmbd: 16 };
+const mean = (a) =&gt; a.reduce((s, v) =&gt; s + v, 0) / a.length;
+
+const rows = [];
+for (const lr of [1e-3, 1e-2, 3e-1]) {
+  // TODO ①: 같은 seed(1337)로 새 모델을 만든다 — 학습률만 다르고 나머지는 모두 같아야 공정한 비교다
+  // TODO ②: createTrainer(model, train, { batchSize: 4, lr, warmup: 10, totalSteps: 100 })
+  // TODO ③: trainer.step()을 100번 부르며 반환값의 .loss를 losses에 모은다
+  const losses = [];
+  rows.push({
+    lr,
+    'step 1~10': NaN, // TODO: mean(losses.slice(0, 10))
+    'step 41~50': NaN, // TODO: 41~50번째 스텝 평균
+    'step 91~100': NaN, // TODO: 마지막 10스텝 평균
+    '최대 손실': NaN, // TODO: Math.max(...losses)
+    '검증 손실': NaN, // TODO: evaluate(model, val, { windows: 16 })
+  });
+}
+console.table(rows);
+// TODO: 검증 손실이 가장 낮은 학습률을 찾아 출력하고, 나머지 둘이 왜 나쁜지 한 줄씩 적는다</code></pre>
+          </div>
+        </div>
+
+        <div class="practice">
+          <div class="practice-head"><b>C5. 외웠는가, 배웠는가</b><span class="level" aria-label="난이도 4">★★★★</span></div>
+          <div class="practice-body">
+          <p>미리 학습한 체크포인트 두 개(300스텝, 3,000스텝)로 같은 시작 글자에서 글을 생성하고, 생성한 글이 코퍼스를 얼마나 그대로 베꼈는지 잰다. ① 코퍼스에 그대로 있는 가장 긴 조각의 길이 ② 10자 이상 그대로 이어지는 구간의 비율(복사율). 두 모델의 차이를 개념 ⑤의 학습/검증 손실과 연결해 설명한다.</p>
+          <pre data-run="c5" data-title="C5 외우기 측정"><code class="language-javascript">import { deserialize, generate } from '/assets/js/core/gpt.js';
+const corpus = await (await fetch('/assets/data/corpus/corpus.json')).json();
+// 모델이 학습한 글 (검증 문서 rag-vectordb 제외)
+const source = corpus.documents.filter((d) =&gt; d.id !== 'rag-vectordb').map((d) =&gt; d.text).join('\n\n');
+
+async function loadModel(step) {
+  const res = await fetch(`/assets/data/models/mini-gpt-${step}.json`);
+  if (!res.ok) return null;
+  return deserialize(await res.json()); // → { model, vocab, meta }
+}
+
+/** gen 안에서 source에 그대로 들어 있는 가장 긴 조각 */
+function longestCopy(gen, source) {
+  let best = '';
+  // TODO: 시작 위치 i마다 gen.slice(i, i + L)이 source.includes(...)인 동안 L을 늘리며 가장 긴 것을 기억한다
+  //       (힌트: L은 best.length + 1부터 시작하면 빠르다)
+  return best;
+}
+
+/** 생성한 글 중 “원문 그대로 min자 이상 이어지는 구간”에 속한 글자의 비율 */
+function copyRate(gen, source, min = 10) {
+  // TODO: 1주차 위젯의 복사율과 같은 방식. 앞에서부터 가장 길게 일치하는 구간을 찾고,
+  //       길이가 min 이상이면 그만큼 copied에 더하고 건너뛴다
+  return 0;
+}
+
+const late = (await loadModel(3000)) ? 3000 : 800; // 3,000스텝 파일이 없으면 800스텝
+const rows = [];
+for (const step of [300, late]) {
+  const { model, vocab } = await loadModel(step);
+  for (const prompt of ['실습실은', '임베딩은']) {
+    const ids = vocab.encode(prompt);
+    const text = vocab.decode(generate(model, ids, 60, { temperature: 0.8, seed: 3 }).ids);
+    const gen = text.slice(prompt.length);
+    // TODO: longestCopy와 copyRate로 표의 두 칸을 채운다
+    rows.push({ step, prompt, '최장 복사(자)': 0, '복사율(≥10자)': 0, 생성: text.replace(/\n/g, '↵') });
+  }
+}
+console.table(rows);
+// TODO: 300스텝과 3,000스텝 모델의 차이를 “외우기”라는 말로 한 줄 설명한다</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="wrap">
+        <h2><span class="section-num">6</span>정리 &amp; 다음 주 예고</h2>
+        <ul>
+          <li>언어 모델의 학습 데이터는 글 자체다. 길이 T인 창 x와 한 칸 민 y가 (입력, 정답)이고, 창 하나에 문제가 T개 들어 있다.</li>
+          <li>학습 = 배치 뽑기 → 순전파 → 교차 엔트로피 → 역전파 → (기울기 자르기) → AdamW 업데이트의 반복이다. 가중치를 바꾸는 곳은 마지막 한 줄뿐이다.</li>
+          <li>학습 전 손실은 ln V(≈ 6.20)에서 시작한다. 손실 L은 “약 e<sup>L</sup>개 후보 중에서 고르는 정도”로 읽는다.</li>
+          <li>학습률이 너무 크면 정체하거나 발산하고, 너무 작으면 느리다. 워밍업 + 코사인 스케줄이 흔한 절충이다.</li>
+          <li>학습 손실만 보면 속는다. 작은 코퍼스를 오래 학습하면 검증 손실이 올라가고 모델은 문서를 그대로 외운다(과대적합).</li>
+        </ul>
+        <p><strong>다음 주(8주차 디코딩 전략)</strong>에는 이번 주 모델을 그대로 가져와 “확률 분포에서 다음 글자를 어떻게 고를까”를 다룬다. 이번 주 샘플은 모두 온도 0.8로 뽑았다. 온도를 0으로 내리면, 2로 올리면, 상위 k개에서만 뽑으면 같은 모델의 글이 어떻게 달라지는지 샘플링 조절판으로 실험한다.</p>
+        <div class="bridge"><span class="bi">📏</span><p><b>9주차 평가와 스케일링 예고</b> — 이번 주에 본 검증 손실 곡선을 퍼플렉서티로 바꿔 읽고, 모델 크기·데이터 크기·학습 시간을 어떻게 맞춰야 과대적합 없이 좋아지는지(스케일링 법칙) 계산한다.</p></div>
+        <div class="bridge"><span class="bi">🔎</span><p><b>RAG 시스템 구축과 연결</b> — 완성 모델은 학습한 문서만 말할 수 있고, 그것도 외운 문장을 그대로 꺼낸다. 문서에 없는 질문에는 그럴듯한 엉터리를 만든다. 모델을 다시 학습시키지 않고 필요한 문서를 찾아 넣어 주자는 생각이 <a href="https://samcho93.github.io/studyRAG/" target="_blank" rel="noopener">RAG 과정</a>의 출발점이다. 12주차에 이 모델의 환각으로 직접 확인한다.</p></div>
+      </section>
+
+      <div class="section-end">
+        <label class="done-toggle">
+          <input type="checkbox" data-done-toggle="7"> ✅ 7주차 학습 완료로 표시
+        </label>
+      </div>
+      <nav class="week-nav" data-week-nav="7" aria-label="주차 이동"></nav>
+        </article>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { mount } from '../../assets/js/widgets/w07-trainer.js';
+    import { initRunners } from '../../assets/js/site/runner.js';
+    mount(document.getElementById('w07-trainer'));
+    initRunners(document.getElementById('challenge'));
+  </script>
+</body>
+</html>

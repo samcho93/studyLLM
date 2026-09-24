@@ -34,7 +34,7 @@ async function init(msg) {
 function sample(prompt, length = 60, temperature = 0.8, seed = 3) {
   const ids = S.vocab.encode(prompt);
   const out = generate(S.model, ids.length ? ids : [0], length, { temperature, seed });
-  post({ type: 'sample', step: S.trainer.step, prompt, text: S.vocab.decode(out.ids) });
+  post({ type: 'sample', step: S.trainer.steps, prompt, text: S.vocab.decode(out.ids) });
 }
 
 function loop() {
@@ -43,10 +43,10 @@ function loop() {
   let last = null;
   let n = 0;
   // run steps for ~60 ms, then yield so messages (pause, sample) get through
-  while (performance.now() - t0 < 60 && S.trainer.step < S.stopAt) {
+  while (performance.now() - t0 < 60 && S.trainer.steps < S.stopAt) {
     last = S.trainer.step();
     n++;
-    const step = S.trainer.step;
+    const step = S.trainer.steps;
     if (step % S.evalEvery === 0 || step === 1) {
       last.trainLoss = evaluate(S.model, S.train, { windows: 12 });
       last.valLoss = evaluate(S.model, S.val, { windows: 12 });
@@ -55,12 +55,12 @@ function loop() {
     }
   }
   const ms = n ? (performance.now() - t0) / n : 0;
-  if (last) post({ type: 'progress', step: S.trainer.step, ...last, msPerStep: ms, running: true });
-  if (S.trainer.step % S.sampleEvery === 0 && last) sample(S.prompt);
-  if (S.trainer.step >= S.stopAt) {
+  if (last) post({ type: 'progress', step: S.trainer.steps, ...last, msPerStep: ms, running: true });
+  if (S.trainer.steps % S.sampleEvery === 0 && last) sample(S.prompt);
+  if (S.trainer.steps >= S.stopAt) {
     S.running = false;
     S.stopAt = Infinity;
-    post({ type: 'progress', step: S.trainer.step, running: false });
+    post({ type: 'progress', step: S.trainer.steps, running: false });
     sample(S.prompt);
     return;
   }
@@ -72,19 +72,19 @@ self.onmessage = async ({ data: msg }) => {
     if (msg.type === 'init') return await init(msg);
     if (!S) return;
     if (msg.type === 'run' || msg.type === 'step') {
-      if (msg.type === 'step') S.stopAt = S.trainer.step + (msg.n ?? 1);
+      if (msg.type === 'step') S.stopAt = S.trainer.steps + (msg.n ?? 1);
       if (!S.running) {
         S.running = true;
         loop();
       }
     } else if (msg.type === 'pause') {
       S.running = false;
-      post({ type: 'progress', step: S.trainer.step, running: false });
+      post({ type: 'progress', step: S.trainer.steps, running: false });
     } else if (msg.type === 'sample') {
       if (msg.prompt !== undefined) S.prompt = msg.prompt;
       sample(S.prompt, msg.length, msg.temperature, msg.seed);
     } else if (msg.type === 'export') {
-      post({ type: 'export', ckpt: serialize(S.model, S.vocab.itos, { steps: S.trainer.step, trainedWith: 'browser' }) });
+      post({ type: 'export', ckpt: serialize(S.model, S.vocab.itos, { steps: S.trainer.steps, trainedWith: 'browser' }) });
     }
   } catch (err) {
     post({ type: 'error', message: String(err?.message ?? err) });

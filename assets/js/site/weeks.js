@@ -16,7 +16,7 @@ export const WEEKS = [
   { no: 4, icon: '🧮', title: '신경망 언어 모델과 학습', widget: '소프트맥스 · 교차 엔트로피 · 자동 미분', llm: '—', ready: true },
   { no: 5, icon: '👀', title: '어텐션', widget: '어텐션 계산기 (Q·K·V · 인과 마스크)', llm: '—', ready: true, core: true },
   { no: 6, icon: '🧱', title: '트랜스포머 블록', widget: '트랜스포머 해부도 · 위치 정보 실험', llm: '—', ready: true },
-  { no: 7, icon: '🏋️', title: '미니 GPT 학습', widget: '브라우저 GPT 학습기', llm: '—', ready: false, core: true },
+  { no: 7, icon: '🏋️', title: '미니 GPT 학습', widget: '브라우저 GPT 학습기', llm: '—', ready: true, core: true },
   { no: 8, icon: '🎛️', title: '디코딩 전략', widget: '샘플링 조절판 (온도 · top-k · top-p)', llm: '—', ready: true, core: true },
   { no: 9, icon: '📏', title: '평가와 스케일링', widget: '퍼플렉서티 · 메모리 계산기', llm: '—', ready: true },
   { no: 10, icon: '💬', title: '사전학습에서 챗봇까지', widget: '채팅 템플릿 · LoRA 계산기', llm: '—', ready: true },
