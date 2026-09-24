@@ -138,7 +138,7 @@ q     = round(w / scale)      # −127…127, 1바이트
                 <li>영어 질문 → 그럴듯한 한 문장. 한국어 질문 → 질문을 되풀이하는 엉뚱한 답</li>
                 <li>“우리 학과 사실” → GPU 수 때문이라며 지어낸다(환각). “문서를 넣어 주면” → “문서에 없다”면서 동시에 “최대 12시간”이라고 말하는 모순 → 근거 + 모델 크기 둘 다 필요</li>
                 <li>개발자 도구 네트워크 탭 → 생성 중 요청 0개. 와이파이를 끄고 한 번 더</li>
-                <li>(캐시해 두었다면) Qwen2.5-0.5B로 한국어 질문</li>
+                <li>(캐시해 두었다면) Qwen2.5-0.5B: 한국어는 되지만 약 2 tok/s. “우리 학과 사실”에는 “정보가 없다”고 답하고(지시 미세조정의 효과), “문서를 넣어 주면”에서는 오히려 문서를 무시하고 일반론을 편다 → 크다고 근거를 잘 쓰는 것은 아니다. 수업 PC 기준 캐시에서 불러오는 데만 약 63초</li>
               </ol>
             </aside>
           </section>
@@ -330,8 +330,8 @@ const all = tok.encode(prompt, { add_special_tokens: false });
 const special = all.filter((id) =&gt; tok.decode([id]).startsWith('&lt;|')).length;
 console.log('프롬프트 토큰:', all.length, '특수 토큰:', special);</code></pre>
             <aside class="notes" data-c5-notes>
-              <p><strong>핵심:</strong> 영어는 토큰/문자가 약 0.2~0.3인데 한국어는 1을 넘는다. 한글 한 글자가 바이트 조각 2~3개로 쪼개지고, 조각 하나만 decode하면 �가 나온다. 모델은 한국어를 “의미 단위”가 아니라 바이트 부스러기로 보았으니 한국어 답이 엉망인 것이 당연하다(2주차 바이트 BPE).</p>
-              <p>채팅 템플릿은 ChatML 형식(<code>&lt;|im_start|&gt;system … &lt;|im_end|&gt;</code>)이며 SmolLM2는 기본 시스템 프롬프트를 자동으로 넣는다 — 10주차 채팅 템플릿과 연결한다.</p>
+              <p><strong>실행 결과 (브라우저 실측):</strong> 토큰/문자 — 영어 0.24 · 0.28, 한국어 <strong>2.15 · 1.55</strong>. “언어 모델이란 무엇인가?” 13글자가 28토큰이고, 조각을 하나씩 decode하면 <strong>28개 중 26개가 �</strong>(온전한 글자는 “이”와 “?”뿐). 채팅 템플릿을 적용한 프롬프트는 82토큰, 그중 특수 토큰 5개. SmolLM2가 기본 시스템 프롬프트(“You are a helpful AI assistant named SmolLM…”)를 자동으로 넣는 것도 보인다.</p>
+              <p><strong>핵심:</strong> 영어는 한 토큰이 약 4글자인데 한국어는 한 글자가 토큰 1.5~2개다. 모델은 한국어를 의미 단위가 아니라 바이트 부스러기로 보았으니 한국어 답이 엉망인 것이 당연하다(2주차 바이트 BPE). 채팅 템플릿은 ChatML 형식이다 — 10주차와 연결한다.</p>
             </aside>
           </section>
 
