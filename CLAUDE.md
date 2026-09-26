@@ -19,7 +19,7 @@
 ### 학습 경로 (시리즈)
 
 ```
-① studyMLBasic (머신러닝 기초) → ② MLStudio (ML Node Studio) → ③ studyLLM (이 과정) → ④ studyRAG (RAG 시스템 구축)
+① studyMLBasic (머신러닝 기초) → ② MLStudio (ML Node Studio) → ③ studyLLM (이 과정) → ④ studyRAG (RAG 시스템 구축) → ⑤ studyOntology (온톨로지와 지식 그래프)
 ```
 
 - 선수: MLBasic의 신경망 · 소프트맥스 · 역전파 · 텍스트 분류(토큰화, BoW)

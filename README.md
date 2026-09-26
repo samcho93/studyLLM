@@ -9,9 +9,9 @@
 
 ## 학습 경로
 
-| ① | ② | ③ | ④ |
-|---|---|---|---|
-| [머신러닝 기초](https://samcho93.github.io/studyMLBasic/) | [ML Node Studio](https://samcho93.github.io/MLStudio/) | **LLM 원리와 활용 (이 과정)** | [RAG 시스템 구축](https://samcho93.github.io/studyRAG/) |
+| ① | ② | ③ | ④ | ⑤ |
+|---|---|---|---|---|
+| [머신러닝 기초](https://samcho93.github.io/studyMLBasic/) | [ML Node Studio](https://samcho93.github.io/MLStudio/) | **LLM 원리와 활용 (이 과정)** | [RAG 시스템 구축](https://samcho93.github.io/studyRAG/) | [온톨로지와 지식 그래프](https://samcho93.github.io/studyOntology/) |
 
 studyRAG와 **같은 학과 문서 코퍼스**를 학습 데이터로 씁니다. 12주차에 내가 만든 미니 GPT의 환각을 해부하고 RAG로 넘어갑니다.
 

@@ -29,12 +29,13 @@ export const WEEKS = [
   { no: 17, icon: '🗺️', title: '응용 ⑤ 대표 LLM과 오픈소스 sLLM', widget: 'LLM 비교표 · sLLM 사용법 스니펫', llm: '—', ready: true, applied: true },
 ];
 
-// The learning path this course belongs to: MLBasic → ML Node Studio → (this) → studyRAG.
+// The learning path this course belongs to: MLBasic → ML Node Studio → (this) → studyRAG → studyOntology.
 export const PATHWAY = [
   { step: '①', icon: '🤖', title: '머신러닝 기초', sub: 'studyMLBasic 파이썬 scikit-learn 신경망', url: 'https://samcho93.github.io/studyMLBasic/' },
   { step: '②', icon: '🧩', title: 'ML Node Studio', sub: 'MLStudio 노드 시각 실습', url: 'https://samcho93.github.io/MLStudio/' },
   { step: '③', icon: '🧠', title: 'LLM 원리와 활용', sub: 'studyLLM 이 과정', current: true },
   { step: '④', icon: '🔎', title: 'RAG 시스템 구축', sub: 'studyRAG 검색증강생성', url: 'https://samcho93.github.io/studyRAG/' },
+  { step: '⑤', icon: '🕸️', title: '온톨로지와 지식 그래프', sub: 'studyOntology 지식 그래프 · GraphRAG', url: 'https://samcho93.github.io/studyOntology/' },
 ];
 
 export const weekId = (no) => `w${String(no).padStart(2, '0')}`;
